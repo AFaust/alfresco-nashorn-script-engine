@@ -1,0 +1,7 @@
+.settings/
+.project
+.classpath
+target/
+bin/
+alfresco.log
+alf_data_env/

@@ -1,0 +1,35 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>de.axelfaust.alfresco</groupId>
+        <artifactId>de.axelfaust.alfresco.nashorn</artifactId>
+        <version>0.0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>de.axelfaust.alfresco.nashorn.repo</artifactId>
+    <name>Alfresco Nashorn Script Engine - Repository Module</name>
+    
+    <packaging>amp</packaging>
+
+    <properties>
+        <alfresco.client.war>alfresco</alfresco.client.war>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>${alfresco.groupId}</groupId>
+            <artifactId>alfresco-repository</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-resources-plugin</artifactId>
+                <configuration>
+                    <escapeString>\</escapeString>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
