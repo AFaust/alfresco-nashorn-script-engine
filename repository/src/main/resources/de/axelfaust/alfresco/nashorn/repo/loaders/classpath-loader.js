@@ -14,17 +14,8 @@ define('classpath', [], function()
     return {
         load : function(normalizedId, require, load)
         {
-            var url = this._toURL(normalizedId);
+            var url = new java.net.URL('classpath', null, -1, normalizedId, new ClasspathURLStreamHandler());
             load(url, true);
-        },
-
-        /**
-         * Convert the module name to a Java URL object that can be used to load script source (and optimally source metadata to allow
-         * caching of scripts).
-         */
-        _toURL : function(normalizedId)
-        {
-            return new java.net.URL('classpath', null, -1, normalizedId, new ClasspathURLStreamHandler());
         }
     };
 });
@@ -45,17 +36,8 @@ define('extensible-alfresco-classpath', [], function()
     return {
         load : function(normalizedId, require, load)
         {
-            var url = this._toURL(normalizedId);
+            var url = new java.net.URL('extensible-alfresco-classpath', null, -1, normalizedId, new ClasspathURLStreamHandler());
             load(url, true);
-        },
-
-        /**
-         * Convert the module name to a Java URL object that can be used to load script source (and optimally source metadata to allow
-         * caching of scripts).
-         */
-        _toURL : function(normalizedId)
-        {
-            return new java.net.URL('extensible-alfresco-classpath', null, -1, normalizedId, new ClasspathURLStreamHandler());
         }
     };
 });

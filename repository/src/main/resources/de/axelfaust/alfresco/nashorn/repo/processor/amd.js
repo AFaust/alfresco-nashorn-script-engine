@@ -8,8 +8,12 @@
     nashornLoad = load,
     // internal fns
     normalizeSimpleId, normalizeModuleId, loadModule, getModule, _load, SecureUseOnlyWrapper,
+    // shortcuts
+    NashornUtils,
     // public fns
     require, define;
+    
+    NashornUtils = Packages.de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils;
 
     SecureUseOnlyWrapper = function(module)
     {
@@ -28,6 +32,7 @@
     normalizeSimpleId = function(id)
     {
         var fragments, result, contextScriptUrl, contextModule, moduleFragments, callers;
+        
         if (!(typeof id === 'string'))
         {
             throw new Error('Module ID was either not provided or is not a string');
@@ -39,12 +44,12 @@
         {
             callers = [];
             // pushes this script
-            callers.push(Packages.de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils.getCallerScriptURL(false, false));
+            callers.push(NashornUtils.getCallerScriptURL(false, false));
             // pushes either this script or any loader plugin calling normalizeSimpleId
-            callers.push(Packages.de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils.getCallerScriptURL(true, false));
+            callers.push(NashornUtils.getCallerScriptURL(true, false));
 
             // retrieves context script URL by ignoring any callers from this script or the immediate loader plugin
-            contextScriptUrl = Packages.de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils.getCallerScriptURL(Java.to(callers, 'java.util.List'));
+            contextScriptUrl = NashornUtils.getCallerScriptURL(Java.to(callers, 'java.util.List'));
             contextModule = moduleByUrl[contextScriptUrl];
 
             if (contextModule === undefined || contextModule === null)
@@ -372,7 +377,7 @@
         var idx, args, normalizedModuleId, module, contextScriptUrl, contextModule, isSecure;
 
         // skip this script to determine script URL of caller
-        contextScriptUrl = Packages.de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils.getCallerScriptURL(true, false);
+        contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
         contextModule = moduleByUrl[contextScriptUrl];
 
         isSecure = contextModule !== undefined && contextModule !== null && contextModule.secureSource === true;
@@ -568,7 +573,7 @@
         var contextScriptUrl, contextModule, isSecure;
 
         // skip this and the caller script to determine script URL of callers caller
-        contextScriptUrl = Packages.de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils.getCallerScriptURL(2, true);
+        contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
         contextModule = moduleByUrl[contextScriptUrl];
 
         isSecure = contextModule !== undefined && contextModule !== null && contextModule.secureSource === true;
@@ -580,7 +585,7 @@
     {
         var id, dependencies, factory, idx, contextScriptUrl, contextModule;
 
-        contextScriptUrl = Packages.de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils.getCallerScriptURL(true, false);
+        contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
         contextModule = moduleByUrl[contextScriptUrl];
 
         for (idx = 0; idx < arguments.length; idx++)
@@ -678,13 +683,13 @@
     modules.require = {
         id : 'require',
         result : require,
-        url : Packages.de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils.getCallerScriptURL(false, false)
+        url : NashornUtils.getCallerScriptURL(false, false)
     };
 
     modules.define = {
         id : 'define',
         result : define,
-        url : Packages.de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils.getCallerScriptURL(false, false)
+        url : NashornUtils.getCallerScriptURL(false, false)
     };
 
     Object.defineProperty(this, 'require', {
