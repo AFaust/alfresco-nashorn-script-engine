@@ -4,4 +4,5 @@
 target/
 bin/
 alfresco.log
-alf_data_env/
+alf_data_dev/
+nashorn_code_cache/

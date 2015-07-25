@@ -8,7 +8,7 @@
 
     <artifactId>de.axelfaust.alfresco.nashorn.repo</artifactId>
     <name>Alfresco Nashorn Script Engine - Repository Module</name>
-    
+
     <packaging>amp</packaging>
 
     <properties>
@@ -16,9 +16,123 @@
     </properties>
 
     <dependencies>
+        <!-- Data Model included extra because we want to exclude JLAN which is the transitive link -->
         <dependency>
             <groupId>${alfresco.groupId}</groupId>
-            <artifactId>alfresco-repository</artifactId>
+            <artifactId>alfresco-data-model</artifactId>
+            <exclusions>
+                <!-- No need for any CMIS -->
+                <exclusion>
+                    <groupId>org.apache.chemistry.opencmis</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+
+                <!-- Trim down unrequired, transitive dependencies -->
+                <exclusion>
+                    <groupId>org.apache.tika</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+
+                <exclusion>
+                    <groupId>org.jibx</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+
+                <exclusion>
+                    <groupId>org.antlr</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+
+                <exclusion>
+                    <groupId>org.springframework</groupId>
+                    <artifactId>spring-orm</artifactId>
+                </exclusion>
+                
+                <!-- There is so much more that we could exclude (especially most of the Commons stuff) -->
+                <!-- the exclusions above are convenient enough to handle -->
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>${alfresco.groupId}</groupId>
+            <artifactId>alfresco-remote-api</artifactId>
+            <exclusions>
+                <!-- Why the heck is a different JSR-223 API included? -->
+                <exclusion>
+                    <groupId>org.livetribe</groupId>
+                    <artifactId>livetribe-jsr223</artifactId>
+                </exclusion>
+
+                <!-- Why the heck is MyFaces still a dependency? -->
+                <exclusion>
+                    <groupId>org.apache.myfaces.core</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+
+                <!-- Trim down unrequired, transitive dependencies -->
+                <exclusion>
+                    <groupId>org.alfresco</groupId>
+                    <artifactId>alfresco-legacy-lucene</artifactId>
+                </exclusion>
+
+                <exclusion>
+                    <groupId>org.alfresco</groupId>
+                    <artifactId>alfresco-jlan-embed</artifactId>
+                </exclusion>
+
+                <exclusion>
+                    <groupId>org.apache.solr</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+
+                <exclusion>
+                    <groupId>org.activiti</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+
+                <exclusion>
+                    <groupId>org.jbpm</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+
+                <exclusion>
+                    <groupId>org.springmodules</groupId>
+                    <artifactId>spring-modules-jbpm31</artifactId>
+                </exclusion>
+
+                <exclusion>
+                    <groupId>org.apache.poi</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+
+                <exclusion>
+                    <groupId>org.springframework.social</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+
+                <!-- No need for any CMIS -->
+                <exclusion>
+                    <groupId>org.apache.chemistry.opencmis</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.alfresco.cmis.client</groupId>
+                    <artifactId>alfresco-opencmis-extension</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.springframework.extensions.surf</groupId>
+                    <artifactId>spring-cmis-framework</artifactId>
+                </exclusion>
+
+                <!-- existence of ICU ticks me off -->
+                <exclusion>
+                    <groupId>com.ibm.icu</groupId>
+                    <artifactId>icu4j</artifactId>
+                </exclusion>
+                
+                <!-- There is so much more that we could exclude (especially most of the Commons stuff) -->
+                <!-- the exclusions above are convenient enough to handle -->
+            </exclusions>
         </dependency>
     </dependencies>
 
