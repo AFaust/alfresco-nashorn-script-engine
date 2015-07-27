@@ -1,18 +1,18 @@
 (function()
 {
     // core AMD state and config
-    var modules = {}, moduleByUrl = {}, packages = {},
+    var modules = {}, moduleByUrl = {}, moduleListenersByModule = {}, moduleListeners = [], packages = {},
     // state backup
-    moduleBackup, moduleByUrlBackup,
+    moduleBackup, moduleByUrlBackup, moduleListenersBackup,
     // Nashorn fns
     nashornLoad = load,
     // internal fns
-    normalizeSimpleId, normalizeModuleId, loadModule, getModule, _load, SecureUseOnlyWrapper,
+    normalizeSimpleId, normalizeModuleId, loadModule, getModule, checkAndFulfillModuleListeners, _load, SecureUseOnlyWrapper, clone,
     // shortcuts
     NashornUtils,
     // public fns
     require, define;
-    
+
     NashornUtils = Packages.de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils;
 
     SecureUseOnlyWrapper = function(module)
@@ -23,16 +23,48 @@
         Object.defineProperty(this, 'secureUseOnly', {
             value : true
         });
-        
+
         Object.freeze(this);
 
         return this;
     };
 
+    clone = function(obj)
+    {
+        var result, idx, key;
+
+        if (Array.isArray(obj))
+        {
+            result = [];
+            for (idx = 0; idx < obj.length; idx++)
+            {
+                result.push(clone(obj[idx]));
+            }
+        }
+        else if (obj instanceof Object && !(obj instanceof String || obj instanceof Date))
+        {
+            result = {};
+            for (key in obj)
+            {
+                if (obj.hasOwnProperty(key))
+                {
+                    result[key] = clone(obj[key]);
+                }
+            }
+        }
+        else
+        {
+            // assume simple / literal values
+            result = obj;
+        }
+
+        return result;
+    };
+
     normalizeSimpleId = function(id)
     {
         var fragments, result, contextScriptUrl, contextModule, moduleFragments, callers;
-        
+
         if (!(typeof id === 'string'))
         {
             throw new Error('Module ID was either not provided or is not a string');
@@ -121,7 +153,7 @@
             {
                 throw new Error('No loader plugin named \'' + loaderName + '\' has been registered');
             }
-            
+
             if (loader instanceof SecureUseOnlyWrapper)
             {
                 loader = loader.wrapped;
@@ -197,7 +229,7 @@
             id = normalizedId.substring(normalizedId.indexOf('!') + 1);
 
             loader = getModule(loaderName, true);
-            
+
             if (loader instanceof SecureUseOnlyWrapper)
             {
                 loader = loader.wrapped;
@@ -238,7 +270,7 @@
                 }
 
                 loader = getModule(loaderName, true);
-                
+
                 if (loader instanceof SecureUseOnlyWrapper)
                 {
                     loader = loader.wrapped;
@@ -355,21 +387,64 @@
                 }
                 moduleResult = module.result;
             }
-            else if (module.constructing === true)
-            {
-                throw new Error('Module \'' + normalizedId + '\' is included in a circular dependency graph');
-            }
             else
             {
-                throw new Error('Module \'' + normalizedId + '\' has not been initialised');
+                throw new Error('Module \'' + normalizedId
+                        + (module.constructing === true ? '\' is included in a circular dependency graph' : '\' has not been initialised'));
             }
         }
         else
         {
             throw new Error('Module \'' + normalizedId + '\' could not be loaded');
-
         }
+
+        checkAndFulfillModuleListeners(module);
+
         return moduleResult;
+    };
+
+    checkAndFulfillModuleListeners = function(module)
+    {
+        var listeners, idx, listener, dIdx, args, dependency;
+
+        listeners = moduleListenersByModule[module.id];
+        if (Array.isArray(listeners))
+        {
+            for (idx = 0; idx < listeners.length; idx++)
+            {
+                listener = listeners[idx];
+                if (listener.triggered !== true)
+                {
+                    listener.resolved.push(module.id);
+                    if (listener.dependencies.length === listener.resolved.length)
+                    {
+                        args = [];
+                        for (dIdx = 0; dIdx < listener.dependencies.length; dIdx++)
+                        {
+                            dependency = getModule(listener.dependencies[dIdx], true);
+
+                            if (listener.isSecure === false && dependency !== null && dependency.hasOwnProperty('secureUseOnly')
+                                    && dependency.secureUseOnly === true)
+                            {
+                                throw new Error('Access to module \'' + module.dependencies[idx]
+                                        + '\' is not allowed for unsecure listener \'' + listener.url + '\'');
+                            }
+
+                            if (dependency instanceof SecureUseOnlyWrapper)
+                            {
+                                dependency = dependency.wrapped;
+                            }
+
+                            args.push(dependency);
+                        }
+
+                        listener.callback.apply(this, args);
+
+                        listener.triggered = true;
+                    }
+                }
+            }
+        }
     };
 
     require = function(dependencies, callback)
@@ -434,9 +509,71 @@
         }
     };
 
+    require.whenAvailable = function(dependencies, callback)
+    {
+        var normalizedModuleId, contextScriptUrl, contextModule, isSecure, listener, idx;
+
+        if (callback === undefined || callback === null)
+        {
+            throw new Error('No callback provided');
+        }
+
+        if (typeof callback !== 'function')
+        {
+            throw new Error('Callback is not a function');
+        }
+
+        // skip this script to determine script URL of caller
+        contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
+        contextModule = moduleByUrl[contextScriptUrl];
+
+        isSecure = contextModule !== undefined && contextModule !== null && contextModule.secureSource === true;
+
+        listener = {
+            isSecure : isSecure,
+            callback : callback,
+            resolved : [],
+            dependencies : [],
+            triggered : false
+        };
+
+        if (typeof dependencies === 'string')
+        {
+            normalizedModuleId = normalizeModuleId(dependencies);
+            listener.dependencies.push(normalizedModuleId);
+        }
+        else if (Array.isArray(dependencies))
+        {
+            for (idx = 0; idx < dependencies.length; idx++)
+            {
+                normalizedModuleId = normalizeModuleId(dependencies[idx]);
+                listener.dependencies.push(normalizedModuleId);
+            }
+        }
+        else
+        {
+            throw new Error('Invalid dependencies');
+        }
+
+        // TODO check current resolution and trigger if all dependencies already resolved
+
+        if (listener.triggered !== true)
+        {
+            for (idx = 0; idx < listener.dependencies.length; idx++)
+            {
+                if (!moduleListenersByModule.hasOwnProperty(listener.dependencies[idx]))
+                {
+                    moduleListenersByModule[listener.dependencies[idx]] = [];
+                }
+                
+                moduleListenersByModule[listener.dependencies[idx]].push(listener);
+            }
+        }
+    };
+
     require.config = function(config)
     {
-        var key, packageConfigs, idx, singlePackageConfig, packName, packLoader, packLocation;
+        var key, packageConfigs, idx, lIdx, singlePackageConfig, packName, packLoader, packLocation;
         if (config === undefined || config === null || typeof config !== 'object')
         {
             throw new Error('Invalid config parameter');
@@ -523,46 +660,55 @@
         // backup current module state
         moduleBackup = modules;
         moduleByUrlBackup = moduleByUrl;
+        moduleListenersBackup = moduleListeners;
 
-        modules = {};
-        moduleByUrl = {};
-        for (key in moduleBackup)
+        // clone
+        modules = clone(moduleBackup);
+        moduleByUrl = clone(moduleByUrlBackup);
+        moduleListeners = clone(moduleListenersBackup);
+        moduleListenersByModule = {};
+
+        // prepare by-reference structure
+        for (idx = 0; idx < moduleListeners.length; idx++)
         {
-            if (moduleBackup.hasOwnProperty(key))
+            if (moduleListeners[idx] !== null)
             {
-                modules[key] = moduleBackup[key];
-            }
-        }
-        for (key in moduleByUrlBackup)
-        {
-            if (moduleByUrlBackup.hasOwnProperty(key))
-            {
-                moduleByUrl[key] = moduleByUrlBackup[key];
+                for (lIdx = 0; lIdx < moduleListeners[idx].dependencies; lIdx++)
+                {
+                    if (!moduleListenersByModule.hasOwnProperty(moduleListeners[idx].dependencies[lIdx]))
+                    {
+                        moduleListenersByModule[moduleListeners[idx].dependencies[lIdx]] = [];
+                    }
+
+                    moduleListenersByModule[moduleListeners[idx].dependencies[lIdx]].push(moduleListeners[idx]);
+                }
             }
         }
     };
 
     require.reset = function()
     {
-        var key;
+        var idx, lIdx;
 
-        modules = {};
-        moduleByUrl = {};
+        // clone
+        modules = moduleBackup !== undefined ? clone(moduleBackup) : {};
+        moduleByUrl = moduleByUrlBackup !== undefined ? clone(moduleByUrlBackup) : {};
+        moduleListeners = moduleListenersBackup !== undefined ? clone(moduleListenersBackup) : [];
+        moduleListenersByModule = {};
 
-        if (moduleBackup !== undefined && moduleByUrlBackup !== undefined)
+        // prepare by-reference structure
+        for (idx = 0; idx < moduleListeners.length; idx++)
         {
-            for (key in moduleBackup)
+            if (moduleListeners[idx] !== null)
             {
-                if (moduleBackup.hasOwnProperty(key))
+                for (lIdx = 0; lIdx < moduleListeners[idx].dependencies; lIdx++)
                 {
-                    modules[key] = moduleBackup[key];
-                }
-            }
-            for (key in moduleByUrlBackup)
-            {
-                if (moduleByUrlBackup.hasOwnProperty(key))
-                {
-                    moduleByUrl[key] = moduleByUrlBackup[key];
+                    if (!moduleListenersByModule.hasOwnProperty(moduleListeners[idx].dependencies[lIdx]))
+                    {
+                        moduleListenersByModule[moduleListeners[idx].dependencies[lIdx]] = [];
+                    }
+
+                    moduleListenersByModule[moduleListeners[idx].dependencies[lIdx]].push(moduleListeners[idx]);
                 }
             }
         }
@@ -652,7 +798,7 @@
     {
         return new SecureUseOnlyWrapper(module);
     };
-    
+
     define.preload = function(moduleId)
     {
         var normalizedModuleId;
