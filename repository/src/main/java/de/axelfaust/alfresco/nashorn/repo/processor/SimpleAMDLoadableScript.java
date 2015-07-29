@@ -58,4 +58,27 @@ public class SimpleAMDLoadableScript implements AMDLoadableScript
         return this.scriptModuleId;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String toString()
+    {
+        final StringBuilder builder = new StringBuilder();
+        builder.append("SimpleAMDLoadableScript [");
+        if (this.loaderName != null)
+        {
+            builder.append("loaderName=");
+            builder.append(this.loaderName);
+            builder.append(", ");
+        }
+        if (this.scriptModuleId != null)
+        {
+            builder.append("scriptModuleId=");
+            builder.append(this.scriptModuleId);
+        }
+        builder.append("]");
+        return builder.toString();
+    }
+
 }

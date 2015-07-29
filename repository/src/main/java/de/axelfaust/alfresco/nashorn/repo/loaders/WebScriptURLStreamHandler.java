@@ -131,6 +131,7 @@ public class WebScriptURLStreamHandler extends URLStreamHandler
         /**
          * {@inheritDoc}
          */
+        @SuppressWarnings("resource")
         @Override
         public InputStream getInputStream() throws IOException
         {
@@ -162,7 +163,8 @@ public class WebScriptURLStreamHandler extends URLStreamHandler
                                     @Override
                                     public InputStream execute() throws Throwable
                                     {
-                                        return WebScriptURLStreamHandler.this.contentService.getReader(WebScriptURLConnection.this.realNode, ContentModel.PROP_CONTENT).getContentInputStream();
+                                        return WebScriptURLStreamHandler.this.contentService.getReader(
+                                                WebScriptURLConnection.this.realNode, ContentModel.PROP_CONTENT).getContentInputStream();
                                     }
                                 }, true, false);
                     }
@@ -189,8 +191,20 @@ public class WebScriptURLStreamHandler extends URLStreamHandler
                 {
                     try
                     {
-                        this.realConnection = new AlfrescoClasspathURLConnection(new URL("classpath", null,
-                                pathDescription.substring(CLASSPATH_PATH_DESCRIPTION_PREFIX.length())), null, false, null);
+                        this.realConnection = new AlfrescoClasspathURLConnection(new URL("classpath", null, -1,
+                                pathDescription.substring(CLASSPATH_PATH_DESCRIPTION_PREFIX.length()), new URLStreamHandler()
+                                {
+
+                                    /**
+                                     *
+                                     * {@inheritDoc}
+                                     */
+                                    @Override
+                                    protected URLConnection openConnection(final URL u) throws IOException
+                                    {
+                                        return WebScriptURLConnection.this.realConnection;
+                                    }
+                                }), null, false, null);
                     }
                     catch (final MalformedURLException me)
                     {

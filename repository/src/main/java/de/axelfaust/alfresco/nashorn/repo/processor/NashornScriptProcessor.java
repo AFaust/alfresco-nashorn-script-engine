@@ -47,7 +47,10 @@ import org.alfresco.service.namespace.QName;
 import org.alfresco.util.Pair;
 import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.PropertyCheck;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.core.io.Resource;
 
 import de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLConnection;
 
@@ -56,6 +59,8 @@ import de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLConnection
  */
 public class NashornScriptProcessor extends BaseProcessor implements ScriptProcessor, InitializingBean
 {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(NashornScriptProcessor.class);
 
     private static final String _PRELOAD_MODULE_FIELD = "_preloadModule";
 
@@ -66,6 +71,8 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
     protected ModuleService moduleService;
 
     protected Properties globalProperties;
+
+    protected Resource amdConfig;
 
     protected final ReentrantReadWriteLock scriptContextLock = new ReentrantReadWriteLock(true);
 
@@ -101,6 +108,15 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
     }
 
     /**
+     * @param amdConfig
+     *            the amdConfig to set
+     */
+    public void setAmdConfig(final Resource amdConfig)
+    {
+        this.amdConfig = amdConfig;
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override
@@ -113,6 +129,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         PropertyCheck.mandatory(this, "engine", this.engine);
 
         PropertyCheck.mandatory(this, "globalProperties", this.globalProperties);
+        PropertyCheck.mandatory(this, "amdConfig", this.amdConfig);
 
         super.register();
     }
@@ -128,7 +145,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         final Object result;
         if (location instanceof AMDLoadableScript)
         {
-            result = this.executeAMDLodableScript((AMDLoadableScript) location, model);
+            result = this.executeAMDLoadableScript((AMDLoadableScript) location, model);
         }
         else
         {
@@ -187,13 +204,14 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         }
     }
 
-    protected Object executeAMDLodableScript(final AMDLoadableScript script, final Map<String, Object> model)
+    protected Object executeAMDLoadableScript(final AMDLoadableScript script, final Map<String, Object> model)
     {
         try
         {
             final ScriptContext ctxt = this.obtainScriptContext();
             try
             {
+                LOGGER.debug("Executing AMD-loadable script {}", script);
                 // TODO Potentially restrict access only to AMDLoadableScript API
                 ctxt.setAttribute("_loadableModule", script, ScriptContext.GLOBAL_SCOPE);
                 ctxt.setAttribute("_argumentModel", model, ScriptContext.GLOBAL_SCOPE);
@@ -246,6 +264,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         }
         else
         {
+            LOGGER.debug("Clearing re-usable script context");
             // reset
             resource = NashornScriptProcessor.class.getResource("scope-clear.js");
             this.executeScriptFromResource(resource, context);
@@ -255,6 +274,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
         }
 
+        LOGGER.debug("Preparing script context for execution");
         // prepare scope
         resource = NashornScriptProcessor.class.getResource("scope-prepare.js");
         this.executeScriptFromResource(resource, context);
@@ -298,6 +318,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
     protected ScriptContext initScriptContext() throws ScriptException
     {
+        LOGGER.debug("Initialising new script context");
         final ScriptContext ctxt = new SimpleScriptContext();
 
         // if possible, we'd like to reuse this over many invocations
@@ -309,7 +330,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
         URL resource;
 
-        // execute the most basic bootstrap scripts
+        LOGGER.debug("Executing bootstrap scripts");
 
         // AMD loader to be used for all scripts apart from bootstrap
         resource = NashornScriptProcessor.class.getResource("amd.js");
@@ -321,12 +342,25 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
         globalBindings.put("processorExtensions", this.processorExtensions);
 
+        LOGGER.debug("Checking for extension scripts");
+
         this.initScriptContextExtensions(ctxt);
+
+        LOGGER.debug("Finalizing script context");
+
+        try
+        {
+            resource = this.amdConfig.getURL();
+            this.executeScriptFromResource(resource, ctxt);
+        }
+        catch (final IOException ioex)
+        {
+            throw new ScriptException(ioex);
+        }
 
         final String uuid = UUID.randomUUID().toString();
         ctxt.setAttribute(CONTEXT_UUID_FIELD, uuid, ScriptContext.ENGINE_SCOPE);
 
-        // finalize the bootstrap
         resource = NashornScriptProcessor.class.getResource("complete-processor-init.js");
         this.executeScriptFromResource(resource, ctxt);
 
@@ -378,12 +412,16 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
                 // else missing dependency - ModuleService should have failed startup
             }
 
+            LOGGER.debug("Checking for extension scripts in module {}", moduleId);
+
             // check for module script context extensions
             final String extensionScriptsKey = MessageFormat.format("nashornJavaScriptProcessor.{0}.extensionScripts", moduleId);
             final Object extensionScriptsValue = this.globalProperties.get(extensionScriptsKey);
             if (extensionScriptsValue instanceof String && !((String) extensionScriptsValue).trim().isEmpty())
             {
                 final String[] scriptNames = ((String) extensionScriptsValue).trim().split("\\s*,\\s*");
+
+                LOGGER.debug("Processing {} extension scripts in module {}", Integer.valueOf(scriptNames.length), moduleId);
 
                 for (final String scriptName : scriptNames)
                 {
@@ -398,6 +436,9 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
                     if (moduleIdValue instanceof String && loaderNameValue instanceof String)
                     {
                         final String fullModuleId = MessageFormat.format("{0}!{1}", loaderNameValue, moduleIdValue);
+
+                        LOGGER.trace("Pre-loading module {}", fullModuleId);
+
                         ctxt.setAttribute(_PRELOAD_MODULE_FIELD, fullModuleId, ScriptContext.GLOBAL_SCOPE);
                         ctxt.setAttribute(ScriptEngine.FILENAME, "preload-" + fullModuleId, ScriptContext.ENGINE_SCOPE);
                         try
@@ -407,6 +448,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
                         finally
                         {
                             ctxt.removeAttribute(_PRELOAD_MODULE_FIELD, ScriptContext.GLOBAL_SCOPE);
+                            LOGGER.trace("Pre-loading of module {} completed", fullModuleId);
                         }
                     }
                 }
@@ -419,6 +461,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
     protected Object executeScriptFromResource(final URL resource, final ScriptContext ctxt) throws ScriptException
     {
+        LOGGER.trace("Executing script from resource {}", resource);
         try (@SuppressWarnings("restriction")
         Reader reader = new URLReader(resource))
         {
@@ -428,6 +471,10 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         catch (final IOException e)
         {
             throw new ScriptException(e);
+        }
+        finally
+        {
+            LOGGER.trace("Execution of script from resource {} completed", resource);
         }
     }
 }

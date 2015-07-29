@@ -28,6 +28,7 @@
         <property name="scriptService" ref="scriptService" />
         <property name="moduleService" ref="ModuleService" />
         <property name="globalProperties" ref="global-properties" />
+        <property name="amdConfig" value="${nashornJavaScriptProcessor.amd.config}" />
 
         <!-- javascript is already taken by javaScriptProcessor -->
         <property name="name" value="nashorn" />

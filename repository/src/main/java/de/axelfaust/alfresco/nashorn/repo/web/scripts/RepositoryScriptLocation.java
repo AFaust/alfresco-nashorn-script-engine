@@ -129,7 +129,27 @@ public class RepositoryScriptLocation implements ScriptLocation, AMDLoadableScri
     @Override
     public String toString()
     {
-        return this.content.getPathDescription();
+        final StringBuilder builder = new StringBuilder();
+        builder.append("RepositoryScriptLocation [");
+        if (this.content.getPathDescription() != null)
+        {
+            builder.append("content.getPathDescription()=");
+            builder.append(this.content.getPathDescription());
+            builder.append(", ");
+        }
+        if (this.getLoaderName() != null)
+        {
+            builder.append("getLoaderName()=");
+            builder.append(this.getLoaderName());
+            builder.append(", ");
+        }
+        if (this.getScriptModuleId() != null)
+        {
+            builder.append("getScriptModuleId()=");
+            builder.append(this.getScriptModuleId());
+        }
+        builder.append("]");
+        return builder.toString();
     }
 
     protected void determineWebScriptPath()
