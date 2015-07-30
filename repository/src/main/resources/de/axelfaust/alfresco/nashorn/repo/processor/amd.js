@@ -3,17 +3,18 @@
     // core AMD state and config
     var modules = {}, moduleByUrl = {}, moduleListenersByModule = {}, moduleListeners = [], packages = {},
     // state backup
-    moduleBackup, moduleByUrlBackup, moduleListenersBackup,
+    moduleBackup, moduleListenersBackup,
     // Nashorn fns
     nashornLoad = load,
     // internal fns
     normalizeSimpleId, normalizeModuleId, loadModule, getModule, checkAndFulfillModuleListeners, _load, SecureUseOnlyWrapper, clone,
-    // shortcuts
-    NashornUtils,
+    // Java utils
+    NashornUtils, logger,
     // public fns
     require, define;
 
     NashornUtils = Packages.de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils;
+    logger = Packages.org.slf4j.LoggerFactory.getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.amd');
 
     SecureUseOnlyWrapper = function(module)
     {
@@ -29,26 +30,39 @@
         return this;
     };
 
-    clone = function(obj)
+    clone = function(obj, protectedKeys)
     {
         var result, idx, key;
 
-        if (Array.isArray(obj))
+        if (obj === undefined || obj === null)
+        {
+            result = obj;
+        }
+        else if (Array.isArray(obj))
         {
             result = [];
             for (idx = 0; idx < obj.length; idx++)
             {
-                result.push(clone(obj[idx]));
+                result.push(clone(obj[idx], protectedKeys));
             }
         }
-        else if (obj instanceof Object && !(obj instanceof String || obj instanceof Date))
+        else if (obj instanceof Object && !(obj instanceof String || obj instanceof Date) && !(obj instanceof Function))
         {
             result = {};
             for (key in obj)
             {
                 if (obj.hasOwnProperty(key))
                 {
-                    result[key] = clone(obj[key]);
+                    logger.trace('Cloning {} of {}', key, String(obj));
+                    if (protectedKeys !== undefined && protectedKeys !== null && protectedKeys.hasOwnProperty(key)
+                            && protectedKeys[key] === true)
+                    {
+                        result[key] = obj[key];
+                    }
+                    else
+                    {
+                        result[key] = clone(obj[key], protectedKeys);
+                    }
                 }
             }
         }
@@ -70,10 +84,14 @@
             throw new Error('Module ID was either not provided or is not a string');
         }
 
+        logger.trace('Normalizing simple id "{}"', id);
+
         fragments = id.replace(/\\/g, '/').split('/');
 
         if (fragments[0] === '.' || fragments[0] === '..')
         {
+            logger.trace('Simple id "{}" is in relative form', id);
+
             callers = [];
             // pushes this script
             callers.push(NashornUtils.getCallerScriptURL(false, false));
@@ -88,6 +106,8 @@
             {
                 throw new Error('Module ID is relative but call to normalize was made outside of an active module context');
             }
+
+            logger.trace('Simple id "{}" will be resolved against context module "{}"', id, contextModule.id);
 
             moduleFragments = contextModule.id.split('/');
             // always remove the actual module identifier
@@ -132,6 +152,8 @@
             result = fragments.join('/');
         }
 
+        logger.trace('Normalized simple id "{}" to "{}"', id, result);
+
         return result;
     };
 
@@ -143,10 +165,14 @@
             throw new Error('Module ID was either not provided or is not a string');
         }
 
+        logger.trace('Normalizing module id "{}"', id);
+
         if (/^[^!]+!.+$/.test(id))
         {
             loaderName = id.substring(0, id.indexOf('!'));
             realId = (id.length >= loaderName.length + 1) ? id.substring(id.indexOf('!') + 1) : '';
+
+            logger.trace('Retrieving loader "{}" for module "{}"', loaderName, id);
 
             loader = getModule(loaderName, true);
             if (loader === null)
@@ -156,15 +182,18 @@
 
             if (loader instanceof SecureUseOnlyWrapper)
             {
+                logger.trace('Unwrapping secure-use only loader "{}"', loaderName);
                 loader = loader.wrapped;
             }
 
             if (typeof loader.normalize === 'function')
             {
+                logger.trace('Calling normalize-function of loader "{}"', loaderName);
                 normalizedId = loaderName + '!' + loader.normalize(realId, normalizeSimpleId);
             }
             else
             {
+                logger.trace('Loader "{}" does not define a normalize-function', loaderName);
                 normalizedId = loaderName + '!' + normalizeSimpleId(realId);
             }
         }
@@ -192,11 +221,16 @@
                         throw new Error('Module \'' + normalizedId + '\' in script \'' + String(url)
                                 + '\' has already been loaded once - it should not have been loaded again');
                     }
+
+                    logger.trace('Remapping already loaded module "{}" from url "{}"', normalizedId, url);
+
                     // simply remap the existing module
                     modules[normalizedId] = modules[moduleByUrl[String(url)].id];
                 }
                 else
                 {
+                    logger.debug('Loading module "{}" from url "{}" (secure: {})', normalizedId, url, isSecureSource === true);
+
                     moduleByUrl[String(url)] = {
                         id : normalizedId,
                         loader : loaderName,
@@ -208,6 +242,8 @@
             }
             else
             {
+                logger.debug('Registering pre-resolved module "{}"', normalizedId);
+
                 modules[normalizedId] = {
                     id : normalizedId,
                     loader : loaderName,
@@ -223,15 +259,20 @@
     {
         var id, loaderName, loader, idFragments, prospectivePackageName, length, packageConfig;
 
+        logger.debug('Loading module "{}"', normalizedId);
+
         if (/^[^!]+!.+$/.test(normalizedId))
         {
             loaderName = normalizedId.substring(0, normalizedId.indexOf('!'));
             id = normalizedId.substring(normalizedId.indexOf('!') + 1);
 
+            logger.trace('Retrieving loader "{}" for module "{}"', loaderName, id);
+
             loader = getModule(loaderName, true);
 
             if (loader instanceof SecureUseOnlyWrapper)
             {
+                logger.trace('Unwrapping secure-use only loader "{}"', loaderName);
                 loader = loader.wrapped;
             }
 
@@ -249,6 +290,8 @@
         }
         else
         {
+            logger.trace('Resolving module "{}" against configured packages', normalizedId);
+
             idFragments = normalizedId.split('/');
             for (length = idFragments.length - 1; length > 0; length--)
             {
@@ -269,10 +312,13 @@
                     id = packageConfig.location + '/' + id;
                 }
 
+                logger.trace('Retrieving loader "{}" for module "{}"', loaderName, id);
+
                 loader = getModule(loaderName, true);
 
                 if (loader instanceof SecureUseOnlyWrapper)
                 {
+                    logger.trace('Unwrapping secure-use only loader "{}"', loaderName);
                     loader = loader.wrapped;
                 }
 
@@ -299,20 +345,27 @@
     {
         var module, isSecure, moduleResult, dependency, resolvedDependencies, idx;
 
+        logger.debug('Retrieving module "{}" (force load: {})', normalizedId, doLoad);
+
         if (modules.hasOwnProperty(normalizedId))
         {
+            logger.trace('Module "{}" already defined', normalizedId);
             module = modules[normalizedId];
         }
         else if (doLoad)
         {
+            logger.trace('Module "{}" not defined yet - forcing load', normalizedId);
+
             loadModule(normalizedId);
 
             if (modules.hasOwnProperty(normalizedId))
             {
+                logger.trace('Module "{}" defined by load', normalizedId);
                 module = modules[normalizedId];
             }
             else
             {
+                logger.debug('Module "{}" not defined after explicit load', normalizedId);
                 // avoid repeated loads by caching null-resolution
                 modules[normalizedId] = null;
                 module = null;
@@ -327,15 +380,18 @@
         {
             if (module.hasOwnProperty('result'))
             {
+                logger.trace('Module "{}" already initialised', normalizedId);
                 moduleResult = module.result;
             }
             else if (doLoad && module.constructing !== true)
             {
+                logger.trace('Module "{}" not initialised yet - forcing initialisation', normalizedId);
                 module.constructing = true;
                 try
                 {
                     if (module.dependencies.length === 0)
                     {
+                        logger.trace('Module "{}" has no dependencies - calling factory', normalizedId);
                         module.result = module.factory();
                     }
                     else
@@ -346,11 +402,17 @@
                         {
                             if (module.dependencies[idx] === 'exports')
                             {
+                                logger
+                                        .trace(
+                                                'Module "{}" uses "exports"-dependency to expose prematurely expose module during initialisation (avoiding circular dependency issues)',
+                                                normalizedId);
                                 module.result = {};
                                 resolvedDependencies.push(module.result);
                             }
                             else
                             {
+                                logger.debug('Loading dependency "{}" for module "{}"', module.dependencies[idx], normalizedId);
+
                                 dependency = getModule(module.dependencies[idx], true);
 
                                 if (isSecure === false && dependency !== null && dependency.hasOwnProperty('secureUseOnly')
@@ -362,6 +424,7 @@
 
                                 if (dependency instanceof SecureUseOnlyWrapper)
                                 {
+                                    logger.trace('Unwrapping secure-use only dependency "{}"', module.dependencies[idx]);
                                     dependency = dependency.wrapped;
                                 }
 
@@ -369,6 +432,7 @@
                             }
                         }
 
+                        logger.trace('All dependencies of module "{}" resolved - calling factory', normalizedId);
                         if (module.hasOwnProperty('result'))
                         {
                             module.factory.apply(this, resolvedDependencies);
@@ -555,6 +619,16 @@
             throw new Error('Invalid dependencies');
         }
 
+        if (logger.traceEnabled)
+        {
+            logger.trace('Registered listener from url "{}" (secure: {}) for modules {}', contextScriptUrl, isSecure, JSON
+                    .stringify(listener.dependencies));
+        }
+        else
+        {
+            logger.trace('Registered listener from url "{}" (secure: {})', contextScriptUrl, isSecure);
+        }
+
         // TODO check current resolution and trigger if all dependencies already resolved
 
         if (listener.triggered !== true)
@@ -565,7 +639,7 @@
                 {
                     moduleListenersByModule[listener.dependencies[idx]] = [];
                 }
-                
+
                 moduleListenersByModule[listener.dependencies[idx]].push(listener);
             }
         }
@@ -573,10 +647,20 @@
 
     require.config = function(config)
     {
-        var key, packageConfigs, idx, lIdx, singlePackageConfig, packName, packLoader, packLocation;
-        if (config === undefined || config === null || typeof config !== 'object')
+        var key, packageConfigs, idx, lIdx, singlePackageConfig, packName, packLoader, packLocation, moduleId;
+
+        if (config === undefined || config === null || !(config instanceof Object && !(config instanceof String || config instanceof Date)))
         {
             throw new Error('Invalid config parameter');
+        }
+
+        if (logger.traceEnabled)
+        {
+            logger.trace('Configuring AMD loader with config "{}"', JSON.stringify(config));
+        }
+        else
+        {
+            logger.debug('Configuring AMD loader');
         }
 
         try
@@ -588,6 +672,7 @@
                     switch (key)
                     {
                         case 'packages':
+                            logger.debug('Configuring AMD packages');
                             packageConfigs = config[key];
                             if (Array.isArray(packageConfigs))
                             {
@@ -623,6 +708,9 @@
                                                 + '\' has not been set or is not a valid string');
                                     }
 
+                                    logger.trace('Adding AMD package "{}" using loader "{}" (package location: {})', packName, packLoader,
+                                            packLocation);
+
                                     packages[packName] = {
                                         name : packName,
                                         loader : packLoader
@@ -641,7 +729,9 @@
                                 }
                             }
                             break;
-                        default: // unsupported option - ignore silently
+                        default:
+                            logger.warn('Ignoring unsupported AMD loader option "{}"', key);
+                            // unsupported option - ignore silently
                     }
                 }
             }
@@ -657,18 +747,32 @@
         // remove option for further config
         delete require.config;
 
+        logger.debug('Backing up AMD loader state');
+        if (logger.traceEnabled)
+        {
+            logger.trace('Backing up registered modules {}', JSON.stringify(Object.keys(modules)));
+        }
+
         // backup current module state
         moduleBackup = modules;
-        moduleByUrlBackup = moduleByUrl;
         moduleListenersBackup = moduleListeners;
 
         // clone
-        modules = clone(moduleBackup);
-        moduleByUrl = clone(moduleByUrlBackup);
+        modules = clone(moduleBackup, {
+            result : true
+        });
+        moduleByUrl = {};
         moduleListeners = clone(moduleListenersBackup);
         moduleListenersByModule = {};
 
-        // prepare by-reference structure
+        // prepare by-reference structures
+        for (moduleId in modules)
+        {
+            if (modules[moduleId].url !== undefined || modules[moduleId].url !== null)
+            {
+                moduleByUrl[String(modules[moduleId].url)] = modules[moduleId];
+            }
+        }
         for (idx = 0; idx < moduleListeners.length; idx++)
         {
             if (moduleListeners[idx] !== null)
@@ -684,19 +788,33 @@
                 }
             }
         }
+
+        if (logger.traceEnabled)
+        {
+            logger.trace('Restored modules {} from backup', JSON.stringify(Object.keys(modules)));
+        }
     };
 
     require.reset = function()
     {
-        var idx, lIdx;
+        var idx, lIdx, moduleId;
+
+        logger.debug('Resetting AMD loader state to backup');
 
         // clone
         modules = moduleBackup !== undefined ? clone(moduleBackup) : {};
-        moduleByUrl = moduleByUrlBackup !== undefined ? clone(moduleByUrlBackup) : {};
+        moduleByUrl = {};
         moduleListeners = moduleListenersBackup !== undefined ? clone(moduleListenersBackup) : [];
         moduleListenersByModule = {};
 
-        // prepare by-reference structure
+        // prepare by-reference structures
+        for (moduleId in modules)
+        {
+            if (modules[moduleId].url !== undefined || modules[moduleId].url !== null)
+            {
+                moduleByUrl[String(modules[moduleId].url)] = modules[moduleId];
+            }
+        }
         for (idx = 0; idx < moduleListeners.length; idx++)
         {
             if (moduleListeners[idx] !== null)
@@ -711,6 +829,11 @@
                     moduleListenersByModule[moduleListeners[idx].dependencies[lIdx]].push(moduleListeners[idx]);
                 }
             }
+        }
+
+        if (logger.traceEnabled)
+        {
+            logger.trace('Restored modules {} from backup', JSON.stringify(Object.keys(modules)));
         }
     };
 
@@ -723,6 +846,8 @@
         contextModule = moduleByUrl[contextScriptUrl];
 
         isSecure = contextModule !== undefined && contextModule !== null && contextModule.secureSource === true;
+
+        logger.trace('Determined script "{}" to be secure: {}', contextScriptUrl, isSecure);
 
         return isSecure;
     };
@@ -783,6 +908,17 @@
             throw new Error('Module factory was not provided');
         }
 
+        if (logger.traceEnabled)
+        {
+            logger.trace('Defining module "{}" from url "{}" with dependencies {} (secureSource: {})', id, contextScriptUrl, JSON
+                    .stringify(dependencies), contextModule !== undefined && contextModule !== null ? contextModule.secureSource : false)
+        }
+        else
+        {
+            logger.debug('Defining module "{}" from url "{}" (secureSource: {})', id, contextScriptUrl, contextModule !== undefined
+                    && contextModule !== null ? contextModule.secureSource : false)
+        }
+
         modules[id] = {
             id : id,
             loader : contextModule !== undefined && contextModule !== null ? contextModule.loader : null,
@@ -814,6 +950,7 @@
 
             if (!modules.hasOwnProperty(normalizedModuleId))
             {
+                logger.debug('Pre-loading module "{}"', normalizedModuleId);
                 loadModule(normalizedModuleId);
             }
         }

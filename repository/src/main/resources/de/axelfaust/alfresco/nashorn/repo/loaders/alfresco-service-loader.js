@@ -3,21 +3,19 @@ define('serviceRegistry', [ 'define', 'spring!ServiceRegistry' ], function(defin
     return define.asSecureUseModule({
         load : function(normalizedId, require, load)
         {
-            var service, serviceGetterName, serviceGetter;
-            
+            var service, serviceGetterSignature;
+
             // assume normalizedId is capital service, i.e. NodeService
-            serviceGetterName = 'get' + normalizedId;
-            serviceGetter = serviceRegistry[serviceGetterName];
-            
-            if (typeof serviceGetter === 'function')
+            serviceGetterSignature = 'get' + normalizedId + '()';
+            try
             {
-                service = serviceGetter();
+                service = serviceRegistry[serviceGetterSignature]();
             }
-            else
+            catch (e)
             {
                 service = null;
             }
-            
+
             load(service !== null ? define.asSecureUseModule(service) : service, true);
         }
     });
