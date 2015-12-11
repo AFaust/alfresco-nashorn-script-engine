@@ -86,7 +86,7 @@ public class RepositoryNashornScriptProcessor implements ScriptProcessor, Initia
     @Override
     public Object executeScript(final String path, final Map<String, Object> model)
     {
-        // copied from RepositoryScriptProcessor - no need for differen approach
+        // copied from RepositoryScriptProcessor - no need for different approach
         // apparently this method is not even called by any client
 
         // locate script within web script stores
@@ -128,7 +128,7 @@ public class RepositoryNashornScriptProcessor implements ScriptProcessor, Initia
     @Override
     public void reset()
     {
-        // copied from RepositoryScriptProcessor - no need for differen approach
+        // copied from RepositoryScriptProcessor - no need for different approach
         final List<ScriptLoader> loaders = new ArrayList<ScriptLoader>();
         for (final Store apiStore : this.searchPath.getStores())
         {

@@ -1,7 +1,10 @@
+// with pre-emps global access
 with (scopeObj)
 {
-    (function()
+    // call on scobeObj prevents implicit this = global
+    (function amd_execute_loadable_script()
     {
+        'use strict';
         var moduleName = _loadableModule.scriptModuleId, result;
         
         if(_loadableModule.loaderName !== null)
@@ -9,8 +12,9 @@ with (scopeObj)
             moduleName = _loadableModule.loaderName + '!' + moduleName;
         }
         
-        require([moduleName], function(module)
+        require([moduleName], function amd_execute_loadable_script__onModuleResolved(module)
         {
+            'use strict';
             if (module !== null)
             {
                 // module may have been declared as a main()-style entry function

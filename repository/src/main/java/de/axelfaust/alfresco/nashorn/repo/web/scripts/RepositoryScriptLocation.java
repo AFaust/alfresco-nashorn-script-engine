@@ -38,7 +38,7 @@ public class RepositoryScriptLocation implements ScriptLocation, AMDLoadableScri
     /**
      * The abstract path of the web script controller derived from the facaded {@link #content script content}.
      */
-    protected volatile String webScriptPath;
+    protected transient String webScriptPath;
 
     /**
      * Default constructor
@@ -173,9 +173,9 @@ public class RepositoryScriptLocation implements ScriptLocation, AMDLoadableScri
         try
         {
             final Field field = content.getClass().getDeclaredField(fieldName);
-            field.setAccessible(true);
             if (field.getType().isAssignableFrom(String.class))
             {
+                field.setAccessible(true);
                 result = (String) field.get(content);
             }
             else

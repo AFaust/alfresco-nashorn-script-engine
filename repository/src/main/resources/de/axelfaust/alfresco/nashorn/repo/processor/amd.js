@@ -1,4 +1,5 @@
-(function()
+'use strict';
+(function amd()
 {
     // core AMD state and config
     var modules = {}, moduleByUrl = {}, moduleListenersByModule = {}, moduleListeners = [], packages = {},
@@ -7,7 +8,7 @@
     // Nashorn fns
     nashornLoad = load,
     // internal fns
-    normalizeSimpleId, normalizeModuleId, loadModule, getModule, checkAndFulfillModuleListeners, _load, SecureUseOnlyWrapper, clone,
+    isObject, normalizeSimpleId, normalizeModuleId, loadModule, getModule, checkAndFulfillModuleListeners, _load, SecureUseOnlyWrapper, clone,
     // Java utils
     NashornUtils, logger,
     // public fns
@@ -16,7 +17,13 @@
     NashornUtils = Packages.de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils;
     logger = Packages.org.slf4j.LoggerFactory.getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.amd');
 
-    SecureUseOnlyWrapper = function(module)
+    isObject = function amd__isObject(o)
+    {
+        var isObject = o instanceof Object && Object.prototype.toString.call(o) === '[object Object]';
+        return isObject;
+    };
+
+    SecureUseOnlyWrapper = function amd__SecureUseOnlyWrapper_constructor(module)
     {
         Object.defineProperty(this, 'wrapped', {
             value : module
@@ -30,7 +37,7 @@
         return this;
     };
 
-    clone = function(obj, protectedKeys)
+    clone = function amd__clone(obj, protectedKeys)
     {
         var result, idx, key;
 
@@ -46,7 +53,7 @@
                 result.push(clone(obj[idx], protectedKeys));
             }
         }
-        else if (obj instanceof Object && !(obj instanceof String || obj instanceof Date) && !(obj instanceof Function))
+        else if (isObject(obj))
         {
             result = {};
             for (key in obj)
@@ -75,7 +82,7 @@
         return result;
     };
 
-    normalizeSimpleId = function(id)
+    normalizeSimpleId = function amd__normalizeSimpleId(id)
     {
         var fragments, result, contextScriptUrl, contextModule, moduleFragments, callers;
 
@@ -157,7 +164,7 @@
         return result;
     };
 
-    normalizeModuleId = function(id)
+    normalizeModuleId = function amd__normalizeModuleId(id)
     {
         var loaderName, realId, loader, normalizedId;
         if (typeof id !== 'string')
@@ -205,7 +212,7 @@
         return normalizedId;
     };
 
-    _load = function(value, normalizedId, loaderName, isSecureSource)
+    _load = function amd__load(value, normalizedId, loaderName, isSecureSource)
     {
         var url;
 
@@ -255,7 +262,7 @@
         }
     };
 
-    loadModule = function(normalizedId)
+    loadModule = function amd__loadModule(normalizedId)
     {
         var id, loaderName, loader, idFragments, prospectivePackageName, length, packageConfig;
 
@@ -278,7 +285,7 @@
 
             if (typeof loader.load === 'function')
             {
-                loader.load(id, require, function(value, isSecureSource)
+                loader.load(id, require, function amd__loadModule_explicitLoaderCallback(value, isSecureSource)
                 {
                     _load(value, normalizedId, loaderName, isSecureSource);
                 });
@@ -324,7 +331,7 @@
 
                 if (typeof loader.load === 'function')
                 {
-                    loader.load(id, require, function(value, isSecureSource)
+                    loader.load(id, require, function amd__loadModule_packageLoaderCallback(value, isSecureSource)
                     {
                         _load(value, normalizedId, loaderName, isSecureSource);
                     });
@@ -341,7 +348,7 @@
         }
     };
 
-    getModule = function(normalizedId, doLoad)
+    getModule = function amd__getModule(normalizedId, doLoad)
     {
         var module, isSecure, moduleResult, dependency, resolvedDependencies, idx;
 
@@ -467,7 +474,7 @@
         return moduleResult;
     };
 
-    checkAndFulfillModuleListeners = function(module)
+    checkAndFulfillModuleListeners = function amd__checkAndFulfillModuleListeners(module)
     {
         var listeners, idx, listener, dIdx, args, dependency;
 
@@ -511,7 +518,7 @@
         }
     };
 
-    require = function(dependencies, callback)
+    require = function amd__require(dependencies, callback)
     {
         var idx, args, normalizedModuleId, module, contextScriptUrl, contextModule, isSecure;
 
@@ -573,7 +580,7 @@
         }
     };
 
-    require.whenAvailable = function(dependencies, callback)
+    require.whenAvailable = function amd__require_whenAvailable(dependencies, callback)
     {
         var normalizedModuleId, contextScriptUrl, contextModule, isSecure, listener, idx;
 
@@ -645,11 +652,11 @@
         }
     };
 
-    require.config = function(config)
+    require.config = function amd__require_config(config)
     {
         var key, packageConfigs, idx, lIdx, singlePackageConfig, packName, packLoader, packLocation, moduleId;
 
-        if (config === undefined || config === null || !(config instanceof Object && !(config instanceof String || config instanceof Date)))
+        if (!isObject(config))
         {
             throw new Error('Invalid config parameter');
         }
@@ -795,7 +802,7 @@
         }
     };
 
-    require.reset = function()
+    require.reset = function amd__require_reset()
     {
         var idx, lIdx, moduleId;
 
@@ -837,7 +844,7 @@
         }
     };
 
-    require.isSecureCallerScript = function()
+    require.isSecureCallerScript = function amd__require_isSecureCallerScript()
     {
         var contextScriptUrl, contextModule, isSecure;
 
@@ -852,7 +859,7 @@
         return isSecure;
     };
 
-    define = function()
+    define = function amd__define()
     {
         var id, dependencies, factory, idx, contextScriptUrl, contextModule;
 
@@ -861,7 +868,7 @@
 
         for (idx = 0; idx < arguments.length; idx++)
         {
-            if (idx === 0 && id === undefined && dependencies === undefined && factory === undefined && typeof arguments[idx] === 'string')
+            if (idx === 0 && typeof arguments[idx] === 'string')
             {
                 id = arguments[idx];
             }
@@ -930,12 +937,12 @@
         moduleByUrl[contextScriptUrl] = modules[id];
     };
 
-    define.asSecureUseModule = function(module)
+    define.asSecureUseModule = function amd__define_asSecureUseModule(module)
     {
         return new SecureUseOnlyWrapper(module);
     };
 
-    define.preload = function(moduleId)
+    define.preload = function amd__define_preload(moduleId)
     {
         var normalizedModuleId;
 
@@ -963,6 +970,17 @@
     // mininum object to identify define as AMD compatible
     define.amd = {};
 
+    // freeze all the things
+    Object.freeze(require.whenAvailable);
+    Object.freeze(require.isSecureCallerScript);
+    Object.freeze(require.config);
+    Object.freeze(require.reset);
+    Object.freeze(require);
+    Object.freeze(define.asSecureUseModule);
+    Object.freeze(define.preload);
+    Object.freeze(define.amd);
+    Object.freeze(define);
+
     modules.require = {
         id : 'require',
         result : require,
@@ -976,10 +994,16 @@
     };
 
     Object.defineProperty(this, 'require', {
-        value : require
+        value : require,
+        writable : false,
+        enumerable : true,
+        configurable : false
     });
 
     Object.defineProperty(this, 'define', {
-        value : define
+        value : define,
+        writable : false,
+        enumerable : true,
+        configurable : false
     });
 }());

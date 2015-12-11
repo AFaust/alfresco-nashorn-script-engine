@@ -1,10 +1,11 @@
+'use strict';
 // non-extensible raw classpath loader (scripts located anywhere in classpath)
-define('classpath', [], function()
+define('classpath', [], function classpath_loader()
 {
     var ClasspathURLStreamHandler;
 
     ClasspathURLStreamHandler = Java.extend(java.net.URLStreamHandler, {
-        openConnection : function(url)
+        openConnection : function classpath_loader__ClasspathURLStreamHandler_openConnection(url)
         {
             var con = new Packages.de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLConnection(url, null, false, null);
             return con;
@@ -12,21 +13,21 @@ define('classpath', [], function()
     });
 
     return {
-        load : function(normalizedId, require, load)
+        load : function classpath_loader__load(normalizedId, require, load)
         {
-            var url = new java.net.URL('classpath', null, -1, normalizedId, new ClasspathURLStreamHandler());
+            var url = new Packages.java.net.URL('classpath', null, -1, normalizedId, new ClasspathURLStreamHandler());
             load(url, true);
         }
     };
 });
 
 // extensible alfresco classpath loader (scripts located in /alfresco/extension/ or /alfresco/)
-define('extensible-alfresco-classpath', [], function()
+define('extensible-classpath', [], function extensible_classpath_loader__load()
 {
     var ClasspathURLStreamHandler;
 
     ClasspathURLStreamHandler = Java.extend(java.net.URLStreamHandler, {
-        openConnection : function(url)
+        openConnection : function extensible_classpath_loader__ClasspathURLStreamHandler_openConnection(url)
         {
             var con = new Packages.de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLConnection(url, true);
             return con;
@@ -34,9 +35,9 @@ define('extensible-alfresco-classpath', [], function()
     });
 
     return {
-        load : function(normalizedId, require, load)
+        load : function extensible_classpath_loader__load(normalizedId, require, load)
         {
-            var url = new java.net.URL('extensible-alfresco-classpath', null, -1, normalizedId, new ClasspathURLStreamHandler());
+            var url = new Packages.java.net.URL('extensible-classpath', null, -1, normalizedId, new ClasspathURLStreamHandler());
             load(url, true);
         }
     };

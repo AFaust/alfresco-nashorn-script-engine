@@ -1,9 +1,10 @@
-define('spring', [ 'define' ], function(define)
+'use strict';
+define('spring', [ 'define' ], function spring_loader(define)
 {
     var applicationContext = Packages.org.springframework.web.context.ContextLoader.getCurrentWebApplicationContext();
-    
+
     return define.asSecureUseModule({
-        load : function(normalizedId, require, load)
+        load : function spring_loader__load(normalizedId, require, load)
         {
             var bean = applicationContext.getBean(normalizedId.replace(/\//g, '.'));
             load(define.asSecureUseModule(bean), true);
