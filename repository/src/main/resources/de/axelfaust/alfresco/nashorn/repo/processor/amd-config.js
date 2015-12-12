@@ -1,19 +1,29 @@
-(function()
+'use strict';
+(function amd_config()
 {
     require.config({
-        packages : [ {
+        packages : [{
+            name : '_base',
+            loader : 'classpath',
+            location : 'de/axelfaust/alfresco/nashorn/repo/_base'
+        }, {
             // global alias that supports customer extensions
             name : 'alfresco',
-            loader : 'extensible-alfresco-classpath'
+            loader : 'extensible-classpath'
         }, {
             // alias to Java services via ServiceRegistry
-            name : 'alfresco/service',
+            name : 'alfrescoServices',
             loader : 'serviceRegistry'
         }, {
-            // shortcut
-            name : 'alfresco/webscript',
+            name : 'alfrescoWebScript',
             loader : 'webscript',
             location : 'org/alfresco'
-        } ]
+        }],
+        map : {
+            '*' : {
+                'alfresco/service' : 'alfrescoServices',
+                'alfresco/webscript' : 'alfrescoWebScript'
+            }
+        }
     });
 }());

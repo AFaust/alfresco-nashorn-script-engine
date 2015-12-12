@@ -2,13 +2,13 @@
 (function amd()
 {
     // core AMD state and config
-    var modules = {}, moduleByUrl = {}, moduleListenersByModule = {}, moduleListeners = [], packages = {},
+    var modules = {}, moduleByUrl = {}, mappings = {}, moduleListenersByModule = {}, moduleListeners = [], packages = {},
     // state backup
     moduleBackup, moduleListenersBackup,
     // Nashorn fns
     nashornLoad = load,
     // internal fns
-    isObject, normalizeSimpleId, normalizeModuleId, loadModule, getModule, checkAndFulfillModuleListeners, _load, SecureUseOnlyWrapper, clone,
+    isObject, normalizeSimpleId, normalizeModuleId, mapModuleId, loadModule, getModule, checkAndFulfillModuleListeners, _load, SecureUseOnlyWrapper, clone,
     // Java utils
     NashornUtils, logger,
     // public fns
@@ -19,17 +19,19 @@
 
     isObject = function amd__isObject(o)
     {
-        var isObject = o instanceof Object && Object.prototype.toString.call(o) === '[object Object]';
-        return isObject;
+        var result = o !== undefined && o !== null && Object.prototype.toString.call(o) === '[object Object]';
+        return result;
     };
 
     SecureUseOnlyWrapper = function amd__SecureUseOnlyWrapper_constructor(module)
     {
         Object.defineProperty(this, 'wrapped', {
-            value : module
+            value : module,
+            enumerable : true
         });
         Object.defineProperty(this, 'secureUseOnly', {
-            value : true
+            value : true,
+            enumerable : true
         });
 
         Object.freeze(this);
@@ -39,7 +41,7 @@
 
     clone = function amd__clone(obj, protectedKeys)
     {
-        var result, idx, key;
+        var result, desc;
 
         if (obj === undefined || obj === null)
         {
@@ -48,30 +50,26 @@
         else if (Array.isArray(obj))
         {
             result = [];
-            for (idx = 0; idx < obj.length; idx++)
+            obj.forEach(function amd__clone_arrElement(element)
             {
-                result.push(clone(obj[idx], protectedKeys));
-            }
+                result.push(clone(element, protectedKeys));
+            }, this);
         }
         else if (isObject(obj))
         {
             result = {};
-            for (key in obj)
+            Object.getOwnPropertyNames(obj).forEach(function amd__clone_objKey(key)
             {
-                if (obj.hasOwnProperty(key))
-                {
-                    logger.trace('Cloning {} of {}', key, String(obj));
-                    if (protectedKeys !== undefined && protectedKeys !== null && protectedKeys.hasOwnProperty(key)
-                            && protectedKeys[key] === true)
-                    {
-                        result[key] = obj[key];
-                    }
-                    else
-                    {
-                        result[key] = clone(obj[key], protectedKeys);
-                    }
-                }
-            }
+                logger.trace('Cloning {} of {}', key, String(obj));
+
+                desc = Object.getOwnPropertyDescriptor(obj, key);
+                Object.defineProperty(result, key, {
+                    value : (isObject(protectedKeys) && protectedKeys[key]) === true ? obj[key] : clone(obj[key], protectedKeys),
+                    writable : desc.writable,
+                    configurable : desc.configurable,
+                    enumerable : desc.enumerable
+                });
+            }, this);
         }
         else
         {
@@ -82,9 +80,57 @@
         return result;
     };
 
-    normalizeSimpleId = function amd__normalizeSimpleId(id)
+    mapModuleId = function amd__mapModuleId(moduleId, contextModuleId)
     {
-        var fragments, result, contextScriptUrl, contextModule, moduleFragments, callers;
+        var result = moduleId, mapped = false, mapping, contextFragments, fragments, cmax, max, contextLookup, lookup;
+
+        if (typeof contextModuleId === 'string')
+        {
+            contextFragments = contextModuleId.split('/');
+
+            for (cmax = contextFragments.length - 1; cmax > 0 && mapped === false; max -= 1)
+            {
+                contextLookup = contextFragments.slice(0, cmax).join('/');
+                if (mappings.hasOwnProperty(contextLookup))
+                {
+                    mapping = mappings[contextLookup];
+
+                    for (max = fragments.length - 1; max > 0 && mapped === false; max -= 1)
+                    {
+                        lookup = fragments.slice(0, max).join('/');
+                        if (mapping.hasOwnProperty(lookup))
+                        {
+                            moduleId = mapping[lookup];
+                            moduleId += '/' + fragments.slice(max, fragments.length).join('/');
+                            mapped = true;
+                        }
+                    }
+                }
+            }
+        }
+        else if (mappings.hasOwnProperty('*'))
+        {
+            mapping = mappings['*'];
+            fragments = moduleId.split('/');
+
+            for (max = fragments.length - 1; max > 0 && mapped === false; max -= 1)
+            {
+                lookup = fragments.slice(0, max).join('/');
+                if (mapping.hasOwnProperty(lookup))
+                {
+                    moduleId = mapping[lookup];
+                    moduleId += '/' + fragments.slice(max, fragments.length).join('/');
+                    mapped = true;
+                }
+            }
+        }
+
+        return result;
+    };
+
+    normalizeSimpleId = function amd__normalizeSimpleId(id, contextModule)
+    {
+        var fragments, result, moduleFragments;
 
         if (!(typeof id === 'string'))
         {
@@ -99,17 +145,7 @@
         {
             logger.trace('Simple id "{}" is in relative form', id);
 
-            callers = [];
-            // pushes this script
-            callers.push(NashornUtils.getCallerScriptURL(false, false));
-            // pushes either this script or any loader plugin calling normalizeSimpleId
-            callers.push(NashornUtils.getCallerScriptURL(true, false));
-
-            // retrieves context script URL by ignoring any callers from this script or the immediate loader plugin
-            contextScriptUrl = NashornUtils.getCallerScriptURL(Java.to(callers, 'java.util.List'));
-            contextModule = moduleByUrl[contextScriptUrl];
-
-            if (contextModule === undefined || contextModule === null)
+            if (!isObject(contextModule))
             {
                 throw new Error('Module ID is relative but call to normalize was made outside of an active module context');
             }
@@ -159,12 +195,14 @@
             result = fragments.join('/');
         }
 
+        result = mapModuleId(result, isObject(contextModule) ? contextModule.id : '');
+
         logger.trace('Normalized simple id "{}" to "{}"', id, result);
 
         return result;
     };
 
-    normalizeModuleId = function amd__normalizeModuleId(id)
+    normalizeModuleId = function amd__normalizeModuleId(id, contextModule)
     {
         var loaderName, realId, loader, normalizedId;
         if (typeof id !== 'string')
@@ -196,17 +234,17 @@
             if (typeof loader.normalize === 'function')
             {
                 logger.trace('Calling normalize-function of loader "{}"', loaderName);
-                normalizedId = loaderName + '!' + loader.normalize(realId, normalizeSimpleId);
+                normalizedId = loaderName + '!' + loader.normalize(realId, normalizeSimpleId, contextModule);
             }
             else
             {
                 logger.trace('Loader "{}" does not define a normalize-function', loaderName);
-                normalizedId = loaderName + '!' + normalizeSimpleId(realId);
+                normalizedId = loaderName + '!' + normalizeSimpleId(realId, contextModule);
             }
         }
         else
         {
-            normalizedId = normalizeSimpleId(id);
+            normalizedId = normalizeSimpleId(id, contextModule);
         }
 
         return normalizedId;
@@ -214,11 +252,11 @@
 
     _load = function amd__load(value, normalizedId, loaderName, isSecureSource)
     {
-        var url;
+        var url, module;
 
         if (value !== undefined && value !== null)
         {
-            if (value instanceof java.net.URL)
+            if (value instanceof Packages.java.net.URL)
             {
                 url = value;
                 if (moduleByUrl.hasOwnProperty(String(url)))
@@ -238,11 +276,24 @@
                 {
                     logger.debug('Loading module "{}" from url "{}" (secure: {})', normalizedId, url, isSecureSource === true);
 
-                    moduleByUrl[String(url)] = {
-                        id : normalizedId,
-                        loader : loaderName,
-                        secureSource : isSecureSource === true
-                    };
+                    module = {};
+
+                    Object.defineProperty(module, 'id', {
+                        value : normalizedId,
+                        enumerable : true
+                    });
+
+                    Object.defineProperty(module, 'loader', {
+                        value : loaderName,
+                        enumerable : true
+                    });
+
+                    Object.defineProperty(module, 'secureSource', {
+                        value : isSecureSource === true,
+                        enumerable : true
+                    });
+
+                    moduleByUrl[String(url)] = module;
 
                     nashornLoad(url);
                 }
@@ -251,13 +302,36 @@
             {
                 logger.debug('Registering pre-resolved module "{}"', normalizedId);
 
-                modules[normalizedId] = {
-                    id : normalizedId,
-                    loader : loaderName,
-                    dependencies : [],
-                    result : value,
-                    secureSource : isSecureSource === true
-                };
+                module = {};
+
+                Object.defineProperty(module, 'id', {
+                    value : normalizedId,
+                    enumerable : true
+                });
+
+                Object.defineProperty(module, 'loader', {
+                    value : loaderName,
+                    enumerable : true
+                });
+
+                Object.defineProperty(module, 'dependencies', {
+                    value : [],
+                    enumerable : true
+                });
+
+                Object.defineProperty(module, 'result', {
+                    value : value,
+                    enumerable : true
+                });
+
+                Object.defineProperty(module, 'secureSource', {
+                    value : isSecureSource === true,
+                    enumerable : true
+                });
+
+                Object.freeze(module.dependencies);
+
+                modules[normalizedId] = module;
             }
         }
     };
@@ -300,7 +374,7 @@
             logger.trace('Resolving module "{}" against configured packages', normalizedId);
 
             idFragments = normalizedId.split('/');
-            for (length = idFragments.length - 1; length > 0; length--)
+            for (length = idFragments.length - 1; length > 0; length -= 1)
             {
                 prospectivePackageName = idFragments.slice(0, length).join('/');
                 if (packages.hasOwnProperty(prospectivePackageName))
@@ -310,7 +384,7 @@
                 }
             }
 
-            if (packageConfig !== undefined)
+            if (isObject(packageConfig))
             {
                 loaderName = packageConfig.loader;
                 id = idFragments.slice(length).join('/');
@@ -383,7 +457,7 @@
             throw new Error('Module \'' + normalizedId + '\' has not been defined');
         }
 
-        if (module !== undefined && module !== null)
+        if (isObject(module))
         {
             if (module.hasOwnProperty('result'))
             {
@@ -399,13 +473,18 @@
                     if (module.dependencies.length === 0)
                     {
                         logger.trace('Module "{}" has no dependencies - calling factory', normalizedId);
-                        module.result = module.factory();
+
+                        Object.defineProperty(module, 'result', {
+                            value : module.factory(),
+                            enumerable : true
+                        });
                     }
                     else
                     {
                         isSecure = module.secureSource === true;
 
-                        for (idx = 0, resolvedDependencies = []; idx < module.dependencies.length; idx++)
+                        resolvedDependencies = [];
+                        for (idx = 0; idx < module.dependencies.length; idx += 1)
                         {
                             if (module.dependencies[idx] === 'exports')
                             {
@@ -413,7 +492,10 @@
                                         .trace(
                                                 'Module "{}" uses "exports"-dependency to expose prematurely expose module during initialisation (avoiding circular dependency issues)',
                                                 normalizedId);
-                                module.result = {};
+                                Object.defineProperty(module, 'result', {
+                                    value : {},
+                                    enumerable : true
+                                });
                                 resolvedDependencies.push(module.result);
                             }
                             else
@@ -422,8 +504,7 @@
 
                                 dependency = getModule(module.dependencies[idx], true);
 
-                                if (isSecure === false && dependency !== null && dependency.hasOwnProperty('secureUseOnly')
-                                        && dependency.secureUseOnly === true)
+                                if (isSecure === false && dependency !== null && dependency.secureUseOnly === true)
                                 {
                                     throw new Error('Access to module \'' + module.dependencies[idx]
                                             + '\' is not allowed for unsecure caller \'' + module.url + '\'');
@@ -446,7 +527,10 @@
                         }
                         else
                         {
-                            module.result = module.factory.apply(this, resolvedDependencies);
+                            Object.defineProperty(module, 'result', {
+                                value : module.factory.apply(this, resolvedDependencies),
+                                enumerable : true
+                            });
                         }
                     }
                     module.constructing = false;
@@ -481,7 +565,7 @@
         listeners = moduleListenersByModule[module.id];
         if (Array.isArray(listeners))
         {
-            for (idx = 0; idx < listeners.length; idx++)
+            for (idx = 0; idx < listeners.length; idx += 1)
             {
                 listener = listeners[idx];
                 if (listener.triggered !== true)
@@ -490,12 +574,11 @@
                     if (listener.dependencies.length === listener.resolved.length)
                     {
                         args = [];
-                        for (dIdx = 0; dIdx < listener.dependencies.length; dIdx++)
+                        for (dIdx = 0; dIdx < listener.dependencies.length; dIdx += 1)
                         {
                             dependency = getModule(listener.dependencies[dIdx], true);
 
-                            if (listener.isSecure === false && dependency !== null && dependency.hasOwnProperty('secureUseOnly')
-                                    && dependency.secureUseOnly === true)
+                            if (listener.isSecure === false && dependency !== null && dependency.secureUseOnly === true)
                             {
                                 throw new Error('Access to module \'' + module.dependencies[idx]
                                         + '\' is not allowed for unsecure listener \'' + listener.url + '\'');
@@ -526,16 +609,16 @@
         contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
         contextModule = moduleByUrl[contextScriptUrl];
 
-        isSecure = contextModule !== undefined && contextModule !== null && contextModule.secureSource === true;
+        isSecure = isObject(contextModule) && contextModule.secureSource === true;
 
         if (typeof dependencies === 'string')
         {
             // require(string)
-            normalizedModuleId = normalizeModuleId(dependencies);
+            normalizedModuleId = normalizeModuleId(dependencies, contextModule);
             // MUST fail if module is not yet defined or initialised
             module = getModule(normalizedModuleId, false);
 
-            if (isSecure === false && module !== null && module.hasOwnProperty('secureUseOnly') && module.secureUseOnly === true)
+            if (isSecure === false && module !== null && module.secureUseOnly === true)
             {
                 throw new Error('Access to module \'' + normalizedModuleId + '\' is not allowed for unsecure caller \'' + contextScriptUrl
                         + '\'');
@@ -551,13 +634,14 @@
 
         if (Array.isArray(dependencies))
         {
-            for (idx = 0, args = []; idx < dependencies.length; idx++)
+            args = [];
+            for (idx = 0; idx < dependencies.length; idx += 1)
             {
-                normalizedModuleId = normalizeModuleId(dependencies[idx]);
+                normalizedModuleId = normalizeModuleId(dependencies[idx], contextModule);
 
                 module = getModule(normalizedModuleId, true);
 
-                if (isSecure === false && module !== null && module.hasOwnProperty('secureUseOnly') && module.secureUseOnly === true)
+                if (isSecure === false && module !== null && module.secureUseOnly === true)
                 {
                     throw new Error('Access to module \'' + normalizedModuleId + '\' is not allowed for unsecure caller \''
                             + contextScriptUrl + '\'');
@@ -571,6 +655,7 @@
                 args.push(module);
             }
 
+            // TODO Support an additional 'err' callback in case any module could not be loaded / resolved
             if (typeof callback === 'function')
             {
                 callback.apply(this, args);
@@ -598,7 +683,7 @@
         contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
         contextModule = moduleByUrl[contextScriptUrl];
 
-        isSecure = contextModule !== undefined && contextModule !== null && contextModule.secureSource === true;
+        isSecure = isObject(contextModule) && contextModule.secureSource === true;
 
         listener = {
             isSecure : isSecure,
@@ -610,14 +695,14 @@
 
         if (typeof dependencies === 'string')
         {
-            normalizedModuleId = normalizeModuleId(dependencies);
+            normalizedModuleId = normalizeModuleId(dependencies, contextModule);
             listener.dependencies.push(normalizedModuleId);
         }
         else if (Array.isArray(dependencies))
         {
-            for (idx = 0; idx < dependencies.length; idx++)
+            for (idx = 0; idx < dependencies.length; idx += 1)
             {
-                normalizedModuleId = normalizeModuleId(dependencies[idx]);
+                normalizedModuleId = normalizeModuleId(dependencies[idx], contextModule);
                 listener.dependencies.push(normalizedModuleId);
             }
         }
@@ -640,7 +725,7 @@
 
         if (listener.triggered !== true)
         {
-            for (idx = 0; idx < listener.dependencies.length; idx++)
+            for (idx = 0; idx < listener.dependencies.length; idx += 1)
             {
                 if (!moduleListenersByModule.hasOwnProperty(listener.dependencies[idx]))
                 {
@@ -654,7 +739,7 @@
 
     require.config = function amd__require_config(config)
     {
-        var key, packageConfigs, idx, lIdx, singlePackageConfig, packName, packLoader, packLocation, moduleId;
+        var configKeyFn, packageFn, mapFn;
 
         if (!isObject(config))
         {
@@ -670,78 +755,93 @@
             logger.debug('Configuring AMD loader');
         }
 
+        configKeyFn = function amd__require_config_key(key)
+        {
+            var packageConfigs;
+
+            switch (key)
+            {
+                case 'packages':
+                    logger.debug('Configuring AMD packages');
+                    packageConfigs = config[key];
+
+                    if (Array.isArray(packageConfigs))
+                    {
+                        packageConfigs.forEach(packageFn, this);
+                    }
+                    break;
+                case 'map':
+                    logger.debug('Configuring AMD mapppings');
+                    if (isObject(config[key]))
+                    {
+                        mapFn.call(this, config[key]);
+                    }
+                    break;
+                default:
+                    logger.warn('Ignoring unsupported AMD loader option "{}"', key);
+                    // unsupported option - ignore silently
+            }
+        };
+
+        mapFn = function amd__require_config_key_map(map)
+        {
+            Object.keys(map).forEach(function amd__require_config_key_map_sourcePrefix(sourcePrefix)
+            {
+                mappings[sourcePrefix] = clone(map[sourcePrefix]);
+            }, this);
+        };
+
+        packageFn = function amd__require_config_key_packages(singlePackageConfig)
+        {
+            var packName, packLoader, packLocation;
+            if (!isObject(singlePackageConfig))
+            {
+                throw new Error('Invalid package config structure');
+            }
+
+            packName = singlePackageConfig.name || null;
+            packLoader = singlePackageConfig.loader || null;
+            packLocation = singlePackageConfig.location || null;
+
+            if (packName === null || typeof packName !== 'string' || !(/^(?:\w|[\-_.])+(?:\/(?:\w|[\-_.])+)*$/.test(packName)))
+            {
+                throw new Error('Package name has not been set or is not a valid string');
+            }
+
+            if (packages.hasOwnProperty(packName))
+            {
+                // should not occur due to one-shot operation
+                throw new Error('Package \'' + packName + '\' has already been defined');
+            }
+
+            if (packLoader === null || typeof packLoader !== 'string' || !(/^(?:\w|[\-_.])+(?:\/(?:\w|[\-_.])+)*$/.test(packLoader)))
+            {
+                throw new Error('Loader name for package \'' + packName + '\' has not been set or is not a valid string');
+            }
+
+            logger.trace('Adding AMD package "{}" using loader "{}" (package location: {})', packName, packLoader, packLocation);
+
+            packages[packName] = {
+                name : packName,
+                loader : packLoader
+            };
+
+            if (packLocation !== null && typeof packLocation === 'string')
+            {
+                // TODO Can we relax this? Location is intended to be a virtual prefix to the module ID, so it
+                // needs to conform to same rules we apply on packLoader as module ID
+                if (!(/^(?:\w|[\-_.])+(?:\/(?:\w|[\-_.])+)*$/.test(packLocation)))
+                {
+                    throw new Error('Location for for package \'' + packName + '\' is not a valid string');
+                }
+                packages[packName].location = packLocation;
+            }
+        };
+
         try
         {
-            for (key in config)
-            {
-                if (config.hasOwnProperty(key))
-                {
-                    switch (key)
-                    {
-                        case 'packages':
-                            logger.debug('Configuring AMD packages');
-                            packageConfigs = config[key];
-                            if (Array.isArray(packageConfigs))
-                            {
-                                for (idx = 0; idx < packageConfigs.length; idx++)
-                                {
-                                    singlePackageConfig = packageConfigs[idx];
 
-                                    if (singlePackageConfig === null || typeof singlePackageConfig !== 'object')
-                                    {
-                                        throw new Error('Invalid package config structure');
-                                    }
-
-                                    packName = singlePackageConfig.name || null;
-                                    packLoader = singlePackageConfig.loader || null;
-                                    packLocation = singlePackageConfig.location || null;
-
-                                    if (packName === null || typeof packName !== 'string'
-                                            || !/^(?:\w|[\-_.])+(?:\/(?:\w|[\-_.])+)*$/.test(packName))
-                                    {
-                                        throw new Error('Package name has not been set or is not a valid string');
-                                    }
-
-                                    if (packages.hasOwnProperty(packName))
-                                    {
-                                        // should not occur due to one-shot operation
-                                        throw new Error('Package \'' + packName + '\' has already been defined');
-                                    }
-
-                                    if (packLoader === null || typeof packLoader !== 'string'
-                                            || !/^(?:\w|[\-_.])+(?:\/(?:\w|[\-_.])+)*$/.test(packLoader))
-                                    {
-                                        throw new Error('Loader name for package \'' + packName
-                                                + '\' has not been set or is not a valid string');
-                                    }
-
-                                    logger.trace('Adding AMD package "{}" using loader "{}" (package location: {})', packName, packLoader,
-                                            packLocation);
-
-                                    packages[packName] = {
-                                        name : packName,
-                                        loader : packLoader
-                                    };
-
-                                    if (packLocation !== null && typeof packLocation === 'string')
-                                    {
-                                        // TODO Can we relax this? Location is intended to be a virtual prefix to the module ID, so it needs
-                                        // to conform to same rules we apply on packLoader as module ID
-                                        if (!/^(?:\w|[\-_.])+(?:\/(?:\w|[\-_.])+)*$/.test(packLocation))
-                                        {
-                                            throw new Error('Location for for package \'' + packName + '\' is not a valid string');
-                                        }
-                                        packages[packName].location = packLocation;
-                                    }
-                                }
-                            }
-                            break;
-                        default:
-                            logger.warn('Ignoring unsupported AMD loader option "{}"', key);
-                            // unsupported option - ignore silently
-                    }
-                }
-            }
+            Object.keys(config).forEach(configKeyFn, this);
         }
         catch (e)
         {
@@ -773,28 +873,27 @@
         moduleListenersByModule = {};
 
         // prepare by-reference structures
-        for (moduleId in modules)
+        Object.keys(modules).forEach(function amd__require_config_prepareModules(moduleId)
         {
-            if (modules[moduleId].url !== undefined || modules[moduleId].url !== null)
+            if (modules[moduleId].url !== undefined && modules[moduleId].url !== null)
             {
                 moduleByUrl[String(modules[moduleId].url)] = modules[moduleId];
             }
-        }
-        for (idx = 0; idx < moduleListeners.length; idx++)
-        {
-            if (moduleListeners[idx] !== null)
-            {
-                for (lIdx = 0; lIdx < moduleListeners[idx].dependencies; lIdx++)
-                {
-                    if (!moduleListenersByModule.hasOwnProperty(moduleListeners[idx].dependencies[lIdx]))
-                    {
-                        moduleListenersByModule[moduleListeners[idx].dependencies[lIdx]] = [];
-                    }
+        }, this);
 
-                    moduleListenersByModule[moduleListeners[idx].dependencies[lIdx]].push(moduleListeners[idx]);
+        moduleListeners.forEach(function amd__require_config_prepareListeners(moduleListener)
+        {
+            var idx = 0;
+            for (idx = 0; idx < moduleListener.dependencies; idx += 1)
+            {
+                if (!moduleListenersByModule.hasOwnProperty(moduleListener.dependencies[idx]))
+                {
+                    moduleListenersByModule[moduleListener.dependencies[idx]] = [];
                 }
+
+                moduleListenersByModule[moduleListener.dependencies[idx]].push(moduleListener);
             }
-        }
+        }, this);
 
         if (logger.traceEnabled)
         {
@@ -804,39 +903,36 @@
 
     require.reset = function amd__require_reset()
     {
-        var idx, lIdx, moduleId;
-
         logger.debug('Resetting AMD loader state to backup');
 
         // clone
-        modules = moduleBackup !== undefined ? clone(moduleBackup) : {};
+        modules = isObject(moduleBackup) ? clone(moduleBackup) : {};
         moduleByUrl = {};
-        moduleListeners = moduleListenersBackup !== undefined ? clone(moduleListenersBackup) : [];
+        moduleListeners = isObject(moduleListenersBackup) ? clone(moduleListenersBackup) : [];
         moduleListenersByModule = {};
 
         // prepare by-reference structures
-        for (moduleId in modules)
+        Object.keys(modules).forEach(function amd__require_reset_modules(moduleId)
         {
-            if (modules[moduleId].url !== undefined || modules[moduleId].url !== null)
+            if (modules[moduleId].url !== undefined && modules[moduleId].url !== null)
             {
                 moduleByUrl[String(modules[moduleId].url)] = modules[moduleId];
             }
-        }
-        for (idx = 0; idx < moduleListeners.length; idx++)
-        {
-            if (moduleListeners[idx] !== null)
-            {
-                for (lIdx = 0; lIdx < moduleListeners[idx].dependencies; lIdx++)
-                {
-                    if (!moduleListenersByModule.hasOwnProperty(moduleListeners[idx].dependencies[lIdx]))
-                    {
-                        moduleListenersByModule[moduleListeners[idx].dependencies[lIdx]] = [];
-                    }
+        }, this);
 
-                    moduleListenersByModule[moduleListeners[idx].dependencies[lIdx]].push(moduleListeners[idx]);
+        moduleListeners.forEach(function amd__require_reset_listeners(moduleListener)
+        {
+            var idx = 0;
+            for (idx = 0; idx < moduleListener.dependencies; idx += 1)
+            {
+                if (!moduleListenersByModule.hasOwnProperty(moduleListener.dependencies[idx]))
+                {
+                    moduleListenersByModule[moduleListener.dependencies[idx]] = [];
                 }
+
+                moduleListenersByModule[moduleListener.dependencies[idx]].push(moduleListener);
             }
-        }
+        }, this);
 
         if (logger.traceEnabled)
         {
@@ -852,7 +948,7 @@
         contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
         contextModule = moduleByUrl[contextScriptUrl];
 
-        isSecure = contextModule !== undefined && contextModule !== null && contextModule.secureSource === true;
+        isSecure = isObject(contextModule) && contextModule.secureSource === true;
 
         logger.trace('Determined script "{}" to be secure: {}', contextScriptUrl, isSecure);
 
@@ -861,12 +957,12 @@
 
     define = function amd__define()
     {
-        var id, dependencies, factory, idx, contextScriptUrl, contextModule;
+        var id, dependencies, factory, idx, contextScriptUrl, contextModule, module;
 
         contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
         contextModule = moduleByUrl[contextScriptUrl];
 
-        for (idx = 0; idx < arguments.length; idx++)
+        for (idx = 0; idx < arguments.length; idx += 1)
         {
             if (idx === 0 && typeof arguments[idx] === 'string')
             {
@@ -884,7 +980,7 @@
             }
         }
 
-        if (id === undefined && contextModule !== undefined && contextModule !== null)
+        if (id === undefined && isObject(contextModule))
         {
             id = contextModule.id;
         }
@@ -895,14 +991,14 @@
             dependencies = [];
         }
 
-        for (idx = 0; idx < dependencies.length; idx++)
+        for (idx = 0; idx < dependencies.length; idx += 1)
         {
             if (typeof dependencies[idx] !== 'string')
             {
                 throw new Error('Dependency identifier is not a string');
             }
 
-            dependencies[idx] = normalizeModuleId(dependencies[idx]);
+            dependencies[idx] = normalizeModuleId(dependencies[idx], contextModule);
         }
 
         if (id === undefined || id === null)
@@ -918,23 +1014,50 @@
         if (logger.traceEnabled)
         {
             logger.trace('Defining module "{}" from url "{}" with dependencies {} (secureSource: {})', id, contextScriptUrl, JSON
-                    .stringify(dependencies), contextModule !== undefined && contextModule !== null ? contextModule.secureSource : false)
+                    .stringify(dependencies), isObject(contextModule) ? contextModule.secureSource : false);
         }
         else
         {
-            logger.debug('Defining module "{}" from url "{}" (secureSource: {})', id, contextScriptUrl, contextModule !== undefined
-                    && contextModule !== null ? contextModule.secureSource : false)
+            logger.debug('Defining module "{}" from url "{}" (secureSource: {})', id, contextScriptUrl,
+                    isObject(contextModule) ? contextModule.secureSource : false);
         }
 
-        modules[id] = {
-            id : id,
-            loader : contextModule !== undefined && contextModule !== null ? contextModule.loader : null,
-            dependencies : dependencies,
-            factory : factory,
-            url : contextScriptUrl,
-            secureSource : contextModule !== undefined && contextModule !== null ? contextModule.secureSource : false
-        };
-        moduleByUrl[contextScriptUrl] = modules[id];
+        module = {};
+
+        Object.defineProperty(module, 'id', {
+            value : id,
+            enumerable : true
+        });
+
+        Object.defineProperty(module, 'loader', {
+            value : isObject(contextModule) ? contextModule.loader : null,
+            enumerable : true
+        });
+
+        Object.defineProperty(module, 'dependencies', {
+            value : dependencies,
+            enumerable : true
+        });
+
+        Object.defineProperty(module, 'factory', {
+            value : factory,
+            enumerable : true
+        });
+
+        Object.defineProperty(module, 'url', {
+            value : contextScriptUrl,
+            enumerable : true
+        });
+
+        Object.defineProperty(module, 'secureSource', {
+            value : isObject(contextModule) ? contextModule.secureSource : false,
+            enumerable : true
+        });
+
+        Object.freeze(dependencies);
+
+        modules[id] = module;
+        moduleByUrl[contextScriptUrl] = module;
     };
 
     define.asSecureUseModule = function amd__define_asSecureUseModule(module)
@@ -995,15 +1118,11 @@
 
     Object.defineProperty(this, 'require', {
         value : require,
-        writable : false,
-        enumerable : true,
-        configurable : false
+        enumerable : true
     });
 
     Object.defineProperty(this, 'define', {
         value : define,
-        writable : false,
-        enumerable : true,
-        configurable : false
+        enumerable : true
     });
 }());
