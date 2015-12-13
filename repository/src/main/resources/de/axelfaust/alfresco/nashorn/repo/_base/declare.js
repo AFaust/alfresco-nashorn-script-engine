@@ -4,7 +4,7 @@ define(
         [ './c3mro' ],
         function declare(c3mro)
         {
-            var anonClassCount = 0, DummyCtor, isObject, fn_toString, isInstanceOf, forceNew, applyNew, standardConstructor, taggedMixin, standardPrototype, declareImpl, declare;
+            var anonClassCount = 0, DummyCtor, isObject, fn_toString, isInstanceOf, inherited, forceNew, applyNew, standardConstructor, taggedMixin, standardPrototype, declareImpl, declare;
 
             DummyCtor = new Function();
 
@@ -14,7 +14,7 @@ define(
                 return isObject;
             };
 
-            fn_toString = function declare__ctor_toString(defaultToString)
+            fn_toString = function declare__fn_toString(defaultToString)
             {
                 var result, className, fnName;
 
@@ -34,7 +34,7 @@ define(
                     }
                     fnName = this.fnName;
 
-                    result = '[Function ' + className + '_constructor]';
+                    result = '[Function ' + className + '_' + fnName + ']';
                 }
 
                 return result;
@@ -50,6 +50,134 @@ define(
                 }
 
                 return isBase;
+            };
+
+            inherited = function declare__inherited()
+            {
+                var result, linearization = this.constructor._c3mro_linearization, fnName, fnClsName, callerFn, args, overrides, effectiveArgs, idx, lastLookup, ctor, proto, fn, clsFound;
+
+                // due to 'use strict' we can't use args.callee and have to require named function reference being passed
+
+                for (idx = 0; idx < arguments.length; idx++)
+                {
+                    if (idx === 0 && typeof arguments[idx] === 'string')
+                    {
+                        fnName = arguments[idx];
+                        fnClsName = this.constructor._declare_meta.className;
+                    }
+                    else if (idx === 0 && typeof arguments[idx] === 'function')
+                    {
+                        callerFn = arguments[idx];
+                        if (typeof callerFn.fnName === 'string')
+                        {
+                            fnName = callerFn.fnName;
+                            fnClsName = callerFn.fnClsName;
+                        }
+                    }
+                    else if (idx < 2 && args === undefined)
+                    {
+                        args = arguments[idx];
+                    }
+                    else if (idx > 1 && args !== undefined && overrides === undefined && Array.isArray(arguments[idx]))
+                    {
+                        overrides = arguments[idx];
+                    }
+                }
+
+                if (fnName === undefined)
+                {
+                    throw new Error('Unable to determine function name to call for inherited()');
+                }
+
+                if (fnName !== 'constructor')
+                {
+                    if (overrides !== undefined)
+                    {
+                        for (idx = 0; idx < args.length || idx < overrides.length; idx++)
+                        {
+                            if (idx < overrides.length)
+                            {
+                                effectiveArgs.push(overrides[idx]);
+                            }
+                            else
+                            {
+                                effectiveArgs.push(args[idx]);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        effectiveArgs = args;
+                    }
+
+                    if (this._inherited !== undefined)
+                    {
+                        lastLookup = this._inherited;
+                    }
+                    else
+                    {
+                        lastLookup = {
+                            callerFnName : null,
+                            callerFnClsName : null,
+                            ctor : null
+                        };
+
+                        Object.defineProperty(this, '_inherited', {
+                            value : lastLookup
+                        });
+                    }
+
+                    if (lastLookup.callerFnName === fnName && lastLookup.callerFnClsName === fnClsName)
+                    {
+                        ctor = lastLookup.ctor;
+                    }
+                    else
+                    {
+                        ctor = this.constructor;
+                    }
+                    proto = ctor.prototype;
+
+                    // ascend the proto chain
+                    while (fn === undefined && ctor !== null)
+                    {
+                        if (clsFound === true)
+                        {
+                            if (proto.hasOwnProperty(fnName) && typeof proto[fnName] === 'function')
+                            {
+                                fn = proto[fnName];
+                            }
+                        }
+                        else
+                        {
+                            clsFound = ctor.fnClsName === fnClsName;
+                        }
+
+                        if (typeof ctor.superClass === 'function')
+                        {
+                            ctor = ctor.superClass;
+                            proto = ctor.prototype;
+                        }
+                        else
+                        {
+                            ctor = null;
+                        }
+                    }
+
+                    lastLookup.callerFnName = fnName;
+                    lastLookup.callerFnClsName = fnClsName;
+                    lastLookup.ctor = ctor;
+
+                    if (fn !== undefined)
+                    {
+                        result = fn.apply(this, effectiveArgs);
+                    }
+                }
+                else
+                {
+                    throw new Error('constructor is inheritently chained - call to inherited() is invalid');
+                }
+
+                return result;
             };
 
             forceNew = function declare__forceNew(ctor)
@@ -120,9 +248,9 @@ define(
                             value.fnName = name;
                             value.toString = fn_toString;
 
-                            if (target._declare_meta !== undefined)
+                            if (target.constructor._declare_meta !== undefined)
                             {
-                                value.fnClsName = target._declare_meta.className;
+                                value.fnClsName = target.constructor._declare_meta.className;
                             }
                         }
                         target[name] = value;
@@ -183,6 +311,9 @@ define(
                         ctor.fnName = 'constructor';
                         ctor.toString = fn_toString;
                         proto.constructor = ctor;
+
+                        Object.freeze(ctor);
+
                         superClass = ctor;
                     }
 
@@ -193,6 +324,14 @@ define(
                 {
                     proto = {};
                 }
+                
+                
+                cls.prototype = proto;
+                proto.constructor = cls;
+                proto.declaredClass = cls._declare_meta.className;
+                cls.superClass = superClass || null;
+                cls.fnClsName = cls._declare_meta.className;
+                cls.fnName = 'constructor';
 
                 taggedMixin(proto, classStructure);
 
@@ -234,15 +373,11 @@ define(
                 });
 
                 proto = standardPrototype(ctor, classStructure)
-                ctor.prototype = proto;
-                proto.constructor = ctor
-                proto.declaredClass = className;
-                ctor.superClass = meta.superClass;
-                ctor.fnName = 'constructor';
 
                 // MAYBE Add special functions (extend / createSubclass) to ctor (if we need to support them)
 
                 proto.isInstanceOf = isInstanceOf;
+                proto.inherited = inherited;
                 ctor.toString = fn_toString;
                 // TODO Add 'standard' methods to proto
 
