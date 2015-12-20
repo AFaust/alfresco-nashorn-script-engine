@@ -2,9 +2,11 @@
 define('webscript', [ 'define', 'spring!webscripts.searchpath', 'spring!contentService', 'spring!retryingTransactionHelper' ],
         function webscript_loader(define, searchPath, contentService, retryingTransactionHelper)
         {
-            var scriptLoader, apiStores, idx, max, storeLoader, storeLoaders = [];
+            var scriptLoader, apiStores, logger, idx, max, storeLoader, storeLoaders = [], suffixes = [ '', '.nashornjs', '.js' ], loader;
 
             apiStores = searchPath.stores;
+            logger = Packages.org.slf4j.LoggerFactory
+                    .getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.webscript-loader');
 
             for (idx = 0, max = apiStores.length; idx < max; idx++)
             {
@@ -19,13 +21,22 @@ define('webscript', [ 'define', 'spring!webscripts.searchpath', 'spring!contentS
             scriptLoader = new org.springframework.extensions.webscripts.MultiScriptLoader(Java.to(storeLoaders,
                     'org.springframework.extensions.webscripts.ScriptLoader[]'));
 
-            return {
+            loader = {
                 load : function webscript_loader__load(normalizedId, require, load)
                 {
-                    var script = scriptLoader.getScript(normalizedId), url;
+                    var script = null, url;
+
+                    suffixes.forEach(function webscript_loader__load_forEachSuffix(suffix)
+                    {
+                        if (script === null)
+                        {
+                            script = scriptLoader.getScript(normalizedId + suffix);
+                        }
+                    });
 
                     if (script !== null)
                     {
+                        logger.trace('Script stores contains a script {} for module id {}', script, normalizedId);
                         url = new Packages.java.net.URL('webscript', null, -1, normalizedId,
                                 new Packages.de.axelfaust.alfresco.nashorn.repo.loaders.WebScriptURLStreamHandler(script, contentService,
                                         retryingTransactionHelper));
@@ -33,8 +44,14 @@ define('webscript', [ 'define', 'spring!webscripts.searchpath', 'spring!contentS
                     }
                     else
                     {
+                        logger.trace('Script stores do not contain a script for module id {}', normalizedId);
                         load(null, false);
                     }
                 }
             };
+
+            Object.freeze(loader.load);
+            Object.freeze(loader);
+
+            return loader;
         });

@@ -88,7 +88,7 @@
         {
             contextFragments = contextModuleId.split('/');
 
-            for (cmax = contextFragments.length - 1; cmax > 0 && mapped === false; max -= 1)
+            for (cmax = contextFragments.length - 1; cmax > 0 && mapped === false; cmax -= 1)
             {
                 contextLookup = contextFragments.slice(0, cmax).join('/');
                 if (mappings.hasOwnProperty(contextLookup))
@@ -100,9 +100,11 @@
                         lookup = fragments.slice(0, max).join('/');
                         if (mapping.hasOwnProperty(lookup))
                         {
-                            moduleId = mapping[lookup];
-                            moduleId += '/' + fragments.slice(max, fragments.length).join('/');
+                            result = mapping[lookup];
+                            result += '/' + fragments.slice(max, fragments.length).join('/');
                             mapped = true;
+
+                            logger.trace('Mapped module id {} to {} via mapping of package {}', moduleId, result, lookup);
                         }
                     }
                 }
@@ -118,9 +120,11 @@
                 lookup = fragments.slice(0, max).join('/');
                 if (mapping.hasOwnProperty(lookup))
                 {
-                    moduleId = mapping[lookup];
-                    moduleId += '/' + fragments.slice(max, fragments.length).join('/');
+                    result = mapping[lookup];
+                    result += '/' + fragments.slice(max, fragments.length).join('/');
                     mapped = true;
+
+                    logger.trace('Mapped module id {} to {} via asterisk mapping', moduleId, result);
                 }
             }
         }
@@ -853,6 +857,7 @@
         // config is a one-shot operation and finalizes AMD framework
         // remove option for further config
         delete require.config;
+        Object.freeze(require);
 
         logger.debug('Backing up AMD loader state');
         if (logger.traceEnabled)
@@ -1096,9 +1101,7 @@
     // freeze all the things
     Object.freeze(require.whenAvailable);
     Object.freeze(require.isSecureCallerScript);
-    Object.freeze(require.config);
     Object.freeze(require.reset);
-    Object.freeze(require);
     Object.freeze(define.asSecureUseModule);
     Object.freeze(define.preload);
     Object.freeze(define.amd);
@@ -1125,4 +1128,4 @@
         value : define,
         enumerable : true
     });
-}());
+}.call(this));

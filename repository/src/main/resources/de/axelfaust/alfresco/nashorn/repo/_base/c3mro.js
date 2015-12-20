@@ -1,7 +1,7 @@
 'use strict';
-define('c3mro', [], function()
+define([], function()
 {
-    var lastC3mroId = 0, locateCandidate, merge;
+    var lastC3mroId = 0, locateCandidate, merge, c3mro;
 
     locateCandidate = function locateCandidate(baseLinearizations)
     {

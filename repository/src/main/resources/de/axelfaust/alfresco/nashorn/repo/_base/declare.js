@@ -1,6 +1,5 @@
 'use strict';
 define(
-        'declare',
         [ './c3mro' ],
         function declare(c3mro)
         {
