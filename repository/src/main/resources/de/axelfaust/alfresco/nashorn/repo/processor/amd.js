@@ -960,6 +960,48 @@
         return isSecure;
     };
 
+    require.getCallerScriptURL = function amd__require_getCallerScriptURL()
+    {
+        var contextScriptUrl;
+
+        // skip this and the caller script to determine script URL of callers caller
+        contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
+
+        return contextScriptUrl;
+    };
+
+    require.getCallerScriptModuleId = function amd__require_getCallerScriptModuleId()
+    {
+        var contextScriptUrl, contextModule, moduleId;
+
+        // skip this and the caller script to determine script URL of callers caller
+        contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
+        contextModule = moduleByUrl[contextScriptUrl];
+
+        if (isObject(contextModule))
+        {
+            moduleId = contextModule.id;
+        }
+
+        return moduleId;
+    };
+    
+    require.getCallerScriptModuleLoader = function amd__require_getCallerScriptModuleLoader()
+    {
+        var contextScriptUrl, contextModule, moduleLoader;
+
+        // skip this and the caller script to determine script URL of callers caller
+        contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
+        contextModule = moduleByUrl[contextScriptUrl];
+
+        if (isObject(contextModule))
+        {
+            moduleLoader = contextModule.loader;
+        }
+
+        return moduleLoader;
+    };
+
     define = function amd__define()
     {
         var id, dependencies, factory, idx, contextScriptUrl, contextModule, module;
