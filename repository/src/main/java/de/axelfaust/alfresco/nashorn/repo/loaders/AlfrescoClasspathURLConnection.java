@@ -28,13 +28,22 @@ import org.alfresco.error.AlfrescoRuntimeException;
 public class AlfrescoClasspathURLConnection extends URLConnection
 {
 
-    protected URLConnection realConnection;
+    protected transient URL resource;
+
+    // sun.net.www.protocol.file.FileURLConnection may hold some unclosed FileInputStream(s) open that we want to see GCed (implicitly
+    // closed) as soon as possible but aggressively clearing realConnection does not help either
+    // TODO Implement optimisations to avoid FileURLConnection when possible (e.g. exploded source files via regular File)
+    protected transient URLConnection realConnection;
 
     protected String basePath = "alfresco";
 
     protected String extensionPath = "extension";
 
     protected boolean allowExtension;
+
+    protected transient long contentLength = -1;
+
+    protected transient long lastModified = -1;
 
     public AlfrescoClasspathURLConnection(final URL url, final boolean allowExtension)
     {
@@ -64,11 +73,11 @@ public class AlfrescoClasspathURLConnection extends URLConnection
     @Override
     public void connect() throws IOException
     {
-        this.ensureRealConnection();
-
         if (!this.connected)
         {
-            this.realConnection.connect();
+            // this is primarily a validation step
+            this.ensureRealConnection();
+
             this.connected = true;
         }
     }
@@ -79,8 +88,13 @@ public class AlfrescoClasspathURLConnection extends URLConnection
     @Override
     public long getContentLengthLong()
     {
-        this.ensureRealConnection();
-        return this.realConnection.getContentLengthLong();
+        if (this.contentLength == -1)
+        {
+            this.ensureRealConnection();
+            this.contentLength = this.realConnection.getContentLengthLong();
+        }
+
+        return this.contentLength;
     }
 
     /**
@@ -89,8 +103,12 @@ public class AlfrescoClasspathURLConnection extends URLConnection
     @Override
     public long getLastModified()
     {
-        this.ensureRealConnection();
-        return this.realConnection.getLastModified();
+        if (this.lastModified == -1)
+        {
+            this.ensureRealConnection();
+            this.lastModified = this.realConnection.getLastModified();
+        }
+        return this.lastModified;
     }
 
     /**
@@ -100,6 +118,8 @@ public class AlfrescoClasspathURLConnection extends URLConnection
     public InputStream getInputStream() throws IOException
     {
         this.connect();
+        this.ensureRealConnection();
+
         return this.realConnection.getInputStream();
     }
 
@@ -107,73 +127,74 @@ public class AlfrescoClasspathURLConnection extends URLConnection
     {
         if (this.realConnection == null)
         {
-            final StringBuilder pathBuilder = new StringBuilder();
-
-            if (this.basePath != null)
+            if (this.resource == null)
             {
-                pathBuilder.append(this.basePath);
-                pathBuilder.append('/');
-            }
-            pathBuilder.append(this.url.getPath());
+                final StringBuilder pathBuilder = new StringBuilder();
 
-            final ClassLoader classLoader = this.getClass().getClassLoader();
-
-            URL resource = null;
-
-            for (final String suffix : Arrays.asList(null, ".nashornjs", ".js"))
-            {
-                if (resource == null)
+                if (this.basePath != null)
                 {
-                    if (suffix != null)
-                    {
-                        pathBuilder.append(suffix);
-                    }
+                    pathBuilder.append(this.basePath);
+                    pathBuilder.append('/');
+                }
+                pathBuilder.append(this.url.getPath());
 
-                    if (this.allowExtension && this.extensionPath != null)
+                final ClassLoader classLoader = this.getClass().getClassLoader();
+
+                for (final String suffix : Arrays.asList(null, ".nashornjs", ".js"))
+                {
+                    if (this.resource == null)
                     {
-                        if (this.basePath != null)
+                        if (suffix != null)
                         {
-                            pathBuilder.insert(this.basePath.length(), '/');
-                            pathBuilder.insert(this.basePath.length() + 1, this.extensionPath);
-                        }
-                        else
-                        {
-                            pathBuilder.insert(0, this.extensionPath);
-                            pathBuilder.insert(this.extensionPath.length(), '/');
+                            pathBuilder.append(suffix);
                         }
 
-                        resource = classLoader.getResource(pathBuilder.toString());
-
-                        if (this.basePath != null)
+                        if (this.allowExtension && this.extensionPath != null)
                         {
-                            pathBuilder.delete(this.basePath.length(), this.extensionPath.length() + 1);
+                            if (this.basePath != null)
+                            {
+                                pathBuilder.insert(this.basePath.length(), '/');
+                                pathBuilder.insert(this.basePath.length() + 1, this.extensionPath);
+                            }
+                            else
+                            {
+                                pathBuilder.insert(0, this.extensionPath);
+                                pathBuilder.insert(this.extensionPath.length(), '/');
+                            }
+
+                            this.resource = classLoader.getResource(pathBuilder.toString());
+
+                            if (this.basePath != null)
+                            {
+                                pathBuilder.delete(this.basePath.length(), this.extensionPath.length() + 1);
+                            }
+                            else
+                            {
+                                pathBuilder.delete(0, this.extensionPath.length() + 1);
+                            }
                         }
-                        else
+
+                        if (this.resource == null)
                         {
-                            pathBuilder.delete(0, this.extensionPath.length() + 1);
+                            this.resource = classLoader.getResource(pathBuilder.toString());
                         }
-                    }
 
-                    if (resource == null)
-                    {
-                        resource = classLoader.getResource(pathBuilder.toString());
-                    }
-
-                    if (suffix != null)
-                    {
-                        pathBuilder.delete(pathBuilder.length() - suffix.length(), pathBuilder.length());
+                        if (suffix != null)
+                        {
+                            pathBuilder.delete(pathBuilder.length() - suffix.length(), pathBuilder.length());
+                        }
                     }
                 }
-            }
 
-            if (resource == null)
-            {
-                throw new IllegalStateException("No resource found for classpath: " + pathBuilder);
+                if (this.resource == null)
+                {
+                    throw new IllegalStateException("No resource found for classpath: " + pathBuilder);
+                }
             }
 
             try
             {
-                this.realConnection = resource.openConnection();
+                this.realConnection = this.resource.openConnection();
             }
             catch (final IOException ioex)
             {
