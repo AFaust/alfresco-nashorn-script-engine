@@ -1,12 +1,17 @@
 'use strict';
-define('webscript', [ 'define', 'spring!webscripts.searchpath', 'spring!contentService', 'spring!retryingTransactionHelper' ],
+define(
+        'webscript',
+        [ 'define', 'spring!webscripts.searchpath', 'spring!contentService', 'spring!retryingTransactionHelper' ],
         function webscript_loader(define, searchPath, contentService, retryingTransactionHelper)
         {
-            var scriptLoader, apiStores, logger, idx, max, storeLoader, storeLoaders = [], suffixes = [ '', '.nashornjs', '.js' ], loader;
+            var scriptLoader, apiStores, logger, idx, max, storeLoader, storeLoaders = [], suffixes = [ '', '.nashornjs', '.js' ], loader, URL, WebScriptURLStreamHandler;
+
+            URL = Java.type('java.net.URL');
+            WebScriptURLStreamHandler = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.WebScriptURLStreamHandler');
 
             apiStores = searchPath.stores;
-            logger = Packages.org.slf4j.LoggerFactory
-                    .getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.webscript-loader');
+            logger = Java.type('org.slf4j.LoggerFactory').getLogger(
+                    'de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.webscript');
 
             for (idx = 0, max = apiStores.length; idx < max; idx++)
             {
@@ -37,9 +42,8 @@ define('webscript', [ 'define', 'spring!webscripts.searchpath', 'spring!contentS
                     if (script !== null)
                     {
                         logger.trace('Script stores contains a script {} for module id {}', script, normalizedId);
-                        url = new Packages.java.net.URL('webscript', null, -1, normalizedId,
-                                new Packages.de.axelfaust.alfresco.nashorn.repo.loaders.WebScriptURLStreamHandler(script, contentService,
-                                        retryingTransactionHelper));
+                        url = new URL('webscript', null, -1, normalizedId, new WebScriptURLStreamHandler(script, contentService,
+                                retryingTransactionHelper));
                         load(url, script.isSecure());
                     }
                     else

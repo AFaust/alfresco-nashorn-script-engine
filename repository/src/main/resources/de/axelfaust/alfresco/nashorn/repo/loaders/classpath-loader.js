@@ -2,15 +2,18 @@
 // non-extensible raw classpath loader (scripts located anywhere in classpath)
 define('classpath', [], function classpath_loader()
 {
-    var ClasspathURLStreamHandler, logger, loader;
+    var ClasspathURLStreamHandler, URL, URLStreamHandler, AlfrescoClasspathURLConnection, logger, loader;
 
-    logger = Packages.org.slf4j.LoggerFactory
-            .getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.classpath-loader');
+    logger = Java.type('org.slf4j.LoggerFactory').getLogger(
+            'de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.classpath');
+    URL = Java.type('java.net.URL');
+    URLStreamHandler = Java.type('java.net.URLStreamHandler');
+    AlfrescoClasspathURLConnection = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLConnection');
 
-    ClasspathURLStreamHandler = Java.extend(java.net.URLStreamHandler, {
+    ClasspathURLStreamHandler = Java.extend(URLStreamHandler, {
         openConnection : function classpath_loader__ClasspathURLStreamHandler_openConnection(url)
         {
-            var con = new Packages.de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLConnection(url, null, false, null);
+            var con = new AlfrescoClasspathURLConnection(url, null, false, null);
             return con;
         }
     });
@@ -18,7 +21,7 @@ define('classpath', [], function classpath_loader()
     loader = {
         load : function classpath_loader__load(normalizedId, require, load)
         {
-            var url = new Packages.java.net.URL('classpath', null, -1, normalizedId, new ClasspathURLStreamHandler());
+            var url = new URL('classpath', null, -1, normalizedId, new ClasspathURLStreamHandler());
 
             logger.trace('Loading module id {} from classpath', normalizedId);
 
@@ -35,15 +38,18 @@ define('classpath', [], function classpath_loader()
 // extensible alfresco classpath loader (scripts located in /alfresco/extension/ or /alfresco/)
 define('extensible-classpath', [], function extensible_classpath_loader__load()
 {
-    var ClasspathURLStreamHandler, logger, loader;
+    var ClasspathURLStreamHandler, URL, URLStreamHandler, AlfrescoClasspathURLConnection, logger, loader;
 
-    logger = Packages.org.slf4j.LoggerFactory
-            .getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.extensible-classpath-loader');
+    logger = Java.type('org.slf4j.LoggerFactory').getLogger(
+            'de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.extensible-classpath');
+    URL = Java.type('java.net.URL');
+    URLStreamHandler = Java.type('java.net.URLStreamHandler');
+    AlfrescoClasspathURLConnection = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLConnection');
 
-    ClasspathURLStreamHandler = Java.extend(java.net.URLStreamHandler, {
+    ClasspathURLStreamHandler = Java.extend(URLStreamHandler, {
         openConnection : function extensible_classpath_loader__ClasspathURLStreamHandler_openConnection(url)
         {
-            var con = new Packages.de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLConnection(url, true);
+            var con = new AlfrescoClasspathURLConnection(url, true);
             return con;
         }
     });
@@ -51,7 +57,7 @@ define('extensible-classpath', [], function extensible_classpath_loader__load()
     loader = {
         load : function extensible_classpath_loader__load(normalizedId, require, load)
         {
-            var url = new Packages.java.net.URL('extensible-classpath', null, -1, normalizedId, new ClasspathURLStreamHandler());
+            var url = new URL('extensible-classpath', null, -1, normalizedId, new ClasspathURLStreamHandler());
 
             logger.trace('Loading module id {} from extensible classpath', normalizedId);
 

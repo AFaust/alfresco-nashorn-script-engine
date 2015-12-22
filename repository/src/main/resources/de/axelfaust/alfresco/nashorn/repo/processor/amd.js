@@ -10,12 +10,13 @@
     // internal fns
     isObject, normalizeSimpleId, normalizeModuleId, mapModuleId, loadModule, getModule, checkAndFulfillModuleListeners, _load, SecureUseOnlyWrapper, clone,
     // Java utils
-    NashornUtils, logger,
+    NashornUtils, URL, logger,
     // public fns
     require, define;
 
-    NashornUtils = Packages.de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils;
-    logger = Packages.org.slf4j.LoggerFactory.getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.amd');
+    NashornUtils = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils');
+    URL = Java.type('java.net.URL');
+    logger = Java.type('org.slf4j.LoggerFactory').getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.amd');
 
     isObject = function amd__isObject(o)
     {
@@ -260,7 +261,7 @@
 
         if (value !== undefined && value !== null)
         {
-            if (value instanceof Packages.java.net.URL)
+            if (value instanceof URL)
             {
                 url = value;
                 if (moduleByUrl.hasOwnProperty(String(url)))
@@ -844,7 +845,6 @@
 
         try
         {
-
             Object.keys(config).forEach(configKeyFn, this);
         }
         catch (e)
@@ -981,11 +981,16 @@
         if (isObject(contextModule))
         {
             moduleId = contextModule.id;
+
+            if (moduleId.indexOf(contextModule.loader + '!') === 0)
+            {
+                moduleId = moduleId.substring(moduleId.indexOf('!') + 1);
+            }
         }
 
         return moduleId;
     };
-    
+
     require.getCallerScriptModuleLoader = function amd__require_getCallerScriptModuleLoader()
     {
         var contextScriptUrl, contextModule, moduleLoader;
