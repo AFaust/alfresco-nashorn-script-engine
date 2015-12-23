@@ -78,10 +78,9 @@ define([ 'require' ], function logger(require)
     {
         var logger = getSLF4JLogger(), prop, isEnabled = false;
 
-        // TODO Find out why Nashorn property getter resolution does not work here
         prop = (level || 'debug') + 'Enabled';
-        prop = 'is' + prop.charAt(0).toUpperCase() + prop.substring(1);
-        isEnabled = logger[prop]();
+        // JavaLinker has a minor bug not handling ConsString -> force String
+        isEnabled = logger[String(prop)];
 
         return isEnabled;
     };
