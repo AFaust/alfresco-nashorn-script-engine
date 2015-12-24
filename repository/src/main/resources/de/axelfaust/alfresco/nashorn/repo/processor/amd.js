@@ -10,12 +10,16 @@
     // internal fns
     isObject, normalizeSimpleId, normalizeModuleId, mapModuleId, loadModule, getModule, checkAndFulfillModuleListeners, _load, SecureUseOnlyWrapper, clone,
     // Java utils
-    NashornUtils, URL, logger,
+    NashornUtils, URL, URLStreamHandler, AlfrescoClasspathURLConnection, ClasspathURLStreamHandler, logger,
+    // meta loader module
+    loaderMetaLoader,
     // public fns
     require, define;
 
     NashornUtils = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils');
     URL = Java.type('java.net.URL');
+    URLStreamHandler = Java.type('java.net.URLStreamHandler');
+    AlfrescoClasspathURLConnection = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLConnection');
     logger = Java.type('org.slf4j.LoggerFactory').getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.amd');
 
     isObject = function amd__isObject(o)
@@ -207,9 +211,9 @@
         return result;
     };
 
-    normalizeModuleId = function amd__normalizeModuleId(id, contextModule)
+    normalizeModuleId = function amd__normalizeModuleId(id, contextModule, contextUrl, forceIsSecure)
     {
-        var loaderName, realId, loader, normalizedId;
+        var loaderName, realId, loader, normalizedId, isSecure;
         if (typeof id !== 'string')
         {
             throw new Error('Module ID was either not provided or is not a string');
@@ -224,16 +228,11 @@
 
             logger.trace('Retrieving loader "{}" for module "{}"', loaderName, id);
 
-            loader = getModule(loaderName, true);
+            isSecure = forceIsSecure === true || (isObject(contextModule) && contextModule.secureSource === true);
+            loader = getModule(loaderName, true, isSecure, isObject(contextModule) ? contextModule.url : contextUrl);
             if (loader === null)
             {
                 throw new Error('No loader plugin named \'' + loaderName + '\' has been registered');
-            }
-
-            if (loader instanceof SecureUseOnlyWrapper)
-            {
-                logger.trace('Unwrapping secure-use only loader "{}"', loaderName);
-                loader = loader.wrapped;
             }
 
             if (typeof loader.normalize === 'function')
@@ -261,7 +260,7 @@
 
         if (value !== undefined && value !== null)
         {
-            if (value instanceof URL)
+            if (value instanceof URL || typeof value === 'string')
             {
                 url = value;
                 if (moduleByUrl.hasOwnProperty(String(url)))
@@ -341,9 +340,9 @@
         }
     };
 
-    loadModule = function amd__loadModule(normalizedId)
+    loadModule = function amd__loadModule(normalizedId, callerSecure, callerUrl)
     {
-        var id, loaderName, loader, idFragments, prospectivePackageName, length, packageConfig;
+        var id, loaderName, loader, secureLoader, idFragments, prospectivePackageName, length, packageConfig;
 
         logger.debug('Loading module "{}"', normalizedId);
 
@@ -354,19 +353,22 @@
 
             logger.trace('Retrieving loader "{}" for module "{}"', loaderName, id);
 
-            loader = getModule(loaderName, true);
+            loader = getModule(loaderName, true, callerSecure, callerUrl);
 
-            if (loader instanceof SecureUseOnlyWrapper)
-            {
-                logger.trace('Unwrapping secure-use only loader "{}"', loaderName);
-                loader = loader.wrapped;
-            }
+            secureLoader = modules[loaderName].secureSource === true;
 
             if (typeof loader.load === 'function')
             {
                 loader.load(id, require, function amd__loadModule_explicitLoaderCallback(value, isSecureSource)
                 {
-                    _load(value, normalizedId, loaderName, isSecureSource);
+                    if (secureLoader === true || isSecureSource === false)
+                    {
+                        _load(value, normalizedId, loaderName, isSecureSource);
+                    }
+                    else
+                    {
+                        throw new Error('Insecure loader module \'' + loaderName + '\' cannot declare a loaded module as secure');
+                    }
                 });
             }
             else
@@ -400,19 +402,22 @@
 
                 logger.trace('Retrieving loader "{}" for module "{}"', loaderName, id);
 
-                loader = getModule(loaderName, true);
+                loader = getModule(loaderName, true, callerSecure, callerUrl);
 
-                if (loader instanceof SecureUseOnlyWrapper)
-                {
-                    logger.trace('Unwrapping secure-use only loader "{}"', loaderName);
-                    loader = loader.wrapped;
-                }
+                secureLoader = modules[loaderName].secureSource === true;
 
                 if (typeof loader.load === 'function')
                 {
                     loader.load(id, require, function amd__loadModule_packageLoaderCallback(value, isSecureSource)
                     {
-                        _load(value, normalizedId, loaderName, isSecureSource);
+                        if (secureLoader === true || isSecureSource === false)
+                        {
+                            _load(value, normalizedId, loaderName, isSecureSource);
+                        }
+                        else
+                        {
+                            throw new Error('Insecure loader module \'' + loaderName + '\' cannot declare a loaded module as secure');
+                        }
                     });
                 }
                 else
@@ -427,7 +432,7 @@
         }
     };
 
-    getModule = function amd__getModule(normalizedId, doLoad)
+    getModule = function amd__getModule(normalizedId, doLoad, callerSecure, callerUrl)
     {
         var module, isSecure, moduleResult, dependency, resolvedDependencies, idx;
 
@@ -442,7 +447,7 @@
         {
             logger.trace('Module "{}" not defined yet - forcing load', normalizedId);
 
-            loadModule(normalizedId);
+            loadModule(normalizedId, callerSecure, callerUrl);
 
             if (modules.hasOwnProperty(normalizedId))
             {
@@ -507,19 +512,7 @@
                             {
                                 logger.debug('Loading dependency "{}" for module "{}"', module.dependencies[idx], normalizedId);
 
-                                dependency = getModule(module.dependencies[idx], true);
-
-                                if (isSecure === false && dependency !== null && dependency.secureUseOnly === true)
-                                {
-                                    throw new Error('Access to module \'' + module.dependencies[idx]
-                                            + '\' is not allowed for unsecure caller \'' + module.url + '\'');
-                                }
-
-                                if (dependency instanceof SecureUseOnlyWrapper)
-                                {
-                                    logger.trace('Unwrapping secure-use only dependency "{}"', module.dependencies[idx]);
-                                    dependency = dependency.wrapped;
-                                }
+                                dependency = getModule(module.dependencies[idx], true, isSecure, module.url);
 
                                 resolvedDependencies.push(dependency);
                             }
@@ -545,6 +538,7 @@
                     module.constructing = false;
                     throw e;
                 }
+
                 moduleResult = module.result;
             }
             else
@@ -559,6 +553,16 @@
         }
 
         checkAndFulfillModuleListeners(module);
+
+        if (callerSecure !== true && moduleResult !== undefined && moduleResult !== null && moduleResult.secureUseOnly === true)
+        {
+            throw new Error('Access to module \'' + normalizedId + '\' is not allowed for unsecure caller \'' + callerUrl + '\'');
+        }
+
+        if (moduleResult instanceof SecureUseOnlyWrapper)
+        {
+            moduleResult = moduleResult.wrapped;
+        }
 
         return moduleResult;
     };
@@ -581,19 +585,7 @@
                         args = [];
                         for (dIdx = 0; dIdx < listener.dependencies.length; dIdx += 1)
                         {
-                            dependency = getModule(listener.dependencies[dIdx], true);
-
-                            if (listener.isSecure === false && dependency !== null && dependency.secureUseOnly === true)
-                            {
-                                throw new Error('Access to module \'' + module.dependencies[idx]
-                                        + '\' is not allowed for unsecure listener \'' + listener.url + '\'');
-                            }
-
-                            if (dependency instanceof SecureUseOnlyWrapper)
-                            {
-                                dependency = dependency.wrapped;
-                            }
-
+                            dependency = getModule(listener.dependencies[dIdx], true, listener.isSecure, listener.url);
                             args.push(dependency);
                         }
 
@@ -603,6 +595,26 @@
                     }
                 }
             }
+        }
+    };
+
+    ClasspathURLStreamHandler = Java.extend(URLStreamHandler, {
+        openConnection : function amd__loaderMetaLoader__ClasspathURLStreamHandler_openConnection(url)
+        {
+            var con = new AlfrescoClasspathURLConnection(url, null, false, null);
+            return con;
+        }
+    });
+
+    loaderMetaLoader = {
+        load : function amd__loaderMetaLoader__load(normalizedId, require, load)
+        {
+            var url = new URL('classpath', null, -1, 'de/axelfaust/alfresco/nashorn/repo/loaders/' + normalizedId,
+                    new ClasspathURLStreamHandler());
+
+            logger.trace('Loading loader module {} from classpath', normalizedId);
+
+            load(url, true);
         }
     };
 
@@ -619,20 +631,9 @@
         if (typeof dependencies === 'string')
         {
             // require(string)
-            normalizedModuleId = normalizeModuleId(dependencies, contextModule);
+            normalizedModuleId = normalizeModuleId(dependencies, contextModule, contextScriptUrl);
             // MUST fail if module is not yet defined or initialised
-            module = getModule(normalizedModuleId, false);
-
-            if (isSecure === false && module !== null && module.secureUseOnly === true)
-            {
-                throw new Error('Access to module \'' + normalizedModuleId + '\' is not allowed for unsecure caller \'' + contextScriptUrl
-                        + '\'');
-            }
-
-            if (module instanceof SecureUseOnlyWrapper)
-            {
-                module = module.wrapped;
-            }
+            module = getModule(normalizedModuleId, false, isSecure, contextScriptUrl);
 
             return module;
         }
@@ -642,21 +643,8 @@
             args = [];
             for (idx = 0; idx < dependencies.length; idx += 1)
             {
-                normalizedModuleId = normalizeModuleId(dependencies[idx], contextModule);
-
-                module = getModule(normalizedModuleId, true);
-
-                if (isSecure === false && module !== null && module.secureUseOnly === true)
-                {
-                    throw new Error('Access to module \'' + normalizedModuleId + '\' is not allowed for unsecure caller \''
-                            + contextScriptUrl + '\'');
-                }
-
-                if (module instanceof SecureUseOnlyWrapper)
-                {
-                    module = module.wrapped;
-                }
-
+                normalizedModuleId = normalizeModuleId(dependencies[idx], contextModule, contextScriptUrl);
+                module = getModule(normalizedModuleId, true, isSecure, contextScriptUrl);
                 args.push(module);
             }
 
@@ -692,6 +680,7 @@
 
         listener = {
             isSecure : isSecure,
+            url : contextScriptUrl,
             callback : callback,
             resolved : [],
             dependencies : [],
@@ -700,14 +689,14 @@
 
         if (typeof dependencies === 'string')
         {
-            normalizedModuleId = normalizeModuleId(dependencies, contextModule);
+            normalizedModuleId = normalizeModuleId(dependencies, contextModule, contextScriptUrl);
             listener.dependencies.push(normalizedModuleId);
         }
         else if (Array.isArray(dependencies))
         {
             for (idx = 0; idx < dependencies.length; idx += 1)
             {
-                normalizedModuleId = normalizeModuleId(dependencies[idx], contextModule);
+                normalizedModuleId = normalizeModuleId(dependencies[idx], contextModule, contextScriptUrl);
                 listener.dependencies.push(normalizedModuleId);
             }
         }
@@ -888,7 +877,7 @@
 
         moduleListeners.forEach(function amd__require_config_prepareListeners(moduleListener)
         {
-            var idx = 0;
+            var idx;
             for (idx = 0; idx < moduleListener.dependencies; idx += 1)
             {
                 if (!moduleListenersByModule.hasOwnProperty(moduleListener.dependencies[idx]))
@@ -899,11 +888,6 @@
                 moduleListenersByModule[moduleListener.dependencies[idx]].push(moduleListener);
             }
         }, this);
-
-        if (logger.traceEnabled)
-        {
-            logger.trace('Restored modules {} from backup', JSON.stringify(Object.keys(modules)));
-        }
     };
 
     require.reset = function amd__require_reset()
@@ -911,7 +895,9 @@
         logger.debug('Resetting AMD loader state to backup');
 
         // clone
-        modules = isObject(moduleBackup) ? clone(moduleBackup) : {};
+        modules = isObject(moduleBackup) ? clone(moduleBackup, {
+            result : true
+        }) : {};
         moduleByUrl = {};
         moduleListeners = isObject(moduleListenersBackup) ? clone(moduleListenersBackup) : [];
         moduleListenersByModule = {};
@@ -1050,7 +1036,7 @@
                 throw new Error('Dependency identifier is not a string');
             }
 
-            dependencies[idx] = normalizeModuleId(dependencies[idx], contextModule);
+            dependencies[idx] = normalizeModuleId(dependencies[idx], contextModule, contextScriptUrl);
         }
 
         if (id === undefined || id === null)
@@ -1119,7 +1105,7 @@
 
     define.preload = function amd__define_preload(moduleId)
     {
-        var normalizedModuleId;
+        var normalizedModuleId, contextScriptUrl;
 
         if (moduleId === undefined || moduleId === null)
         {
@@ -1128,12 +1114,13 @@
 
         if (typeof moduleId === 'string')
         {
-            normalizedModuleId = normalizeModuleId(moduleId);
+            contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
+            normalizedModuleId = normalizeModuleId(moduleId, null, contextScriptUrl, true);
 
             if (!modules.hasOwnProperty(normalizedModuleId))
             {
                 logger.debug('Pre-loading module "{}"', normalizedModuleId);
-                loadModule(normalizedModuleId);
+                loadModule(normalizedModuleId, true, contextScriptUrl);
             }
         }
         else
@@ -1146,9 +1133,12 @@
     define.amd = {};
 
     // freeze all the things
+    Object.freeze(loaderMetaLoader.load);
+    Object.freeze(loaderMetaLoader);
     Object.freeze(require.whenAvailable);
     Object.freeze(require.isSecureCallerScript);
     Object.freeze(require.reset);
+    // require / require.config can't be frozen yet
     Object.freeze(define.asSecureUseModule);
     Object.freeze(define.preload);
     Object.freeze(define.amd);
@@ -1156,23 +1146,32 @@
 
     modules.require = {
         id : 'require',
+        secureSource : true,
         result : require,
         url : NashornUtils.getCallerScriptURL(false, false)
     };
 
     modules.define = {
         id : 'define',
+        secureSource : true,
         result : define,
+        url : NashornUtils.getCallerScriptURL(false, false)
+    };
+
+    modules.loaderMetaLoader = {
+        id : 'loaderMetaLoader',
+        secureSource : true,
+        result : loaderMetaLoader,
         url : NashornUtils.getCallerScriptURL(false, false)
     };
 
     Object.defineProperty(this, 'require', {
         value : require,
-        enumerable : true
+        enumerable : false
     });
 
     Object.defineProperty(this, 'define', {
         value : define,
-        enumerable : true
+        enumerable : false
     });
 }.call(this));

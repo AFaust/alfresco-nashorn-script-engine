@@ -10,14 +10,15 @@
     <bean id="${project.artifactId}-nashornScriptEngine" factory-bean="${project.artifactId}-nashornScriptEngineFactory" factory-method="getScriptEngine">
         <constructor-arg>
             <list>
-                <value>-strict=false</value>
+                <!-- scripting is not configurable -->
                 <value>-scripting=false</value>
+                <value>-strict=${nashornJavaScriptProcessor.nashorn.flag.strict}</value>
                 <value>-doe=true</value>
-                <value>-pcc=true</value>
-                <value>-ot=true</value>
+                <value>-pcc=${nashornJavaScriptProcessor.nashorn.flag.persistentScriptCache}</value>
+                <value>-ot=${nashornJavaScriptProcessor.nashorn.flag.optimisticTypes}</value>
 
-                <value>--debug-lines=true</value>
-                <value>--debug-locals=true</value>
+                <value>--debug-lines=${nashornJavaScriptProcessor.nashorn.flag.debugLines}</value>
+                <value>--debug-locals=${nashornJavaScriptProcessor.nashorn.flag.debugLocals}</value>
             </list>
         </constructor-arg>
     </bean>
@@ -29,6 +30,7 @@
         <property name="moduleService" ref="ModuleService" />
         <property name="globalProperties" ref="global-properties" />
         <property name="amdConfig" value="${nashornJavaScriptProcessor.amd.config}" />
+        <property name="nashornGlobalPropertiesToRemove" value="${nashornJavaScriptProcessor.nashorn.global.propertiesToRemove}" />
 
         <!-- javascript is already taken by javaScriptProcessor -->
         <property name="name" value="nashorn" />

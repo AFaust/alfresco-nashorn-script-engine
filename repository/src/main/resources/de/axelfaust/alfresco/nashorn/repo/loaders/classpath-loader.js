@@ -1,6 +1,6 @@
 'use strict';
 // non-extensible raw classpath loader (scripts located anywhere in classpath)
-define('classpath', [], function classpath_loader()
+define('classpath', [ 'nashorn!Java' ], function classpath_loader(Java)
 {
     var ClasspathURLStreamHandler, URL, URLStreamHandler, AlfrescoClasspathURLConnection, logger, loader;
 
@@ -36,7 +36,7 @@ define('classpath', [], function classpath_loader()
 });
 
 // extensible alfresco classpath loader (scripts located in /alfresco/extension/ or /alfresco/)
-define('extensible-classpath', [], function extensible_classpath_loader__load()
+define('extensible-classpath', [ 'nashorn!Java' ], function extensible_classpath_loader__load(Java)
 {
     var ClasspathURLStreamHandler, URL, URLStreamHandler, AlfrescoClasspathURLConnection, logger, loader;
 

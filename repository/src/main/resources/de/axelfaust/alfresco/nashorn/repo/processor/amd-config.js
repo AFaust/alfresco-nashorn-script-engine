@@ -21,7 +21,7 @@
         }],
         map : {
             '*' : {
-                'alfresco/service' : 'alfrescoServices',
+                'alfresco/foundation' : 'alfrescoServices',
                 'alfresco/webscript' : 'alfrescoWebScript'
             }
         }

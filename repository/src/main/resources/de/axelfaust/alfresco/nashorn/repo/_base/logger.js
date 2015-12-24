@@ -1,5 +1,5 @@
 'use strict';
-define([ 'require' ], function logger(require)
+define([ 'require', 'nashorn!Java' ], function logger(require, Java)
 {
     var logger, getSLF4JLogger, logImpl, isEnabledImpl, loggerByScriptUrl = {}, Throwable, LoggerFactory;
 

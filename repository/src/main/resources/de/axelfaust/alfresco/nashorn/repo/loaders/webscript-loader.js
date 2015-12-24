@@ -1,13 +1,14 @@
 'use strict';
 define(
         'webscript',
-        [ 'define', 'spring!webscripts.searchpath', 'spring!contentService', 'spring!retryingTransactionHelper' ],
-        function webscript_loader(define, searchPath, contentService, retryingTransactionHelper)
+        [ 'define', 'spring!webscripts.searchpath', 'spring!contentService', 'spring!retryingTransactionHelper', 'nashorn!Java' ],
+        function webscript_loader(define, searchPath, contentService, retryingTransactionHelper, Java)
         {
-            var scriptLoader, apiStores, logger, idx, max, storeLoader, storeLoaders = [], suffixes = [ '', '.nashornjs', '.js' ], loader, URL, WebScriptURLStreamHandler;
+            var scriptLoader, apiStores, logger, idx, max, storeLoader, storeLoaders = [], suffixes = [ '', '.nashornjs', '.js' ], loader, URL, WebScriptURLStreamHandler, MultiScriptLoader;
 
             URL = Java.type('java.net.URL');
             WebScriptURLStreamHandler = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.WebScriptURLStreamHandler');
+            MultiScriptLoader = Java.type('org.springframework.extensions.webscripts.MultiScriptLoader');
 
             apiStores = searchPath.stores;
             logger = Java.type('org.slf4j.LoggerFactory').getLogger(
@@ -23,8 +24,7 @@ define(
                 storeLoaders.push(storeLoader);
             }
 
-            scriptLoader = new org.springframework.extensions.webscripts.MultiScriptLoader(Java.to(storeLoaders,
-                    'org.springframework.extensions.webscripts.ScriptLoader[]'));
+            scriptLoader = new MultiScriptLoader(Java.to(storeLoaders, 'org.springframework.extensions.webscripts.ScriptLoader[]'));
 
             loader = {
                 load : function webscript_loader__load(normalizedId, require, load)
@@ -49,7 +49,6 @@ define(
                     else
                     {
                         logger.trace('Script stores do not contain a script for module id {}', normalizedId);
-                        load(null, false);
                     }
                 }
             };

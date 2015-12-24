@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.net.URL;
 import java.text.MessageFormat;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -52,8 +53,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.core.io.Resource;
 
-import de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLConnection;
-
 /**
  * @author Axel Faust
  */
@@ -66,6 +65,13 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
     private static final String CONTEXT_UUID_FIELD = "_scriptContextUUID";
 
+    private static final String SCRIPT_AMD = "amd.js";
+
+    private static final String SCRIPE_EXECUTE_AMD_LOADABLE_SCRIPT = "amd-execute-loadable-script.js";
+
+    private static final List<String> NASHORN_GLOBAL_PROPERTIES_TO_ALWAYS_REMOVE = Arrays.asList("load", "loadWithNewGlobal", "exit",
+            "quit");
+
     protected ScriptEngine engine;
 
     protected ModuleService moduleService;
@@ -73,6 +79,8 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
     protected Properties globalProperties;
 
     protected Resource amdConfig;
+
+    protected String nashornGlobalPropertiesToRemove;
 
     protected final ReentrantReadWriteLock scriptContextLock = new ReentrantReadWriteLock(true);
 
@@ -114,6 +122,15 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
     public void setAmdConfig(final Resource amdConfig)
     {
         this.amdConfig = amdConfig;
+    }
+
+    /**
+     * @param nashornGlobalPropertiesToRemove
+     *            the nashornGlobalPropertiesToRemove to set
+     */
+    public void setNashornGlobalPropertiesToRemove(final String nashornGlobalPropertiesToRemove)
+    {
+        this.nashornGlobalPropertiesToRemove = nashornGlobalPropertiesToRemove;
     }
 
     /**
@@ -216,7 +233,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
                 ctxt.setAttribute("_loadableModule", script, ScriptContext.GLOBAL_SCOPE);
                 ctxt.setAttribute("_argumentModel", model, ScriptContext.GLOBAL_SCOPE);
 
-                final URL resource = NashornScriptProcessor.class.getResource("amd-execute-loadable-script.js");
+                final URL resource = NashornScriptProcessor.class.getResource(SCRIPE_EXECUTE_AMD_LOADABLE_SCRIPT);
                 final Object scriptResult = this.executeScriptFromResource(resource, ctxt);
 
                 // TODO Convert / unwrap scriptResult for Java
@@ -236,7 +253,6 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
     protected ScriptContext obtainScriptContext() throws ScriptException
     {
         ScriptContext context;
-        URL resource;
 
         this.scriptContextLock.readLock().lock();
         try
@@ -265,19 +281,21 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         else
         {
             LOGGER.debug("Clearing re-usable script context");
-            // reset
-            resource = NashornScriptProcessor.class.getResource("scope-clear.js");
-            this.executeScriptFromResource(resource, context);
 
             // clear all data left at this stage
             context.getBindings(ScriptContext.GLOBAL_SCOPE).clear();
 
+            // remove any potentially added non-default global property
+            final Bindings engineBindings = context.getBindings(ScriptContext.ENGINE_SCOPE);
+            for (final String key : engineBindings.keySet())
+            {
+                // we define the UUID field so we keep it
+                if (!CONTEXT_UUID_FIELD.equals(key))
+                {
+                    engineBindings.remove(key);
+                }
+            }
         }
-
-        LOGGER.debug("Preparing script context for execution");
-        // prepare scope
-        resource = NashornScriptProcessor.class.getResource("scope-prepare.js");
-        this.executeScriptFromResource(resource, context);
 
         return context;
     }
@@ -332,13 +350,26 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
         LOGGER.debug("Executing bootstrap scripts");
 
-        // AMD loader to be used for all scripts apart from bootstrap
-        resource = NashornScriptProcessor.class.getResource("amd.js");
+        // 1) AMD loader to be used for all scripts apart from bootstrap
+        resource = NashornScriptProcessor.class.getResource(SCRIPT_AMD);
         this.executeScriptFromResource(resource, ctxt);
 
-        // the root loader plugin so AMD loader can actually be used
-        resource = AlfrescoClasspathURLConnection.class.getResource("classpath-loader.js");
-        this.executeScriptFromResource(resource, ctxt);
+        // 2) the nashorn loader plugin so we can control access to globals
+        this.preloadAMDModule(ctxt, "loaderMetaLoader", "nashorn-loader");
+
+        // remove Nashorn globals
+        for (final String property : NASHORN_GLOBAL_PROPERTIES_TO_ALWAYS_REMOVE)
+        {
+            engineBindings.remove(property);
+        }
+
+        if (this.nashornGlobalPropertiesToRemove != null)
+        {
+            for (final String property : this.nashornGlobalPropertiesToRemove.split(","))
+            {
+                engineBindings.remove(property.trim());
+            }
+        }
 
         globalBindings.put("processorExtensions", this.processorExtensions);
 
@@ -360,9 +391,6 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
         final String uuid = UUID.randomUUID().toString();
         ctxt.setAttribute(CONTEXT_UUID_FIELD, uuid, ScriptContext.ENGINE_SCOPE);
-
-        resource = NashornScriptProcessor.class.getResource("complete-processor-init.js");
-        this.executeScriptFromResource(resource, ctxt);
 
         // remove any init data that shouldn't be publicly available
         globalBindings.clear();
@@ -435,27 +463,33 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
                     if (moduleIdValue instanceof String && loaderNameValue instanceof String)
                     {
-                        final String fullModuleId = MessageFormat.format("{0}!{1}", loaderNameValue, moduleIdValue);
-
-                        LOGGER.trace("Pre-loading module {}", fullModuleId);
-
-                        ctxt.setAttribute(_PRELOAD_MODULE_FIELD, fullModuleId, ScriptContext.GLOBAL_SCOPE);
-                        ctxt.setAttribute(ScriptEngine.FILENAME, "preload-" + fullModuleId, ScriptContext.ENGINE_SCOPE);
-                        try
-                        {
-                            this.engine.eval("define.preload(_preloadModule);", ctxt);
-                        }
-                        finally
-                        {
-                            ctxt.removeAttribute(_PRELOAD_MODULE_FIELD, ScriptContext.GLOBAL_SCOPE);
-                            LOGGER.trace("Pre-loading of module {} completed", fullModuleId);
-                        }
+                        this.preloadAMDModule(ctxt, loaderNameValue, moduleIdValue);
                     }
                 }
             }
 
             // mark as executed
             moduleExecution.setSecond(Boolean.TRUE);
+        }
+    }
+
+    protected void preloadAMDModule(final ScriptContext ctxt, final Object loaderNameValue, final Object moduleIdValue)
+            throws ScriptException
+    {
+        final String fullModuleId = MessageFormat.format("{0}!{1}", loaderNameValue, moduleIdValue);
+
+        LOGGER.trace("Pre-loading module {}", fullModuleId);
+
+        ctxt.setAttribute(_PRELOAD_MODULE_FIELD, fullModuleId, ScriptContext.GLOBAL_SCOPE);
+        ctxt.setAttribute(ScriptEngine.FILENAME, "preload-" + fullModuleId, ScriptContext.ENGINE_SCOPE);
+        try
+        {
+            this.engine.eval("define.preload(_preloadModule);", ctxt);
+        }
+        finally
+        {
+            ctxt.removeAttribute(_PRELOAD_MODULE_FIELD, ScriptContext.GLOBAL_SCOPE);
+            LOGGER.trace("Pre-loading of module {} completed", fullModuleId);
         }
     }
 
