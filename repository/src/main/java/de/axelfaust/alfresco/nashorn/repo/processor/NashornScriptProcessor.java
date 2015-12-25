@@ -246,7 +246,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         }
         catch (final ScriptException se)
         {
-            throw new org.alfresco.scripts.ScriptException("", se);
+            throw new org.alfresco.scripts.ScriptException("Error executing AMD-loadable script", se);
         }
     }
 
