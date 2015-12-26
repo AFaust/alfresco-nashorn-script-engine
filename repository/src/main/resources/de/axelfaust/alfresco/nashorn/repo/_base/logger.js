@@ -21,9 +21,17 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
             callerScriptModuleId = require.getCallerScriptModuleId();
             callerScriptModuleLoader = require.getCallerScriptModuleLoader();
 
-            logger = LoggerFactory.getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
-                    + callerScriptModuleLoader + '.' + callerScriptModuleId.replace('/', '.'));
-            loggerByScriptUrl[callerScriptURL];
+            if (typeof callerScriptModuleId === 'string')
+            {
+                logger = LoggerFactory.getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
+                        + callerScriptModuleLoader + '.' + callerScriptModuleId.replace(/[\/\.]+/g, '.'));
+            }
+            else
+            {
+                logger = LoggerFactory.getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
+                        + callerScriptURL.replace(/[\/:!\.]+/g, '.'));
+            }
+            loggerByScriptUrl[callerScriptURL] = logger;
         }
 
         return logger;
