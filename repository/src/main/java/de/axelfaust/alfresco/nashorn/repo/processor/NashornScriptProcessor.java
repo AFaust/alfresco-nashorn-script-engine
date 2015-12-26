@@ -236,6 +236,8 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
                 final URL resource = NashornScriptProcessor.class.getResource(SCRIPE_EXECUTE_AMD_LOADABLE_SCRIPT);
                 final Object scriptResult = this.executeScriptFromResource(resource, ctxt);
 
+                LOGGER.debug("Return value of AMD-loadable script {}: {}", script, scriptResult);
+
                 // TODO Convert / unwrap scriptResult for Java
                 return scriptResult;
             }

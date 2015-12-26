@@ -9,6 +9,8 @@
     nashornLoad = load,
     // internal fns
     isObject, normalizeSimpleId, normalizeModuleId, mapModuleId, loadModule, getModule, checkAndFulfillModuleListeners, _load, SecureUseOnlyWrapper, clone,
+    // internal error subtype
+    UnavailableModuleError,
     // Java utils
     NashornUtils, URL, URLStreamHandler, AlfrescoClasspathURLConnection, ClasspathURLStreamHandler, logger,
     // meta loader module
@@ -21,6 +23,18 @@
     URLStreamHandler = Java.type('java.net.URLStreamHandler');
     AlfrescoClasspathURLConnection = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLConnection');
     logger = Java.type('org.slf4j.LoggerFactory').getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.amd');
+
+    UnavailableModuleError = function amd__UnavailableModuleError(message)
+    {
+        var t = Error.apply(this, arguments);
+        this.stack = t.stack;
+        this.message = t.message;
+        return this;
+    };
+
+    UnavailableModuleError.prototype = Object.create(Error.prototype);
+    UnavailableModuleError.prototype.name = 'UnavailableModuleError';
+    UnavailableModuleError.prototype.constructor = UnavailableModuleError;
 
     isObject = function amd__isObject(o)
     {
@@ -256,7 +270,7 @@
 
     _load = function amd__load(value, normalizedId, loaderName, isSecureSource)
     {
-        var url, module;
+        var url, module, implicitResult;
 
         if (value !== undefined && value !== null)
         {
@@ -299,7 +313,25 @@
 
                     moduleByUrl[String(url)] = module;
 
-                    nashornLoad(url);
+                    implicitResult = nashornLoad(url);
+                    // script may not define a module
+                    // we store the result of script execution for require(dependencies[], successFn, errorFn)
+                    logger.trace('Module "{}" from url "{}" yielded implicit result "{}"', normalizedId, url, implicitResult);
+
+                    Object.defineProperty(module, 'implicitResult', {
+                        value : implicitResult,
+                        enumerable : true
+                    });
+
+                    // no module defined yet - may be a non-module script with implicit return value
+                    if (!modules.hasOwnProperty(normalizeModuleId))
+                    {
+                        Object.defineProperty(module, 'result', {
+                            value : null,
+                            enumerable : true
+                        });
+                        modules[normalizedId] = module;
+                    }
                 }
             }
             else
@@ -464,7 +496,7 @@
         }
         else
         {
-            throw new Error('Module \'' + normalizedId + '\' has not been defined');
+            throw new UnavailableModuleError('Module \'' + normalizedId + '\' has not been defined');
         }
 
         if (isObject(module))
@@ -473,6 +505,13 @@
             {
                 logger.trace('Module "{}" already initialised', normalizedId);
                 moduleResult = module.result;
+
+                // special case where module was only defined to track implicit return values
+                // see _load
+                if (moduleResult === null && module.hasOwnProperty('implicitResult'))
+                {
+                    throw new UnavailableModuleError('Module \'' + normalizedId + '\' could not be loaded');
+                }
             }
             else if (doLoad && module.constructing !== true)
             {
@@ -500,7 +539,7 @@
                             {
                                 logger
                                         .trace(
-                                                'Module "{}" uses "exports"-dependency to expose prematurely expose module during initialisation (avoiding circular dependency issues)',
+                                                'Module "{}" uses "exports"-dependency to expose module during initialisation (avoiding circular dependency issues)',
                                                 normalizedId);
                                 Object.defineProperty(module, 'result', {
                                     value : {},
@@ -549,7 +588,7 @@
         }
         else
         {
-            throw new Error('Module \'' + normalizedId + '\' could not be loaded');
+            throw new UnavailableModuleError('Module \'' + normalizedId + '\' could not be loaded');
         }
 
         checkAndFulfillModuleListeners(module);
@@ -618,9 +657,9 @@
         }
     };
 
-    require = function amd__require(dependencies, callback)
+    require = function amd__require(dependencies, callback, errCallback)
     {
-        var idx, args, normalizedModuleId, module, contextScriptUrl, contextModule, isSecure;
+        var idx, args, implicitArgs, normalizedModuleId, module, contextScriptUrl, contextModule, isSecure, failOnMissingDependency, missingModule = true;
 
         // skip this script to determine script URL of caller
         contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
@@ -630,6 +669,7 @@
 
         if (typeof dependencies === 'string')
         {
+            logger.trace('Resolving single dependency "{}" for call to require(string)', dependencies);
             // require(string)
             normalizedModuleId = normalizeModuleId(dependencies, contextModule, contextScriptUrl);
             // MUST fail if module is not yet defined or initialised
@@ -641,17 +681,69 @@
         if (Array.isArray(dependencies))
         {
             args = [];
+            implicitArgs = [];
+            failOnMissingDependency = typeof errCallback !== 'function';
+
+            logger.trace('Resolving {} dependencies for call to require(string[], function, function?)', dependencies.length);
+
             for (idx = 0; idx < dependencies.length; idx += 1)
             {
+                logger.trace('Resolving dependency "{}" for call to require(string[])', dependencies[0]);
                 normalizedModuleId = normalizeModuleId(dependencies[idx], contextModule, contextScriptUrl);
-                module = getModule(normalizedModuleId, true, isSecure, contextScriptUrl);
+
+                try
+                {
+                    module = getModule(normalizedModuleId, true, isSecure, contextScriptUrl);
+                }
+                catch (e)
+                {
+                    module = null;
+                    logger.trace('Failed to resolve dependency "{}" for call to require(string[], function, function?', dependencies[idx]);
+                    // rethrow
+                    if (failOnMissingDependency === true || !(e instanceof UnavailableModuleError))
+                    {
+                        throw e;
+                    }
+                }
+
                 args.push(module);
+
+                if (module === undefined || module === null)
+                {
+                    missingModule = true;
+                }
+
+                // only need to track implicit resolutions if we allow reoslution failures
+                if (failOnMissingDependency !== true)
+                {
+                    module = modules[normalizedModuleId];
+                    if (isObject(module))
+                    {
+                        implicitArgs.push(module.implicitResult);
+                    }
+                    else
+                    {
+                        implicitArgs.push(undefined);
+                    }
+
+                    logger.trace('Added implicit module result "{}" for call to require(string[], function, function?',
+                            implicitArgs[implicitArgs.length - 1]);
+                }
             }
 
-            // TODO Support an additional 'err' callback in case any module could not be loaded / resolved
-            if (typeof callback === 'function')
+            if (missingModule === true)
+            {
+                // if errCallback is not a function we'd have failed during resolution instead of ending here
+                // signature is fn(dependencies[], moduleResolutions[], implicitResolutions[])
+                errCallback.call(this, dependencies, args, implicitArgs);
+            }
+            else if (typeof callback === 'function')
             {
                 callback.apply(this, args);
+            }
+            else
+            {
+                throw new Error('No success callback was provided');
             }
 
             return args;
