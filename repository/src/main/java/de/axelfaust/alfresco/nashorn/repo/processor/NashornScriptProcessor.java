@@ -357,7 +357,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         this.executeScriptFromResource(resource, ctxt);
 
         // 2) the nashorn loader plugin so we can control access to globals
-        this.preloadAMDModule(ctxt, "loaderMetaLoader", "nashorn-loader");
+        this.preloadAMDModule(ctxt, "loaderMetaLoader", "nashorn");
 
         // remove Nashorn globals
         for (final String property : NASHORN_GLOBAL_PROPERTIES_TO_ALWAYS_REMOVE)
