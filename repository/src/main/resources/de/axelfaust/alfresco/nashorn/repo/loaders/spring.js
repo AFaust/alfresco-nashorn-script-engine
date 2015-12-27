@@ -1,18 +1,21 @@
 'use strict';
-define('spring', [ 'define', 'nashorn!Java' ], function spring_loader(define, Java)
+(function spring_loader__global()
 {
-    var loader, applicationContext = Java.type('org.springframework.web.context.ContextLoader').getCurrentWebApplicationContext();
+    var appContext = applicationContext;
 
-    loader = {
-        load : function spring_loader__load(normalizedId, require, load)
-        {
-            var bean = applicationContext.getBean(normalizedId.replace(/\//g, '.'));
-            load(define.asSecureUseModule(bean), true);
-        }
-    };
+    define('spring', [ 'define', 'nashorn!Java' ], function spring_loader(define, Java)
+    {
+        var loader = {
+            load : function spring_loader__load(normalizedId, require, load)
+            {
+                var bean = appContext.getBean(normalizedId.replace(/\//g, '.'));
+                load(define.asSecureUseModule(bean), true);
+            }
+        };
 
-    Object.freeze(loader.load);
-    Object.freeze(loader);
+        Object.freeze(loader.load);
+        Object.freeze(loader);
 
-    return define.asSecureUseModule(loader);
-});
+        return define.asSecureUseModule(loader);
+    });
+}());

@@ -50,13 +50,16 @@ import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.PropertyCheck;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.core.io.Resource;
 
 /**
  * @author Axel Faust
  */
-public class NashornScriptProcessor extends BaseProcessor implements ScriptProcessor, InitializingBean
+public class NashornScriptProcessor extends BaseProcessor implements ScriptProcessor, InitializingBean, ApplicationContextAware
 {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NashornScriptProcessor.class);
@@ -87,6 +90,17 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
     protected final List<ScriptContext> reusableScriptContexts = new LinkedList<ScriptContext>();
 
     protected final Set<String> validScriptContexts = new HashSet<String>();
+
+    protected ApplicationContext applicationContext;
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setApplicationContext(final ApplicationContext applicationContext) throws BeansException
+    {
+        this.applicationContext = applicationContext;
+    }
 
     /**
      * @param engine
@@ -347,6 +361,9 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
         final Bindings globalBindings = new SimpleBindings();
         ctxt.setBindings(globalBindings, ScriptContext.GLOBAL_SCOPE);
+
+        // only available during initialisation
+        globalBindings.put("applicationContext", this.applicationContext);
 
         URL resource;
 
