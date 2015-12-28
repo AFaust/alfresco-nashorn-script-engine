@@ -12,13 +12,14 @@
     // internal error subtype
     UnavailableModuleError,
     // Java utils
-    NashornUtils, URL, URLStreamHandler, AlfrescoClasspathURLConnection, ClasspathURLStreamHandler, logger,
+    NashornUtils, Throwable, URL, URLStreamHandler, AlfrescoClasspathURLConnection, ClasspathURLStreamHandler, logger,
     // meta loader module
     loaderMetaLoader,
     // public fns
     require, define;
 
     NashornUtils = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils');
+    Throwable = Java.type('java.lang.Throwable');
     URL = Java.type('java.net.URL');
     URLStreamHandler = Java.type('java.net.URLStreamHandler');
     AlfrescoClasspathURLConnection = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLConnection');
@@ -252,6 +253,7 @@
             if (typeof loader.normalize === 'function')
             {
                 logger.trace('Calling normalize-function of loader "{}"', loaderName);
+                // TODO Protect against loader manipulating the contextModule
                 normalizedId = loaderName + '!' + loader.normalize(realId, normalizeSimpleId, contextModule);
             }
             else
@@ -316,20 +318,24 @@
                     implicitResult = nashornLoad(url);
                     // script may not define a module
                     // we store the result of script execution for require(dependencies[], successFn, errorFn)
-                    logger.trace('Module "{}" from url "{}" yielded implicit result "{}"', normalizedId, url, implicitResult);
+                    logger.debug('Module "{}" from url "{}" yielded implicit result "{}"', normalizedId, url, implicitResult);
 
                     Object.defineProperty(module, 'implicitResult', {
                         value : implicitResult,
                         enumerable : true
                     });
 
-                    // no module defined yet - may be a non-module script with implicit return value
-                    if (!modules.hasOwnProperty(normalizeModuleId))
+                    // no module defined yet by requested module id
+                    // may be a non-module script with implicit return value or define
+                    if (!modules.hasOwnProperty(normalizedId))
                     {
-                        Object.defineProperty(module, 'result', {
-                            value : null,
-                            enumerable : true
-                        });
+                        if (!module.hasOwnProperty('dependencies'))
+                        {
+                            Object.defineProperty(module, 'dependencies', {
+                                value : [],
+                                enumerable : true
+                            });
+                        }
                         modules[normalizedId] = module;
                     }
                 }
@@ -477,7 +483,7 @@
         }
         else if (doLoad)
         {
-            logger.trace('Module "{}" not defined yet - forcing load', normalizedId);
+            logger.debug('Module "{}" not defined yet - forcing load', normalizedId);
 
             loadModule(normalizedId, callerSecure, callerUrl);
 
@@ -515,7 +521,7 @@
             }
             else if (doLoad && module.constructing !== true)
             {
-                logger.trace('Module "{}" not initialised yet - forcing initialisation', normalizedId);
+                logger.debug('Module "{}" not initialised yet - forcing initialisation', normalizedId);
                 module.constructing = true;
                 try
                 {
@@ -524,7 +530,7 @@
                         logger.trace('Module "{}" has no dependencies - calling factory', normalizedId);
 
                         Object.defineProperty(module, 'result', {
-                            value : module.factory(),
+                            value : typeof module.factory === 'function' ? module.factory() : null,
                             enumerable : true
                         });
                     }
@@ -560,12 +566,15 @@
                         logger.trace('All dependencies of module "{}" resolved - calling factory', normalizedId);
                         if (module.hasOwnProperty('result'))
                         {
-                            module.factory.apply(this, resolvedDependencies);
+                            if (typeof module.factory === 'function')
+                            {
+                                module.factory.apply(this, resolvedDependencies);
+                            }
                         }
                         else
                         {
                             Object.defineProperty(module, 'result', {
-                                value : module.factory.apply(this, resolvedDependencies),
+                                value : typeof module.factory === 'function' ? module.factory.apply(this, resolvedDependencies) : null,
                                 enumerable : true
                             });
                         }
@@ -574,11 +583,26 @@
                 }
                 catch (e)
                 {
+                    if (e.nashornException instanceof Throwable)
+                    {
+                        logger.info('Failed to instantiate module', e.nashornException);
+                    }
+                    else
+                    {
+                        logger.info('Failed to instantiate module - {}', e.message);
+                    }
                     module.constructing = false;
                     throw e;
                 }
 
                 moduleResult = module.result;
+
+                // special case where module was only defined to track implicit return values
+                // see _load
+                if (moduleResult === null && module.hasOwnProperty('implicitResult'))
+                {
+                    throw new UnavailableModuleError('Module \'' + normalizedId + '\' could not be loaded');
+                }
             }
             else
             {
@@ -651,7 +675,7 @@
             var url = new URL('classpath', null, -1, 'de/axelfaust/alfresco/nashorn/repo/loaders/' + normalizedId,
                     new ClasspathURLStreamHandler());
 
-            logger.trace('Loading loader module {} from classpath', normalizedId);
+            logger.debug('Loading loader module {} from classpath', normalizedId);
 
             load(url, true);
         }
@@ -698,7 +722,15 @@
                 catch (e)
                 {
                     module = null;
-                    logger.trace('Failed to resolve dependency "{}" for call to require(string[], function, function?', dependencies[idx]);
+                    if (e.nashornException instanceof Throwable)
+                    {
+                        logger.trace('Failed to resolve dependency', e.nashornException);
+                    }
+                    else
+                    {
+                        logger.trace('Failed to resolve dependency - {}', e.message);
+                    }
+                    logger.debug('Failed to resolve dependency "{}" for call to require(string[], function, function?)', dependencies[idx]);
                     // rethrow
                     if (failOnMissingDependency === true || !(e instanceof UnavailableModuleError))
                     {
@@ -930,6 +962,14 @@
         }
         catch (e)
         {
+            if (e.nashornException instanceof Throwable)
+            {
+                logger.warn('Failed to configure AMD loader', e.nashornException);
+            }
+            else
+            {
+                logger.warn('Failed to configure AMD loader - {}', e.message);
+            }
             // reset to preserve pristine state
             packages = {};
             throw e;

@@ -1,151 +1,163 @@
 'use strict';
-define([ 'require', 'nashorn!Java' ], function logger(require, Java)
-{
-    var logger, getSLF4JLogger, logImpl, isEnabledImpl, loggerByScriptUrl = {}, Throwable, LoggerFactory;
-
-    Throwable = Java.type('java.lang.Throwable');
-    LoggerFactory = Java.type('org.slf4j.LoggerFactory');
-
-    getSLF4JLogger = function logger__getSLF4JLogger()
-    {
-        var callerScriptURL, callerScriptModuleId, callerScriptModuleLoader, logger;
-
-        callerScriptURL = require.getCallerScriptURL();
-
-        if (loggerByScriptUrl.hasOwnProperty(callerScriptURL))
+define(
+        [ 'require', 'nashorn!Java' ],
+        function logger(require, Java)
         {
-            logger = loggerByScriptUrl[callerScriptURL];
-        }
-        else
-        {
-            callerScriptModuleId = require.getCallerScriptModuleId();
-            callerScriptModuleLoader = require.getCallerScriptModuleLoader();
+            var logger, getSLF4JLogger, logImpl, isEnabledImpl, loggerByScriptUrl = {}, Throwable, LoggerFactory;
 
-            if (typeof callerScriptModuleId === 'string')
+            Throwable = Java.type('java.lang.Throwable');
+            LoggerFactory = Java.type('org.slf4j.LoggerFactory');
+
+            getSLF4JLogger = function logger__getSLF4JLogger()
             {
-                logger = LoggerFactory.getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
-                        + callerScriptModuleLoader + '.' + callerScriptModuleId.replace(/[\/\.]+/g, '.'));
-            }
-            else
-            {
-                logger = LoggerFactory.getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
-                        + callerScriptURL.replace(/[\/:!\.]+/g, '.'));
-            }
-            loggerByScriptUrl[callerScriptURL] = logger;
-        }
+                var callerScriptURL, callerScriptModuleId, callerScriptModuleLoader, logger;
 
-        return logger;
-    };
+                callerScriptURL = require.getCallerScriptURL();
 
-    logImpl = function logger__logImpl(level, args)
-    {
-        var message, ex, values, idx, logger, meth;
-
-        for (idx = 0; idx < args.length; idx++)
-        {
-            if (idx === 0 && typeof args[idx] === 'string')
-            {
-                message = args[idx];
-            }
-
-            if (idx > 0 && message !== undefined)
-            {
-                if (idx === 1 && args.length === 2 && args[idx] instanceof Throwable)
+                if (loggerByScriptUrl.hasOwnProperty(callerScriptURL))
                 {
-                    ex = args[idx];
+                    logger = loggerByScriptUrl[callerScriptURL];
                 }
-                else if (ex === undefined)
+                else
                 {
-                    if (values === undefined)
+                    callerScriptModuleId = require.getCallerScriptModuleId();
+                    callerScriptModuleLoader = require.getCallerScriptModuleLoader();
+
+                    if (typeof callerScriptModuleId === 'string')
                     {
-                        values = [];
+                        logger = LoggerFactory.getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
+                                + callerScriptModuleLoader + '.' + callerScriptModuleId.replace(/[\/\.]+/g, '.'));
                     }
-                    values.push(args[idx]);
+                    else
+                    {
+                        logger = LoggerFactory.getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
+                                + callerScriptURL.replace(/[\/:!\.]+/g, '.'));
+                    }
+                    loggerByScriptUrl[callerScriptURL] = logger;
                 }
-            }
-        }
 
-        logger = getSLF4JLogger();
+                return logger;
+            };
 
-        meth = level || 'debug';
-        if (ex !== undefined)
-        {
-            logger[meth](message, ex);
-        }
-        else if (values !== undefined)
-        {
-            logger[meth](message, Java.to(values, 'java.lang.Object[]'));
-        }
-        else
-        {
-            logger[meth](message);
-        }
-    };
+            logImpl = function logger__logImpl(level, args)
+            {
+                var message, ex, values, idx, logger, meth;
 
-    isEnabledImpl = function logger__isEnabledImpl(level)
-    {
-        var logger = getSLF4JLogger(), prop, isEnabled = false;
+                for (idx = 0; idx < args.length; idx++)
+                {
+                    if (idx === 0 && typeof args[idx] === 'string')
+                    {
+                        message = args[idx];
+                    }
 
-        prop = (level || 'debug') + 'Enabled';
-        // JavaLinker has a minor bug not handling ConsString -> force String
-        isEnabled = logger[String(prop)];
+                    if (idx > 0 && message !== undefined)
+                    {
+                        if (idx === 1
+                                && args.length === 2
+                                && (args[idx] instanceof Throwable || (args[idx] instanceof Error && args[idx].nashornException instanceof Throwable)))
+                        {
+                            // best-effort attempt - requires correct inheritance
+                            if (args[idx] instanceof Error && args[idx].nashornException instanceof Throwable)
+                            {
+                                ex = args[idx].nashornException;
+                            }
+                            else
+                            {
+                                ex = args[idx];
+                            }
+                        }
+                        else if (ex === undefined)
+                        {
+                            if (values === undefined)
+                            {
+                                values = [];
+                            }
+                            values.push(args[idx]);
+                        }
+                    }
+                }
 
-        return isEnabled;
-    };
+                logger = getSLF4JLogger();
 
-    logger = {
-        trace : function logger__trace()
-        {
-            logImpl('trace', arguments);
-        },
+                meth = level || 'debug';
+                if (ex !== undefined)
+                {
+                    logger[meth](message, ex);
+                }
+                else if (values !== undefined)
+                {
+                    logger[meth](message, Java.to(values, 'java.lang.Object[]'));
+                }
+                else
+                {
+                    logger[meth](message);
+                }
+            };
 
-        isTraceEnabled : function logger__isTraceEnabled()
-        {
-            return isEnabledImpl('trace');
-        },
+            isEnabledImpl = function logger__isEnabledImpl(level)
+            {
+                var logger = getSLF4JLogger(), prop, isEnabled = false;
 
-        debug : function logger__debug()
-        {
-            logImpl('debug', arguments);
-        },
+                prop = (level || 'debug') + 'Enabled';
+                // JavaLinker has a minor bug not handling ConsString -> force String
+                isEnabled = logger[String(prop)];
 
-        isDebugEnabled : function logger__isDebugEnabled()
-        {
-            return isEnabledImpl('debug');
-        },
+                return isEnabled;
+            };
 
-        info : function logger__info()
-        {
-            logImpl('info', arguments);
-        },
+            logger = {
+                trace : function logger__trace()
+                {
+                    logImpl('trace', arguments);
+                },
 
-        isInfoEnabled : function logger__isInfoEnabled()
-        {
-            return isEnabledImpl('info');
-        },
+                isTraceEnabled : function logger__isTraceEnabled()
+                {
+                    return isEnabledImpl('trace');
+                },
 
-        warn : function logger__warn()
-        {
-            logImpl('warn', arguments);
-        },
+                debug : function logger__debug()
+                {
+                    logImpl('debug', arguments);
+                },
 
-        isWarnEnabled : function logger__isWarnEnabled()
-        {
-            return isEnabledImpl('warn');
-        },
+                isDebugEnabled : function logger__isDebugEnabled()
+                {
+                    return isEnabledImpl('debug');
+                },
 
-        error : function logger__error()
-        {
-            logImpl('error', arguments);
-        },
+                info : function logger__info()
+                {
+                    logImpl('info', arguments);
+                },
 
-        isErrorEnabled : function logger__isErrorEnabled()
-        {
-            return isEnabledImpl('error');
-        }
-    };
+                isInfoEnabled : function logger__isInfoEnabled()
+                {
+                    return isEnabledImpl('info');
+                },
 
-    Object.freeze(logger);
+                warn : function logger__warn()
+                {
+                    logImpl('warn', arguments);
+                },
 
-    return logger;
-});
+                isWarnEnabled : function logger__isWarnEnabled()
+                {
+                    return isEnabledImpl('warn');
+                },
+
+                error : function logger__error()
+                {
+                    logImpl('error', arguments);
+                },
+
+                isErrorEnabled : function logger__isErrorEnabled()
+                {
+                    return isEnabledImpl('error');
+                }
+            };
+
+            Object.freeze(logger);
+
+            return logger;
+        });
