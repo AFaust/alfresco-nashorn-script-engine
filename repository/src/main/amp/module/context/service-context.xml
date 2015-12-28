@@ -27,6 +27,7 @@
         <property name="engine" ref="${project.artifactId}-nashornScriptEngine" />
 
         <property name="scriptService" ref="scriptService" />
+        <property name="namespaceService" ref="NamespaceService" />
         <property name="moduleService" ref="ModuleService" />
         <property name="globalProperties" ref="global-properties" />
         <property name="amdConfig" value="${nashornJavaScriptProcessor.amd.config}" />

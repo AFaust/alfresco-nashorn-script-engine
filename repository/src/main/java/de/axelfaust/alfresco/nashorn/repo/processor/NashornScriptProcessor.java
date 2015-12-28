@@ -44,6 +44,8 @@ import org.alfresco.service.cmr.module.ModuleService;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.ScriptLocation;
 import org.alfresco.service.cmr.repository.ScriptProcessor;
+import org.alfresco.service.cmr.repository.StoreRef;
+import org.alfresco.service.namespace.NamespaceService;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.util.Pair;
 import org.alfresco.util.ParameterCheck;
@@ -77,6 +79,8 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
     protected ScriptEngine engine;
 
+    protected NamespaceService namespaceService;
+
     protected ModuleService moduleService;
 
     protected Properties globalProperties;
@@ -109,6 +113,15 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
     public void setEngine(final ScriptEngine engine)
     {
         this.engine = engine;
+    }
+
+    /**
+     * @param namespaceService
+     *            the namespaceService to set
+     */
+    public void setNamespaceService(final NamespaceService namespaceService)
+    {
+        this.namespaceService = namespaceService;
     }
 
     /**
@@ -193,8 +206,23 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
     @Override
     public Object execute(final NodeRef nodeRef, final QName contentProp, final Map<String, Object> model)
     {
-        // TODO Auto-generated method stub
-        return null;
+        ParameterCheck.mandatory("nodeRef", nodeRef);
+        ParameterCheck.mandatory("contentProp", contentProp);
+
+        final StringBuilder moduleIdBuilder = new StringBuilder();
+        final StoreRef storeRef = nodeRef.getStoreRef();
+        moduleIdBuilder.append(storeRef.getProtocol());
+        moduleIdBuilder.append('/');
+        moduleIdBuilder.append(storeRef.getIdentifier());
+        moduleIdBuilder.append('/');
+        moduleIdBuilder.append(nodeRef.getId());
+        moduleIdBuilder.append('/');
+        moduleIdBuilder.append(contentProp.toPrefixString(this.namespaceService).replaceFirst(":", "_"));
+
+        final AMDLoadableScript script = new SimpleAMDLoadableScript("node", moduleIdBuilder.toString());
+        final Object result = this.executeAMDLoadableScript(script, model);
+
+        return result;
     }
 
     /**
