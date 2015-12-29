@@ -5,10 +5,11 @@
 define(
         'node',
         [ 'define', 'nashorn!Java', 'serviceRegistry!NamespaceService', 'serviceRegistry!DictionaryService', 'serviceRegistry!NodeService',
-                'serviceRegistry!ContentService', 'serviceRegistry!FileFolderService' ],
-        function node_loader(define, Java, NamespaceService, DictionaryService, NodeService, ContentService, FileFolderService)
+                'serviceRegistry!ContentService', 'serviceRegistry!FileFolderService', 'serviceRegistry!SearchService' ],
+        function node_loader(define, Java, NamespaceService, DictionaryService, NodeService, ContentService, FileFolderService,
+                SearchService)
         {
-            var loader, logger, QName, DataTypeDefinition, StoreRef, NodeRef, URL, URLStreamHandler, NodeURLStreamHandler, NodeURLConnection, isObject, resolveQName, isContentProperty, resolveToContentNode, extractParamsFromModuleId, normalizeImpl;
+            var loader, logger, QName, DataTypeDefinition, StoreRef, NodeRef, ContentModel, URL, URLStreamHandler, NodeURLStreamHandler, NodeURLConnection, isObject, resolveQName, isContentProperty, resolveToContentNode, extractParamsFromModuleId, normalizeImpl;
 
             logger = Java.type('org.slf4j.LoggerFactory').getLogger(
                     'de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.node');
@@ -24,17 +25,18 @@ define(
             NodeURLStreamHandler = Java.extend(URLStreamHandler, {
                 openConnection : function node_loader__NodeURLStreamHandler_openConnection(url)
                 {
-                    var con, params;
+                    var con, params, nodeRef;
 
                     params = extractParamsFromModuleId(url.file);
+                    nodeRef = resolveToContentNode(params.nodeRef || params.storeRef, params.pathFragments);
 
                     if (params.contentProperty !== undefined && params.contentProperty !== null)
                     {
-                        con = new NodeURLConnection(url, NodeService, ContentService, params.nodeRef, params.contentProperty);
+                        con = new NodeURLConnection(url, NodeService, ContentService, nodeRef, params.contentProperty);
                     }
                     else
                     {
-                        con = new NodeURLConnection(url, NodeService, ContentService, params.nodeRef);
+                        con = new NodeURLConnection(url, NodeService, ContentService, nodeRef);
                     }
 
                     return con;
@@ -99,7 +101,7 @@ define(
 
             resolveToContentNode = function node_loader__resolveToContentNode(context, pathFragments)
             {
-                var currentNode, fileInfo, result, fileFragment, suffixes = [ '', '.nashornjs', '.js' ], suffixIdx;
+                var currentNode, fileInfo, result, fileFragment, suffixes = [ '', '.nashornjs', '.js' ], suffixIdx, fragmentIdx, children, childIdx;
 
                 if (pathFragments.length > 0)
                 {
@@ -118,6 +120,11 @@ define(
                     if ((/.+?\.[^$\.]+$/).test(fileFragment))
                     {
                         // already contains explicit suffix
+                        if (logger.traceEnabled)
+                        {
+                            logger.trace('Trying to resolve "{}" starting from "{}" via FileFolderService', pathFragments.join('/'),
+                                    currentNode);
+                        }
                         fileInfo = FileFolderService.resolveNamePath(currentNode, Java.to(pathFragments, 'java.util.List'), false);
                     }
                     else
@@ -126,6 +133,11 @@ define(
                         for (suffixIdx = 0; suffixIdx < suffixes.length && (fileInfo === undefined || fileInfo === null); suffixIdx += 1)
                         {
                             pathFragments[pathFragments.length - 1] = fileFragment + suffixes[suffixIdx];
+                            if (logger.traceEnabled)
+                            {
+                                logger.trace('Trying to resolve "{}" starting from "{}" via FileFolderService', pathFragments.join('/'),
+                                        currentNode);
+                            }
                             fileInfo = FileFolderService.resolveNamePath(currentNode, Java.to(pathFragments, 'java.util.List'), false);
                         }
                     }
@@ -133,14 +145,65 @@ define(
 
                     if (fileInfo !== null)
                     {
-                        logger.trace('Resolved path fragments and context "{}" to file info "{}"', pathFragments, context, fileInfo);
+                        if (logger.traceEnabled)
+                        {
+                            logger.trace('Resolved path fragments "{}" and context "{}" to file info "{}"', pathFragments.join('/'),
+                                    context, fileInfo);
+                        }
                         result = !fileInfo.directory ? fileInfo.nodeRef : null;
                     }
                     else
                     {
-                        // TODO Manual resolution
+                        // manual resolution - script may be located in locations not supported by FileFolderService
+                        if (logger.traceEnabled)
+                        {
+                            logger.trace('Trying to resolve "{}" starting from "{}" via manual SearchService iteration', pathFragments
+                                    .join('/'), currentNode);
+                        }
 
-                        result = null;
+                        // NodeService.getChildAssocsByPropertyValue does not support selection by cm:name
+                        // NodeService.getChildrenByName requires restriction to specific type of association
+                        // TODO Find ways to improve (potential worst-case) performance of SearchService approach
+                        for (fragmentIdx = 0; fragmentIdx < pathFragments.length; fragmentIdx += 1)
+                        {
+                            children = SearchService.query(currentNode.storeRef, 'fts-alfresco', 'PARENT:"' + currentNode
+                                    + '" AND =cm:name:"' + pathFragments[fragmentIdx] + '"').nodeRefs;
+
+                            if (children.length === 1)
+                            {
+                                currentNode = children[0];
+                            }
+                            else if (children.length === 0 && pathFragments[fragmentIdx] === fileFragment
+                                    && !(/.+?\.[^$\.]+$/).test(fileFragment))
+                            {
+                                // try suffixes until we find at least a single child
+                                for (suffixIdx = 1; suffixIdx < suffixes.length; suffixIdx += 1)
+                                {
+                                    children = SearchService.query(currentNode.storeRef, 'fts-alfresco', 'PARENT:"' + currentNode
+                                            + '" AND =cm:name:"' + pathFragments[fragmentIdx] + suffixes[suffixIdx] + '"');
+
+                                    if (children.length === 1)
+                                    {
+                                        currentNode = children[0];
+                                        break;
+                                    }
+
+                                    if (children.length !== 0)
+                                    {
+                                        currentNode = null;
+                                        break;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                currentNode = null;
+                                break;
+                            }
+                        }
+
+                        // TODO Validate node against cm:content type
+                        result = currentNode;
                     }
                 }
                 else if (context instanceof NodeRef)
@@ -153,7 +216,12 @@ define(
                 }
                 else
                 {
-                    reuslt = null;
+                    result = null;
+                }
+
+                if (logger.debugEnabled)
+                {
+                    logger.debug('Resolved node "{}" from context "{}" and path fragments "{}"', result, context, pathFragments.join('/'));
                 }
 
                 return result;
@@ -209,8 +277,15 @@ define(
                 if (pathFragments.length > 0 && isContentProperty(pathFragments[pathFragments.length - 1]))
                 {
                     contentProperty = resolveQName(fragments[pathFragments.length - 1]);
-                    logger.trace('Module id "{}" explicitely references the content property "{}"', contentProperty);
+                    logger.trace('Module id "{}" explicitely references the content property "{}"', baseModuleId, contentProperty);
                     pathFragments.splice(pathFragments.length - 1, 1);
+                }
+
+                // check only because we join the path fragments
+                if (logger.debugEnabled)
+                {
+                    logger.debug('Extracted parameters from module id "{}": storeRef={}, nodeRef={}, pathFragments={}, contentProperty={}',
+                            baseModuleId, storeRef, nodeRef, pathFragments.join('/'), contentProperty);
                 }
 
                 result = {
@@ -235,9 +310,6 @@ define(
                 if (nodeRef !== null)
                 {
                     pathFragments = Java.from(FileFolderService.getNameOnlyPath(NodeService.getRootNode(params.storeRef), params.nodeRef));
-
-                    pathFragments[pathFragments.length - 1] = pathFragments[pathFragments.length - 1].replace(
-                            /(.+?[^\.])(\.(?:nashorn)?js)?$/, '$1');
 
                     if (params.contentProperty !== undefined && params.contentProperty !== null)
                     {
