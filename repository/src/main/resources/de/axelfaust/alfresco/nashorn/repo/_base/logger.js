@@ -26,12 +26,13 @@ define(
                     if (typeof callerScriptModuleId === 'string')
                     {
                         logger = LoggerFactory.getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
-                                + callerScriptModuleLoader + '.' + callerScriptModuleId.replace(/[\/\.]+/g, '.'));
+                                + callerScriptModuleLoader + '.' + callerScriptModuleId);
                     }
                     else
                     {
+                        // TODO Try to simplify (common) script URLs for shorter, easier-to-handle logger names
                         logger = LoggerFactory.getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
-                                + callerScriptURL.replace(/[\/:!\.]+/g, '.'));
+                                + callerScriptURL);
                     }
                     loggerByScriptUrl[callerScriptURL] = logger;
                 }
