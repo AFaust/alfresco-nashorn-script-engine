@@ -17,6 +17,7 @@ define(
             DataTypeDefinition = Java.type('org.alfresco.service.cmr.dictionary.DataTypeDefinition');
             StoreRef = Java.type('org.alfresco.service.cmr.repository.StoreRef');
             NodeRef = Java.type('org.alfresco.service.cmr.repository.NodeRef');
+            ContentModel = Java.type('org.alfresco.model.ContentModel');
 
             URL = Java.type('java.net.URL');
             URLStreamHandler = Java.type('java.net.URLStreamHandler');
@@ -202,17 +203,27 @@ define(
                             }
                         }
 
-                        // TODO Validate node against cm:content type
-                        result = currentNode;
+                        if (currentNode === null
+                                || DictionaryService.isSubClass(NodeService.getType(currentNode), ContentModel.TYPE_CONTENT))
+                        {
+                            result = currentNode;
+                        }
+                        else
+                        {
+                            result = null;
+                        }
                     }
                 }
                 else if (context instanceof NodeRef)
                 {
-                    // TODO Validate context against cm:content type
-                    logger.trace(
-                            'No path fragments have been provided beyond initial context - assuming context "{}" to be a content node',
-                            context);
-                    result = context;
+                    if (DictionaryService.isSubClass(NodeService.getType(context), ContentModel.TYPE_CONTENT))
+                    {
+                        result = context;
+                    }
+                    else
+                    {
+                        result = null;
+                    }
                 }
                 else
                 {
