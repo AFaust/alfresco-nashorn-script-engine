@@ -80,8 +80,6 @@
             result = {};
             Object.getOwnPropertyNames(obj).forEach(function amd__clone_objKey(key)
             {
-                logger.trace('Cloning {} of {}', key, String(obj));
-
                 desc = Object.getOwnPropertyDescriptor(obj, key);
                 Object.defineProperty(result, key, {
                     value : (isObject(protectedKeys) && protectedKeys[key]) === true ? obj[key] : clone(obj[key], protectedKeys),
@@ -276,7 +274,7 @@
 
         if (value !== undefined && value !== null)
         {
-            if (value instanceof URL || typeof value === 'string')
+            if (value instanceof URL)
             {
                 url = value;
                 if (moduleByUrl.hasOwnProperty(String(url)))

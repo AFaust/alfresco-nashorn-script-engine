@@ -43,7 +43,7 @@ define(
                 }
             });
 
-            isObject = function amd__isObject(o)
+            isObject = function node_loader__isObject(o)
             {
                 var result = o !== undefined && o !== null && Object.prototype.toString.call(o) === '[object Object]';
                 return result;
