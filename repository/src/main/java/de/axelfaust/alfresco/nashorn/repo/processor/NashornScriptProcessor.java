@@ -37,6 +37,7 @@ import javax.script.SimpleScriptContext;
 
 import jdk.nashorn.api.scripting.URLReader;
 
+import org.alfresco.repo.jscript.ClasspathScriptLocation;
 import org.alfresco.repo.processor.BaseProcessor;
 import org.alfresco.service.cmr.module.ModuleDependency;
 import org.alfresco.service.cmr.module.ModuleDetails;
@@ -191,6 +192,11 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         {
             result = this.executeAMDLoadableScript((AMDLoadableScript) location, model);
         }
+        else if (location instanceof ClasspathScriptLocation)
+        {
+            final AMDLoadableScript script = new SimpleAMDLoadableScript("classpath", location.getPath());
+            result = this.executeAMDLoadableScript(script, model);
+        }
         else
         {
             // TODO
@@ -231,8 +237,12 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
     @Override
     public Object execute(final String location, final Map<String, Object> model)
     {
-        // TODO Auto-generated method stub
-        return null;
+        ParameterCheck.mandatoryString("location", location);
+
+        final AMDLoadableScript script = new SimpleAMDLoadableScript("classpath", location);
+        final Object result = this.executeAMDLoadableScript(script, model);
+
+        return result;
     }
 
     /**
