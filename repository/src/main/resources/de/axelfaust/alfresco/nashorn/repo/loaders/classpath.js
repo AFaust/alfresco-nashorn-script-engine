@@ -10,6 +10,7 @@ define('classpath', [ 'nashorn!Java' ], function classpath_loader(Java)
     URLStreamHandler = Java.type('java.net.URLStreamHandler');
     AlfrescoClasspathURLConnection = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLConnection');
 
+    // TODO Try to optimize by moving into actual Java class
     ClasspathURLStreamHandler = Java.extend(URLStreamHandler, {
         openConnection : function classpath_loader__ClasspathURLStreamHandler_openConnection(url)
         {
@@ -46,6 +47,7 @@ define('extensible-classpath', [ 'nashorn!Java' ], function extensible_classpath
     URLStreamHandler = Java.type('java.net.URLStreamHandler');
     AlfrescoClasspathURLConnection = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLConnection');
 
+    // TODO Try to optimize by moving into actual Java class (which may call back into JS)
     ClasspathURLStreamHandler = Java.extend(URLStreamHandler, {
         openConnection : function extensible_classpath_loader__ClasspathURLStreamHandler_openConnection(url)
         {

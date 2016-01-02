@@ -23,6 +23,7 @@ define(
             URLStreamHandler = Java.type('java.net.URLStreamHandler');
             NodeURLConnection = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.NodeURLConnection');
 
+            // TODO Try to optimize by moving into actual Java class (which may call back into JS)
             NodeURLStreamHandler = Java.extend(URLStreamHandler, {
                 openConnection : function node_loader__NodeURLStreamHandler_openConnection(url)
                 {

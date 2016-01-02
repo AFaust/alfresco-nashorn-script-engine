@@ -519,85 +519,84 @@
             }
             else if (doLoad && module.constructing !== true)
             {
-                logger.debug('Module "{}" not initialised yet - forcing initialisation', normalizedId);
-                module.constructing = true;
-                try
+                if (typeof module.factory === 'function')
                 {
-                    if (module.dependencies.length === 0)
+                    logger.debug('Module "{}" not initialised yet - forcing initialisation', normalizedId);
+                    module.constructing = true;
+                    try
                     {
-                        logger.trace('Module "{}" has no dependencies - calling factory', normalizedId);
-
-                        Object.defineProperty(module, 'result', {
-                            value : typeof module.factory === 'function' ? module.factory() : null,
-                            enumerable : true
-                        });
-                    }
-                    else
-                    {
-                        isSecure = module.secureSource === true;
-
-                        resolvedDependencies = [];
-                        for (idx = 0; idx < module.dependencies.length; idx += 1)
+                        if (module.dependencies.length === 0)
                         {
-                            if (module.dependencies[idx] === 'exports')
-                            {
-                                logger
-                                        .trace(
-                                                'Module "{}" uses "exports"-dependency to expose module during initialisation (avoiding circular dependency issues)',
-                                                normalizedId);
-                                Object.defineProperty(module, 'result', {
-                                    value : {},
-                                    enumerable : true
-                                });
-                                resolvedDependencies.push(module.result);
-                            }
-                            else
-                            {
-                                logger.debug('Loading dependency "{}" for module "{}"', module.dependencies[idx], normalizedId);
+                            logger.trace('Module "{}" has no dependencies - calling factory', normalizedId);
 
-                                dependency = getModule(module.dependencies[idx], true, isSecure, module.url);
-
-                                resolvedDependencies.push(dependency);
-                            }
-                        }
-
-                        logger.trace('All dependencies of module "{}" resolved - calling factory', normalizedId);
-                        if (module.hasOwnProperty('result'))
-                        {
-                            if (typeof module.factory === 'function')
-                            {
-                                module.factory.apply(this, resolvedDependencies);
-                            }
-                        }
-                        else
-                        {
                             Object.defineProperty(module, 'result', {
-                                value : typeof module.factory === 'function' ? module.factory.apply(this, resolvedDependencies) : null,
+                                value : module.factory(),
                                 enumerable : true
                             });
                         }
-                    }
-                    module.constructing = false;
-                }
-                catch (e)
-                {
-                    if (e.nashornException instanceof Throwable)
-                    {
-                        logger.info('Failed to instantiate module', e.nashornException);
-                    }
-                    else
-                    {
-                        logger.info('Failed to instantiate module - {}', e.message);
-                    }
-                    module.constructing = false;
-                    throw e;
-                }
+                        else
+                        {
+                            isSecure = module.secureSource === true;
 
-                moduleResult = module.result;
+                            resolvedDependencies = [];
+                            for (idx = 0; idx < module.dependencies.length; idx += 1)
+                            {
+                                if (module.dependencies[idx] === 'exports')
+                                {
+                                    logger
+                                            .trace(
+                                                    'Module "{}" uses "exports"-dependency to expose module during initialisation (avoiding circular dependency issues)',
+                                                    normalizedId);
+                                    Object.defineProperty(module, 'result', {
+                                        value : {},
+                                        enumerable : true
+                                    });
+                                    resolvedDependencies.push(module.result);
+                                }
+                                else
+                                {
+                                    logger.debug('Loading dependency "{}" for module "{}"', module.dependencies[idx], normalizedId);
 
+                                    dependency = getModule(module.dependencies[idx], true, isSecure, module.url);
+
+                                    resolvedDependencies.push(dependency);
+                                }
+                            }
+
+                            logger.trace('All dependencies of module "{}" resolved - calling factory', normalizedId);
+                            if (module.hasOwnProperty('result'))
+                            {
+                                module.factory.apply(this, resolvedDependencies);
+                            }
+                            else
+                            {
+                                Object.defineProperty(module, 'result', {
+                                    value : module.factory.apply(this, resolvedDependencies),
+                                    enumerable : true
+                                });
+                            }
+                        }
+                        module.constructing = false;
+                    }
+                    catch (e)
+                    {
+                        if (e.nashornException instanceof Throwable)
+                        {
+                            logger.info('Failed to instantiate module', e.nashornException);
+                        }
+                        else
+                        {
+                            logger.info('Failed to instantiate module - {}', e.message);
+                        }
+                        module.constructing = false;
+                        throw e;
+                    }
+
+                    moduleResult = module.result;
+                }
                 // special case where module was only defined to track implicit return values
                 // see _load
-                if (moduleResult === null && module.hasOwnProperty('implicitResult'))
+                else if (module.hasOwnProperty('implicitResult'))
                 {
                     throw new UnavailableModuleError('Module \'' + normalizedId + '\' could not be loaded');
                 }
