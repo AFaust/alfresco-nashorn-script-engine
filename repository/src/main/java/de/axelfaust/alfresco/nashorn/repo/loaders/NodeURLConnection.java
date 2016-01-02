@@ -107,7 +107,15 @@ public class NodeURLConnection extends URLConnection
         if (this.lastModified == -1)
         {
             final ContentReader reader = this.contentService.getReader(this.nodeRef, this.contentPropertyQName);
-            this.lastModified = reader != null && reader.exists() ? reader.getLastModified() : -1;
+            if (reader != null && reader.exists())
+            {
+                this.lastModified = reader.getLastModified();
+            }
+            else
+            {
+                // no content available now and we don't expect any to magically appear
+                this.lastModified = 0;
+            }
         }
         return this.lastModified;
     }

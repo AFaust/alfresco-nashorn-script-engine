@@ -121,8 +121,9 @@ public class WebScriptURLStreamHandler extends URLStreamHandler
             }
             else
             {
-                // unable to check lastModified - use current time to avoid false-positive cache hit
-                lastModified = System.currentTimeMillis();
+                // we can't really reliably determine lastModified
+                // Nashorn will still check script digest against cache
+                lastModified = 0;
             }
 
             return lastModified;
