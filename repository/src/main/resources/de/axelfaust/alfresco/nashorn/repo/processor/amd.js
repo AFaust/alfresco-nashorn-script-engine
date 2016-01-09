@@ -12,7 +12,7 @@
     // internal error subtype
     UnavailableModuleError,
     // Java utils
-    NashornUtils, Throwable, URL, URLStreamHandler, AlfrescoClasspathURLConnection, ClasspathURLStreamHandler, logger,
+    NashornUtils, Throwable, URL, AlfrescoClasspathURLStreamHandler, streamHandler, logger,
     // meta loader module
     loaderMetaLoader,
     // public fns
@@ -21,8 +21,6 @@
     NashornUtils = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils');
     Throwable = Java.type('java.lang.Throwable');
     URL = Java.type('java.net.URL');
-    URLStreamHandler = Java.type('java.net.URLStreamHandler');
-    AlfrescoClasspathURLConnection = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLConnection');
     logger = Java.type('org.slf4j.LoggerFactory').getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.amd');
 
     UnavailableModuleError = function amd__UnavailableModuleError(message)
@@ -658,19 +656,14 @@
         }
     };
 
-    ClasspathURLStreamHandler = Java.extend(URLStreamHandler, {
-        openConnection : function amd__loaderMetaLoader__ClasspathURLStreamHandler_openConnection(url)
-        {
-            var con = new AlfrescoClasspathURLConnection(url, null, false, null);
-            return con;
-        }
-    });
+    // need to select specific constructor to override basePath
+    AlfrescoClasspathURLStreamHandler = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLStreamHandler')['(java.lang.String)'];
+    streamHandler = new AlfrescoClasspathURLStreamHandler(null);
 
     loaderMetaLoader = {
         load : function amd__loaderMetaLoader__load(normalizedId, require, load)
         {
-            var url = new URL('classpath', null, -1, 'de/axelfaust/alfresco/nashorn/repo/loaders/' + normalizedId,
-                    new ClasspathURLStreamHandler());
+            var url = new URL('classpath', null, -1, 'de/axelfaust/alfresco/nashorn/repo/loaders/' + normalizedId, streamHandler);
 
             logger.debug('Loading loader module {} from classpath', normalizedId);
 

@@ -45,25 +45,38 @@ public class AlfrescoClasspathURLConnection extends URLConnection
 
     protected transient long lastModified = -1;
 
-    public AlfrescoClasspathURLConnection(final URL url, final boolean allowExtension)
+    public AlfrescoClasspathURLConnection(final URL url)
     {
         super(url);
+    }
 
+    public AlfrescoClasspathURLConnection(final URL url, final boolean allowExtension)
+    {
+        this(url);
         this.allowExtension = allowExtension;
     }
 
     public AlfrescoClasspathURLConnection(final URL url, final boolean allowExtension, final String extensionPath)
     {
         this(url, allowExtension);
-
         this.extensionPath = extensionPath;
+    }
+
+    public AlfrescoClasspathURLConnection(final URL url, final String basePath)
+    {
+        this(url);
+        this.basePath = basePath;
+    }
+
+    public AlfrescoClasspathURLConnection(final URL url, final String basePath, final boolean allowExtension)
+    {
+        this(url, allowExtension);
+        this.basePath = basePath;
     }
 
     public AlfrescoClasspathURLConnection(final URL url, final String basePath, final boolean allowExtension, final String extensionPath)
     {
-        this(url, allowExtension);
-
-        this.basePath = basePath;
+        this(url, basePath, allowExtension);
         this.extensionPath = extensionPath;
     }
 
