@@ -1,6 +1,6 @@
-'use strict';
 (function amd_execute_loadable_script()
 {
+    'use strict';
     var moduleName = _loadableModule.scriptModuleId, result, fnResolved, fnResolveFailed;
 
     if (_loadableModule.loaderName !== null)

@@ -1,6 +1,6 @@
-'use strict';
 (function nashorn_loader_root()
 {
+    'use strict';
     // this loader will be responsible for providing access to Nashorn global utilities that we may want to restrict to secure scripts
     // in order to prevent circumventions those global utilities will be removed after this loader is defined, so we need to store them
     // locally in a "backup" object

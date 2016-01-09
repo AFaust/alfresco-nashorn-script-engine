@@ -1,8 +1,9 @@
-'use strict';
 (function amd_config()
 {
+    'use strict';
+
     require.config({
-        packages : [{
+        packages : [ {
             name : '_base',
             loader : 'classpath',
             location : 'de/axelfaust/alfresco/nashorn/repo/_base'
@@ -18,7 +19,7 @@
             name : 'alfrescoWebScript',
             loader : 'webscript',
             location : 'org/alfresco'
-        }],
+        } ],
         map : {
             '*' : {
                 'alfresco/foundation' : 'alfrescoServices',

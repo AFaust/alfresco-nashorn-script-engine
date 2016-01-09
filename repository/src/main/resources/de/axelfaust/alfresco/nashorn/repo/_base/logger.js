@@ -1,164 +1,167 @@
-'use strict';
-define(
-        [ 'require', 'nashorn!Java' ],
-        function logger(require, Java)
-        {
-            var logger, getSLF4JLogger, logImpl, isEnabledImpl, loggerByScriptUrl = {}, Throwable, LoggerFactory;
-
-            Throwable = Java.type('java.lang.Throwable');
-            LoggerFactory = Java.type('org.slf4j.LoggerFactory');
-
-            getSLF4JLogger = function logger__getSLF4JLogger()
+(function()
+{
+    'use strict';
+    define(
+            [ 'require', 'nashorn!Java' ],
+            function logger(require, Java)
             {
-                var callerScriptURL, callerScriptModuleId, callerScriptModuleLoader, logger;
+                var loggerModule, getSLF4JLogger, logImpl, isEnabledImpl, loggerByScriptUrl = {}, Throwable, LoggerFactory;
 
-                callerScriptURL = require.getCallerScriptURL();
+                Throwable = Java.type('java.lang.Throwable');
+                LoggerFactory = Java.type('org.slf4j.LoggerFactory');
 
-                if (loggerByScriptUrl.hasOwnProperty(callerScriptURL))
+                getSLF4JLogger = function logger__getSLF4JLogger()
                 {
-                    logger = loggerByScriptUrl[callerScriptURL];
-                }
-                else
-                {
-                    callerScriptModuleId = require.getCallerScriptModuleId();
-                    callerScriptModuleLoader = require.getCallerScriptModuleLoader();
+                    var callerScriptURL, callerScriptModuleId, callerScriptModuleLoader, logger;
 
-                    if (typeof callerScriptModuleId === 'string')
+                    callerScriptURL = require.getCallerScriptURL();
+
+                    if (loggerByScriptUrl.hasOwnProperty(callerScriptURL))
                     {
-                        logger = LoggerFactory.getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
-                                + callerScriptModuleLoader + '.' + callerScriptModuleId);
+                        logger = loggerByScriptUrl[callerScriptURL];
                     }
                     else
                     {
-                        // TODO Try to simplify (common) script URLs for shorter, easier-to-handle logger names
-                        logger = LoggerFactory.getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
-                                + callerScriptURL);
-                    }
-                    loggerByScriptUrl[callerScriptURL] = logger;
-                }
+                        callerScriptModuleId = require.getCallerScriptModuleId();
+                        callerScriptModuleLoader = require.getCallerScriptModuleLoader();
 
-                return logger;
-            };
-
-            logImpl = function logger__logImpl(level, args)
-            {
-                var message, ex, values, idx, logger, meth;
-
-                for (idx = 0; idx < args.length; idx++)
-                {
-                    if (idx === 0 && typeof args[idx] === 'string')
-                    {
-                        message = args[idx];
-                    }
-
-                    if (idx > 0 && message !== undefined)
-                    {
-                        if (idx === 1
-                                && args.length === 2
-                                && (args[idx] instanceof Throwable || (args[idx] instanceof Error && args[idx].nashornException instanceof Throwable)))
+                        if (typeof callerScriptModuleId === 'string')
                         {
-                            // best-effort attempt - requires correct inheritance
-                            if (args[idx] instanceof Error && args[idx].nashornException instanceof Throwable)
+                            logger = LoggerFactory.getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
+                                    + callerScriptModuleLoader + '.' + callerScriptModuleId);
+                        }
+                        else
+                        {
+                            // TODO Try to simplify (common) script URLs for shorter, easier-to-handle logger names
+                            logger = LoggerFactory.getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
+                                    + callerScriptURL);
+                        }
+                        loggerByScriptUrl[callerScriptURL] = logger;
+                    }
+
+                    return logger;
+                };
+
+                logImpl = function logger__logImpl(level, args)
+                {
+                    var message, ex, values, idx, logger, meth;
+
+                    for (idx = 0; idx < args.length; idx++)
+                    {
+                        if (idx === 0 && typeof args[idx] === 'string')
+                        {
+                            message = args[idx];
+                        }
+
+                        if (idx > 0 && message !== undefined)
+                        {
+                            if (idx === 1
+                                    && args.length === 2
+                                    && (args[idx] instanceof Throwable || (args[idx] instanceof Error && args[idx].nashornException instanceof Throwable)))
                             {
-                                ex = args[idx].nashornException;
+                                // best-effort attempt - requires correct inheritance
+                                if (args[idx] instanceof Error && args[idx].nashornException instanceof Throwable)
+                                {
+                                    ex = args[idx].nashornException;
+                                }
+                                else
+                                {
+                                    ex = args[idx];
+                                }
                             }
-                            else
+                            else if (ex === undefined)
                             {
-                                ex = args[idx];
+                                if (values === undefined)
+                                {
+                                    values = [];
+                                }
+                                values.push(args[idx]);
                             }
                         }
-                        else if (ex === undefined)
-                        {
-                            if (values === undefined)
-                            {
-                                values = [];
-                            }
-                            values.push(args[idx]);
-                        }
                     }
-                }
 
-                logger = getSLF4JLogger();
+                    logger = getSLF4JLogger();
 
-                meth = level || 'debug';
-                if (ex !== undefined)
+                    meth = level || 'debug';
+                    if (ex !== undefined)
+                    {
+                        logger[meth](message, ex);
+                    }
+                    else if (values !== undefined)
+                    {
+                        logger[meth](message, Java.to(values, 'java.lang.Object[]'));
+                    }
+                    else
+                    {
+                        logger[meth](message);
+                    }
+                };
+
+                isEnabledImpl = function logger__isEnabledImpl(level)
                 {
-                    logger[meth](message, ex);
-                }
-                else if (values !== undefined)
-                {
-                    logger[meth](message, Java.to(values, 'java.lang.Object[]'));
-                }
-                else
-                {
-                    logger[meth](message);
-                }
-            };
+                    var logger = getSLF4JLogger(), prop, isEnabled = false;
 
-            isEnabledImpl = function logger__isEnabledImpl(level)
-            {
-                var logger = getSLF4JLogger(), prop, isEnabled = false;
+                    prop = (level || 'debug') + 'Enabled';
+                    // JavaLinker has a minor bug not handling ConsString -> force String
+                    isEnabled = logger[String(prop)];
 
-                prop = (level || 'debug') + 'Enabled';
-                // JavaLinker has a minor bug not handling ConsString -> force String
-                isEnabled = logger[String(prop)];
+                    return isEnabled;
+                };
 
-                return isEnabled;
-            };
+                loggerModule = {
+                    trace : function logger__trace()
+                    {
+                        logImpl('trace', arguments);
+                    },
 
-            logger = {
-                trace : function logger__trace()
-                {
-                    logImpl('trace', arguments);
-                },
+                    isTraceEnabled : function logger__isTraceEnabled()
+                    {
+                        return isEnabledImpl('trace');
+                    },
 
-                isTraceEnabled : function logger__isTraceEnabled()
-                {
-                    return isEnabledImpl('trace');
-                },
+                    debug : function logger__debug()
+                    {
+                        logImpl('debug', arguments);
+                    },
 
-                debug : function logger__debug()
-                {
-                    logImpl('debug', arguments);
-                },
+                    isDebugEnabled : function logger__isDebugEnabled()
+                    {
+                        return isEnabledImpl('debug');
+                    },
 
-                isDebugEnabled : function logger__isDebugEnabled()
-                {
-                    return isEnabledImpl('debug');
-                },
+                    info : function logger__info()
+                    {
+                        logImpl('info', arguments);
+                    },
 
-                info : function logger__info()
-                {
-                    logImpl('info', arguments);
-                },
+                    isInfoEnabled : function logger__isInfoEnabled()
+                    {
+                        return isEnabledImpl('info');
+                    },
 
-                isInfoEnabled : function logger__isInfoEnabled()
-                {
-                    return isEnabledImpl('info');
-                },
+                    warn : function logger__warn()
+                    {
+                        logImpl('warn', arguments);
+                    },
 
-                warn : function logger__warn()
-                {
-                    logImpl('warn', arguments);
-                },
+                    isWarnEnabled : function logger__isWarnEnabled()
+                    {
+                        return isEnabledImpl('warn');
+                    },
 
-                isWarnEnabled : function logger__isWarnEnabled()
-                {
-                    return isEnabledImpl('warn');
-                },
+                    error : function logger__error()
+                    {
+                        logImpl('error', arguments);
+                    },
 
-                error : function logger__error()
-                {
-                    logImpl('error', arguments);
-                },
+                    isErrorEnabled : function logger__isErrorEnabled()
+                    {
+                        return isEnabledImpl('error');
+                    }
+                };
 
-                isErrorEnabled : function logger__isErrorEnabled()
-                {
-                    return isEnabledImpl('error');
-                }
-            };
+                Object.freeze(loggerModule);
 
-            Object.freeze(logger);
-
-            return logger;
-        });
+                return loggerModule;
+            });
+}());

@@ -1,28 +1,32 @@
-'use strict';
-define('callerProvided', [ 'nashorn!Java' ], function callerProvided_loader(Java)
+(function()
 {
-    var URL, CallerProvidedURLConnection, CallerProvidedURLStreamHandler, streamHandler, logger, loader;
+    'use strict';
 
-    logger = Java.type('org.slf4j.LoggerFactory').getLogger(
-            'de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.callerProvided');
-    URL = Java.type('java.net.URL');
-    CallerProvidedURLConnection = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.CallerProvidedURLConnection');
-    CallerProvidedURLStreamHandler = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.CallerProvidedURLStreamHandler');
-    streamHandler = new CallerProvidedURLStreamHandler();
+    define('callerProvided', [ 'nashorn!Java' ], function callerProvided_loader(Java)
+    {
+        var URL, CallerProvidedURLConnection, CallerProvidedURLStreamHandler, streamHandler, logger, loader;
 
-    loader = {
-        load : function callerProvided_loader__load(normalizedId, require, load)
-        {
-            var url = new URL('callerProvided', null, -1, normalizedId, streamHandler);
+        logger = Java.type('org.slf4j.LoggerFactory').getLogger(
+                'de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.callerProvided');
+        URL = Java.type('java.net.URL');
+        CallerProvidedURLConnection = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.CallerProvidedURLConnection');
+        CallerProvidedURLStreamHandler = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.CallerProvidedURLStreamHandler');
+        streamHandler = new CallerProvidedURLStreamHandler();
 
-            logger.trace('Loading module id {} from caller provided script', normalizedId);
+        loader = {
+            load : function callerProvided_loader__load(normalizedId, require, load)
+            {
+                var url = new URL('callerProvided', null, -1, normalizedId, streamHandler);
 
-            load(url, CallerProvidedURLConnection.isCallerProvidedScriptSecure());
-        }
-    };
+                logger.trace('Loading module id {} from caller provided script', normalizedId);
 
-    Object.freeze(loader.load);
-    Object.freeze(loader);
+                load(url, CallerProvidedURLConnection.isCallerProvidedScriptSecure());
+            }
+        };
 
-    return loader;
-});
+        Object.freeze(loader.load);
+        Object.freeze(loader);
+
+        return loader;
+    });
+}());

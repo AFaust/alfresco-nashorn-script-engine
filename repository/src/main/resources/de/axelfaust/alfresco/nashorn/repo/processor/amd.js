@@ -1,6 +1,7 @@
-'use strict';
 (function amd()
 {
+    'use strict';
+
     // core AMD state and config
     var modules = {}, moduleByUrl = {}, mappings = {}, moduleListenersByModule = {}, moduleListeners = [], packages = {},
     // state backup

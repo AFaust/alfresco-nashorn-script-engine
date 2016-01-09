@@ -1,6 +1,6 @@
-'use strict';
 (function spring_loader__global()
 {
+    'use strict';
     var appContext = applicationContext;
 
     define('spring', [ 'define', 'nashorn!Java' ], function spring_loader(define, Java)
