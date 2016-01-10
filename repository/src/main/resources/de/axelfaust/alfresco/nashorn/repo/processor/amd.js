@@ -1,3 +1,7 @@
+/* globals -require */
+/* globals -define */
+/* globals Java: false */
+/* globals load: false */
 (function amd()
 {
     'use strict';
@@ -24,7 +28,7 @@
     URL = Java.type('java.net.URL');
     logger = Java.type('org.slf4j.LoggerFactory').getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.amd');
 
-    UnavailableModuleError = function amd__UnavailableModuleError(message)
+    UnavailableModuleError = function amd__UnavailableModuleError()
     {
         var t = Error.apply(this, arguments);
         this.stack = t.stack;
@@ -153,7 +157,7 @@
     {
         var fragments, result, moduleFragments;
 
-        if (!(typeof id === 'string'))
+        if (typeof id !== 'string')
         {
             throw new Error('Module ID was either not provided or is not a string');
         }
@@ -662,7 +666,7 @@
     streamHandler = new AlfrescoClasspathURLStreamHandler(null);
 
     loaderMetaLoader = {
-        load : function amd__loaderMetaLoader__load(normalizedId, require, load)
+        load : function amd__loaderMetaLoader__load(normalizedId, /*jshint unused: false*/require, load)
         {
             var url = new URL('classpath', null, -1, 'de/axelfaust/alfresco/nashorn/repo/loaders/' + normalizedId, streamHandler);
 

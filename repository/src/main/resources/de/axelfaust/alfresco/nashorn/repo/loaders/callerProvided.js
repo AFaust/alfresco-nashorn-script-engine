@@ -1,3 +1,4 @@
+/* globals -require */
 (function()
 {
     'use strict';
@@ -14,7 +15,7 @@
         streamHandler = new CallerProvidedURLStreamHandler();
 
         loader = {
-            load : function callerProvided_loader__load(normalizedId, require, load)
+            load : function callerProvided_loader__load(normalizedId, /*jshint unused: false*/require, load)
             {
                 var url = new URL('callerProvided', null, -1, normalizedId, streamHandler);
 

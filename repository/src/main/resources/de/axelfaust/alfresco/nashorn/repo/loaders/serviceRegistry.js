@@ -1,3 +1,4 @@
+/* globals -require */
 (function()
 {
     'use strict';
@@ -6,7 +7,7 @@
         var loader;
 
         loader = {
-            load : function alfresco_service_loader__load(normalizedId, require, load)
+            load : function alfresco_service_loader__load(normalizedId, /*jshint unused: false*/require, load)
             {
                 var service, serviceGetterSignature;
 

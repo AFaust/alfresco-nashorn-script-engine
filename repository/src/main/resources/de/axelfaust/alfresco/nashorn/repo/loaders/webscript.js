@@ -1,10 +1,11 @@
+/* globals -require */
 (function()
 {
     'use strict';
     define(
             'webscript',
-            [ 'define', 'spring!webscripts.searchpath', 'spring!contentService', 'spring!retryingTransactionHelper', 'nashorn!Java' ],
-            function webscript_loader(define, searchPath, contentService, retryingTransactionHelper, Java)
+            [ 'spring!webscripts.searchpath', 'spring!contentService', 'spring!retryingTransactionHelper', 'nashorn!Java' ],
+            function webscript_loader(searchPath, contentService, retryingTransactionHelper, Java)
             {
                 var scriptLoader, apiStores, logger, idx, max, storeLoader, storeLoaders = [], suffixes = [ '', '.nashornjs', '.js' ], loader, URL, WebScriptURLStreamHandler, MultiScriptLoader;
 
@@ -29,7 +30,7 @@
                 scriptLoader = new MultiScriptLoader(Java.to(storeLoaders, 'org.springframework.extensions.webscripts.ScriptLoader[]'));
 
                 loader = {
-                    load : function webscript_loader__load(normalizedId, require, load)
+                    load : function webscript_loader__load(normalizedId, /*jshint unused: false*/require, load)
                     {
                         var script = null, url;
 

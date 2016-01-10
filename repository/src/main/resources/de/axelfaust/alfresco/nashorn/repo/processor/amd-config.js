@@ -1,3 +1,4 @@
+/* globals require: false */
 (function amd_config()
 {
     'use strict';

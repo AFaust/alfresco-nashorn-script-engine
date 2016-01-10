@@ -1,3 +1,7 @@
+/* globals -require */
+/* globals Java: false */
+/* globals JavaImporter: false */
+/* globals Packages: false */
 (function nashorn_loader_root()
 {
     'use strict';
@@ -9,8 +13,7 @@
     globalBackup = {
         Packages : Packages,
         Java : Java,
-        JavaImporter : JavaImporter,
-        print : print
+        JavaImporter : JavaImporter
     };
 
     define('nashorn', [ 'define' ], function nashorn_loader(define)
@@ -18,7 +21,7 @@
         var loader;
 
         loader = {
-            load : function nashorn_loader__load(normalizedId, require, load)
+            load : function nashorn_loader__load(normalizedId, /*jshint unused: false*/require, load)
             {
                 var module;
 

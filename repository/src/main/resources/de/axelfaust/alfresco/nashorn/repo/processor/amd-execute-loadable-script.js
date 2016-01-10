@@ -1,3 +1,5 @@
+/* globals _loadableModule: false */
+/* globals require: false */
 (function amd_execute_loadable_script()
 {
     'use strict';
@@ -29,7 +31,7 @@
         logger.trace('Module "{}" yielded result "{}"', moduleName, result);
     };
 
-    fnResolveFailed = function amd_execute_loadable_script__onModuleResolutionFailed(dependencies, modules, implicitModules)
+    fnResolveFailed = function amd_execute_loadable_script__onModuleResolutionFailed(/* jshint unused: false */ dependencies/* jshint unused: true */ , modules, implicitModules)
     {
         var logger, module;
 

@@ -1,12 +1,14 @@
+/* globals -require */
+/* globals applicationContext: false */
 (function spring_loader__global()
 {
     'use strict';
     var appContext = applicationContext;
 
-    define('spring', [ 'define', 'nashorn!Java' ], function spring_loader(define, Java)
+    define('spring', [ 'define' ], function spring_loader(define)
     {
         var loader = {
-            load : function spring_loader__load(normalizedId, require, load)
+            load : function spring_loader__load(normalizedId, /*jshint unused: false*/require, load)
             {
                 var bean = appContext.getBean(normalizedId.replace(/\//g, '.'));
                 load(define.asSecureUseModule(bean), true);

@@ -1,3 +1,4 @@
+/* globals -require */
 (function()
 {
     'use strict';
@@ -382,7 +383,7 @@
                         return normalizedModuleId;
                     },
 
-                    load : function node_loader__load(normalizedId, require, load)
+                    load : function node_loader__load(normalizedId, /* jshint unused: false */require/* jshint unused: true */, load)
                     {
                         var urlStreamHandler, url;
 

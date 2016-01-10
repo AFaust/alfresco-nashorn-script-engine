@@ -146,59 +146,24 @@
             </plugin>
 
             <plugin>
-                <groupId>com.googlecode.jslint4java</groupId>
-                <artifactId>jslint4java-maven-plugin</artifactId>
-                <version>2.0.5</version>
+                <groupId>com.cj.jshintmojo</groupId>
+                <artifactId>jshint-maven-plugin</artifactId>
+                <version>1.6.0</version>
                 <executions>
                     <execution>
-                        <id>Validate Nashorn Engine Scripts</id>
-                        <phase>initialize</phase>
                         <goals>
                             <goal>lint</goal>
                         </goals>
-                        <configuration>
-                            <sourceFolders>
-                                <sourceFolder>src/main/resources</sourceFolder>
-                            </sourceFolders>
-                            <excludes>
-                                <!-- jslint is opinionated about function(){}.call(this) -->
-                                <exclude>**/amd.js</exclude>
-                            </excludes>
-                            <options>
-
-                                <browser>false</browser>
-                                <node>false</node>
-                                <rhino>false</rhino>
-                                <windows>false</windows>
-                                <closure>false</closure>
-
-                                <es5>true</es5>
-
-                                <todo>true</todo>
-                                <sloppy>true</sloppy>
-                                <white>true</white>
-
-                                <newcap>true</newcap>
-                                <nomen>true</nomen>
-                                <plusplus>true</plusplus>
-                                <bitwise>true</bitwise>
-                                <unparam>true</unparam>
-                                <regexp>true</regexp>
-
-                                <sub>false</sub>
-                                <forin>false</forin>
-                                <evil>false</evil>
-                                <vars>false</vars>
-                                <eqeq>false</eqeq>
-                                <devel>false</devel>
-
-
-                                <predef>Java,JavaImporter,Packages,load,print,define,require,applicationContext,_loadableModule</predef>
-                            </options>
-                            <failOnError>true</failOnError>
-                        </configuration>
                     </execution>
                 </executions>
+                <configuration>
+                    <configFile>jshint.config.js</configFile>
+                    <directories>
+                        <directory>src/main/resources</directory>
+                    </directories>
+                    <reporter>jslint</reporter>
+                    <reportFile>target/jshint.xml</reportFile>
+                </configuration>
             </plugin>
         </plugins>
     </build>

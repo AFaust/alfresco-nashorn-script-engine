@@ -1,7 +1,8 @@
+/* globals -require */
 (function()
 {
     'use strict';
-    define('globalProperties', [ 'spring!global-properties' ], function globalProperties_loader(globalProperties)
+    define('globalProperties', [ 'spring!global-properties','nashorn!Java' ], function globalProperties_loader(globalProperties, Java)
     {
         var loader, cache, isObject, clone, loadProperty, getProperty;
 
@@ -107,7 +108,7 @@
         };
 
         loader = {
-            normalize : function globalProperties_loader__normalize(moduleId, normalizeSimpleId, contextModule)
+            normalize : function globalProperties_loader__normalize(moduleId, /*jshint unused: false*/normalizeSimpleId, /*jshint unused: false*/contextModule)
             {
                 var idFragments, result;
 
@@ -117,7 +118,7 @@
 
                 return result;
             },
-            load : function globalProperties_loader__load(normalizedId, require, load)
+            load : function globalProperties_loader__load(normalizedId, /*jshint unused: false*/require, load)
             {
                 var property = getProperty(normalizedId);
 
