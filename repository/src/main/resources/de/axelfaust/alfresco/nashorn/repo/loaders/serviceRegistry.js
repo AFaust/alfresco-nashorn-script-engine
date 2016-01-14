@@ -1,38 +1,35 @@
 /* globals -require */
-(function()
+define('serviceRegistry', [ 'define', 'spring!ServiceRegistry' ], function alfresco_service_loader(define, serviceRegistry)
 {
     'use strict';
-    define('serviceRegistry', [ 'define', 'spring!ServiceRegistry' ], function alfresco_service_loader(define, serviceRegistry)
-    {
-        var loader;
+    var loader;
 
-        loader = {
-            load : function alfresco_service_loader__load(normalizedId, /*jshint unused: false*/require, load)
+    loader = {
+        load : function alfresco_service_loader__load(normalizedId, /* jshint unused: false */require, load)
+        {
+            var service, serviceGetterSignature;
+
+            // assume normalizedId is capital service, i.e. NodeService
+            // JavaLinker has a minor bug not handling ConsString -> force String
+            serviceGetterSignature = String('get' + normalizedId + '()');
+            try
             {
-                var service, serviceGetterSignature;
-
-                // assume normalizedId is capital service, i.e. NodeService
-                // JavaLinker has a minor bug not handling ConsString -> force String
-                serviceGetterSignature = String('get' + normalizedId + '()');
-                try
-                {
-                    service = serviceRegistry[serviceGetterSignature]();
-                }
-                catch (e)
-                {
-                    service = null;
-                }
-
-                if (service !== null)
-                {
-                    load(define.asSecureUseModule(service), true);
-                }
+                service = serviceRegistry[serviceGetterSignature]();
             }
-        };
+            catch (e)
+            {
+                service = null;
+            }
 
-        Object.freeze(loader.load);
-        Object.freeze(loader);
+            if (service !== null)
+            {
+                load(define.asSecureUseModule(service), true);
+            }
+        }
+    };
 
-        return define.asSecureUseModule(loader);
-    });
-}());
+    Object.freeze(loader.load);
+    Object.freeze(loader);
+
+    return define.asSecureUseModule(loader);
+});

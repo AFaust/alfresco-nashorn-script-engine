@@ -1,6 +1,6 @@
 /* globals -require */
 /* globals applicationContext: false */
-(function spring_loader__global()
+(function spring_loader_root()
 {
     'use strict';
     var appContext = applicationContext;
