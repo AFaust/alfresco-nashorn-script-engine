@@ -28,7 +28,7 @@ define(
             scriptLoader = new MultiScriptLoader(Java.to(storeLoaders, 'org.springframework.extensions.webscripts.ScriptLoader[]'));
 
             loader = {
-                load : function webscript_loader__load(normalizedId, /* jshint unused: false */require, load)
+                load : function webscript_loader__load(normalizedId, require, load)
                 {
                     var script = null, url;
 

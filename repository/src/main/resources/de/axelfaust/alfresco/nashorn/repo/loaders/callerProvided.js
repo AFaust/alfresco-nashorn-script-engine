@@ -12,7 +12,7 @@ define('callerProvided', [ 'nashorn!Java' ], function callerProvided_loader(Java
     streamHandler = new CallerProvidedURLStreamHandler();
 
     loader = {
-        load : function callerProvided_loader__load(normalizedId, /* jshint unused: false */require, load)
+        load : function callerProvided_loader__load(normalizedId, require, load)
         {
             var url = new URL('callerProvided', null, -1, normalizedId, streamHandler);
 

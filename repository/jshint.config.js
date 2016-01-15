@@ -9,7 +9,7 @@
     "noarg": true,
     "nonew": true,
     "strict" : true,
-    "unused" : "strict",
+    "unused" : true,
     "laxbreak" : true,
     // really embarrassing - jshint Mojo searches "globals" via regex instead of proper evaluation
     // we'd prefer ' over " but whatever

@@ -666,7 +666,7 @@
     streamHandler = new AlfrescoClasspathURLStreamHandler(null);
 
     loaderMetaLoader = {
-        load : function amd__loaderMetaLoader__load(normalizedId, /*jshint unused: false*/require, load)
+        load : function amd__loaderMetaLoader__load(normalizedId, /* jshint unused: false */require, load)
         {
             var url = new URL('classpath', null, -1, 'de/axelfaust/alfresco/nashorn/repo/loaders/' + normalizedId, streamHandler);
 
@@ -996,7 +996,7 @@
         // prepare by-reference structures
         Object.keys(modules).forEach(function amd__require_config_prepareModules(moduleId)
         {
-            if (modules[moduleId].url !== undefined && modules[moduleId].url !== null)
+            if (isObject(modules[moduleId]) && modules[moduleId].url !== undefined && modules[moduleId].url !== null)
             {
                 moduleByUrl[String(modules[moduleId].url)] = modules[moduleId];
             }
@@ -1032,7 +1032,7 @@
         // prepare by-reference structures
         Object.keys(modules).forEach(function amd__require_reset_modules(moduleId)
         {
-            if (modules[moduleId].url !== undefined && modules[moduleId].url !== null)
+            if (isObject(modules[moduleId]) && modules[moduleId].url !== undefined && modules[moduleId].url !== null)
             {
                 moduleByUrl[String(modules[moduleId].url)] = modules[moduleId];
             }

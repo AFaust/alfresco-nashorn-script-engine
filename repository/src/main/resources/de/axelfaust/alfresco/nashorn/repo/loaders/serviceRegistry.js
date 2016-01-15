@@ -5,7 +5,7 @@ define('serviceRegistry', [ 'define', 'spring!ServiceRegistry' ], function alfre
     var loader;
 
     loader = {
-        load : function alfresco_service_loader__load(normalizedId, /* jshint unused: false */require, load)
+        load : function alfresco_service_loader__load(normalizedId, require, load)
         {
             var service, serviceGetterSignature;
 

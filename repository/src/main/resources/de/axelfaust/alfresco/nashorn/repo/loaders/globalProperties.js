@@ -106,11 +106,7 @@ define('globalProperties', [ 'spring!global-properties', 'nashorn!Java' ], funct
     };
 
     loader = {
-        normalize : function globalProperties_loader__normalize(moduleId, /* jshint unused: false */normalizeSimpleId, /*
-                                                                                                                         * jshint unused:
-                                                                                                                         * false
-                                                                                                                         */
-                contextModule)
+        normalize : function globalProperties_loader__normalize(moduleId, /* jshint unused: false */normalizeSimpleId, contextModule)
         {
             var idFragments, result;
 
@@ -120,7 +116,7 @@ define('globalProperties', [ 'spring!global-properties', 'nashorn!Java' ], funct
 
             return result;
         },
-        load : function globalProperties_loader__load(normalizedId, /* jshint unused: false */require, load)
+        load : function globalProperties_loader__load(normalizedId, require, load)
         {
             var property = getProperty(normalizedId);
 

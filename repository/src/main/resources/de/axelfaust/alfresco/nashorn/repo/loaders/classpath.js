@@ -17,7 +17,7 @@
                 streamHandler = new AlfrescoClasspathURLStreamHandler(null);
 
                 loader = {
-                    load : function classpath_loader__load(normalizedId, /* jshint unused: false */require, load)
+                    load : function classpath_loader__load(normalizedId, require, load)
                     {
                         var url = new URL('classpath', null, -1, normalizedId, streamHandler);
 
@@ -45,7 +45,7 @@
         streamHandler = new AlfrescoClasspathURLStreamHandler(true);
 
         loader = {
-            load : function extensible_classpath_loader__load(normalizedId, /* jshint unused: false */require, load)
+            load : function extensible_classpath_loader__load(normalizedId, require, load)
             {
                 var url = new URL('extensible-classpath', null, -1, normalizedId, streamHandler);
 

@@ -50,7 +50,7 @@ define('node', [ 'define', 'nashorn!Java', 'serviceRegistry!NamespaceService', '
             return normalizedModuleId;
         },
 
-        load : function node_loader__load(normalizedId, /* jshint unused: false */require/* jshint unused: true */, load)
+        load : function node_loader__load(normalizedId, require, load)
         {
             var url;
 
