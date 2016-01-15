@@ -199,6 +199,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         // this will likely be pointless because web script processor triggers reset of ALL script processors
         // but we should not assume this and still prepare for decent "first script" performance
         // (and web script processor should not reset script processor just for its internal registry setup)
+        // TODO Delay until context refresh and potentially outsource to background thread
         this.prepareReusableScriptContexts();
     }
 
@@ -315,6 +316,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
             this.scriptContextLock.writeLock().unlock();
         }
 
+        // TODO Outsource to background thread
         this.prepareReusableScriptContexts();
     }
 
@@ -383,8 +385,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         this.scriptContextLock.readLock().lock();
         try
         {
-            LOGGER.trace("Obtaining script context - {} reusable contexts available",
-                    Integer.valueOf(this.reusableScriptContexts.size()));
+            LOGGER.trace("Obtaining script context - {} reusable contexts available", Integer.valueOf(this.reusableScriptContexts.size()));
             context = this.reusableScriptContexts.isEmpty() ? null : this.reusableScriptContexts.remove(0);
         }
         finally
@@ -620,6 +621,11 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         try
         {
             this.engine.eval("define.preload(_preloadModule);", ctxt);
+        }
+        catch (final ScriptException sex)
+        {
+            LOGGER.error("Error preloading module {}", fullModuleId);
+            throw sex;
         }
         finally
         {
