@@ -20,7 +20,7 @@
     defaultNoSuchPropertyImpl = this.__noSuchProperty__;
     noSuchPropertyImpl = function __noSuchProperty__(propName)
     {
-        var defaultResult, result;
+        var defaultResult, result, restoreFn;
 
         logger.trace('Delegating to default __noSuchProperty__ to try and load {}', propName);
         defaultResult = defaultNoSuchPropertyImpl.call(_this, propName);
@@ -29,18 +29,23 @@
 
         if (protectedProperties[propName] !== true)
         {
+            logger.trace('Trying to load legacy root object {}', propName);
+
+            // tag our caller as the actual caller to require
+            restoreFn = require.tagCallerScript(true);
             try
             {
-                logger.trace('Trying to load legacy root object {}', propName);
-                // TODO We must somehow pass the callers module context to require for proper evaluation of security context
                 require([ 'legacyRootObject!' + propName ], function __noSuchProperty__require_callback(value)
                 {
                     logger.debug('Resolved {} for legacy root object {}', value, propName);
                     result = value;
                 });
+
+                restoreFn();
             }
             catch (e)
             {
+                restoreFn();
                 logger.debug('Failed to load legacy root object {}', propName);
                 result = defaultResult;
             }

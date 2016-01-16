@@ -18,7 +18,7 @@ define('legacyRootObject', [ 'globalProperties!nashornJavaScriptProcessor.de.axe
     loader = {
         load : function legacyRootObjects_loader__load(normalizedId, require, load)
         {
-            var legacyRootObject, result, isSecure, loadModuleId;
+            var legacyRootObject, result, isSecure, loadModuleId, resetFn;
 
             if (legacyRootObjects.hasOwnProperty(normalizedId))
             {
@@ -35,11 +35,25 @@ define('legacyRootObject', [ 'globalProperties!nashornJavaScriptProcessor.de.axe
 
                     isSecure = legacyRootObject.secure === true || legacyRootObject.secure === 'true';
                     logger.trace('Loading legacy root object module {} as secure={}', loadModuleId, isSecure);
-                    require([ loadModuleId ], function legacyRootObjects_loader__load__legacyRootObject_callback(value)
+
+                    // tag our caller as the actual caller to require
+                    resetFn = require.tagCallerScript(true);
+
+                    try
                     {
-                        logger.debug('Resolved {} for legacy root object {}', value, loadModuleId);
-                        result = value;
-                    });
+                        require([ loadModuleId ], function legacyRootObjects_loader__load__legacyRootObject_callback(value)
+                        {
+                            logger.debug('Resolved {} for legacy root object {}', value, loadModuleId);
+                            result = value;
+                        });
+
+                        resetFn();
+                    }
+                    catch (e)
+                    {
+                        resetFn();
+                        throw e;
+                    }
                 }
             }
 

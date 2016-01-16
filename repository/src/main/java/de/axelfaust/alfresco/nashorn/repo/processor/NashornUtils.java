@@ -31,6 +31,16 @@ public abstract class NashornUtils
     /**
      * Retrieves the script URL of the caller in the Nashorn script engine environment of the current thread.
      *
+     * @return the script URL of the caller
+     */
+    public static String getCallerScriptURL()
+    {
+        return getCallerScriptURL(false, false);
+    }
+
+    /**
+     * Retrieves the script URL of the caller in the Nashorn script engine environment of the current thread.
+     *
      * @param excludeTopFrame
      *            {@code true} if the top script caller should be excluded, i.e. if a script function itself needs to determine its caller
      * @param excludeAllFromTopFrameScript

@@ -10,10 +10,12 @@
     var modules = {}, moduleByUrl = {}, mappings = {}, moduleListenersByModule = {}, moduleListeners = [], packages = {},
     // state backup
     moduleBackup, moduleListenersBackup,
+    // dynamic static
+    taggedCallerScriptUrl,
     // Nashorn fns
     nashornLoad = load,
     // internal fns
-    isObject, normalizeSimpleId, normalizeModuleId, mapModuleId, loadModule, getModule, checkAndFulfillModuleListeners, _load, SecureUseOnlyWrapper, clone,
+    isObject, getRestoreTaggedCallerFn, normalizeSimpleId, normalizeModuleId, mapModuleId, loadModule, getModule, checkAndFulfillModuleListeners, _load, SecureUseOnlyWrapper, clone,
     // internal error subtype
     UnavailableModuleError,
     // Java utils
@@ -44,6 +46,18 @@
     {
         var result = o !== undefined && o !== null && Object.prototype.toString.call(o) === '[object Object]';
         return result;
+    };
+
+    getRestoreTaggedCallerFn = function amd__getRestoreTaggedCallerFn(scriptUrl, taggerUrl)
+    {
+        var originalScriptUrl = scriptUrl, taggerScriptUrl = taggerUrl;
+
+        return function amd__require_tagCallerScript_restoreFn()
+        {
+            taggedCallerScriptUrl = originalScriptUrl;
+
+            logger.debug('Script "{}" has reset the tagged script caller', taggerScriptUrl);
+        };
     };
 
     SecureUseOnlyWrapper = function amd__SecureUseOnlyWrapper_constructor(module)
@@ -273,7 +287,7 @@
 
     _load = function amd__load(value, normalizedId, loaderName, isSecureSource)
     {
-        var url, module, implicitResult;
+        var url, module, implicitResult, currentlyTaggedCallerScriptUrl;
 
         if (value !== undefined && value !== null)
         {
@@ -316,7 +330,24 @@
 
                     moduleByUrl[String(url)] = module;
 
-                    implicitResult = nashornLoad(url);
+                    currentlyTaggedCallerScriptUrl = taggedCallerScriptUrl;
+                    taggedCallerScriptUrl = null;
+
+                    try
+                    {
+                        implicitResult = nashornLoad(url);
+
+                        // reset
+                        taggedCallerScriptUrl = currentlyTaggedCallerScriptUrl;
+                    }
+                    catch (e)
+                    {
+                        // reset
+                        taggedCallerScriptUrl = currentlyTaggedCallerScriptUrl;
+
+                        throw e;
+                    }
+
                     // script may not define a module
                     // we store the result of script execution for require(dependencies[], successFn, errorFn)
                     logger.debug('Module "{}" from url "{}" yielded implicit result "{}"', normalizedId, url, implicitResult);
@@ -473,7 +504,7 @@
 
     getModule = function amd__getModule(normalizedId, doLoad, callerSecure, callerUrl)
     {
-        var module, isSecure, moduleResult, dependency, resolvedDependencies, idx;
+        var module, isSecure, moduleResult, dependency, resolvedDependencies, idx, currentlyTaggedCallerScriptUrl;
 
         logger.debug('Retrieving module "{}" (force load: {})', normalizedId, doLoad);
 
@@ -525,6 +556,11 @@
                 if (typeof module.factory === 'function')
                 {
                     logger.debug('Module "{}" not initialised yet - forcing initialisation', normalizedId);
+
+                    // reset tagged caller script for call to factory
+                    taggedCallerScriptUrl = null;
+                    currentlyTaggedCallerScriptUrl = taggedCallerScriptUrl;
+
                     module.constructing = true;
                     try
                     {
@@ -579,7 +615,11 @@
                                 });
                             }
                         }
+
+                        // reset
                         module.constructing = false;
+
+                        taggedCallerScriptUrl = currentlyTaggedCallerScriptUrl;
                     }
                     catch (e)
                     {
@@ -591,7 +631,12 @@
                         {
                             logger.info('Failed to instantiate module - {}', e.message);
                         }
+
+                        // reset
                         module.constructing = false;
+
+                        taggedCallerScriptUrl = currentlyTaggedCallerScriptUrl;
+
                         throw e;
                     }
 
@@ -726,6 +771,7 @@
                         logger.trace('Failed to resolve dependency - {}', e.message);
                     }
                     logger.debug('Failed to resolve dependency "{}" for call to require(string[], function, function?)', dependencies[idx]);
+
                     // rethrow
                     if (failOnMissingDependency === true || !(e instanceof UnavailableModuleError))
                     {
@@ -1021,6 +1067,8 @@
     {
         logger.debug('Resetting AMD loader state to backup');
 
+        taggedCallerScriptUrl = undefined;
+
         // clone
         modules = isObject(moduleBackup) ? clone(moduleBackup, {
             result : true
@@ -1060,13 +1108,23 @@
 
     require.isSecureCallerScript = function amd__require_isSecureCallerScript()
     {
-        var contextScriptUrl, contextModule, isSecure;
+        var amdScriptUrl, baseUrl, contextScriptUrl, contextModule, isSecure;
 
+        amdScriptUrl = taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(false, false);
         // skip this and the caller script to determine script URL of callers caller
-        contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
+        contextScriptUrl = NashornUtils.getCallerScriptURL();
         contextModule = moduleByUrl[contextScriptUrl];
 
-        isSecure = isObject(contextModule) && contextModule.secureSource === true;
+        if (isObject(contextModule))
+        {
+            isSecure = contextModule.secureSource === true;
+        }
+        else
+        {
+            // no module = insecure by default unless caller is from this script package
+            baseUrl = amdScriptUrl.substring(0, amdScriptUrl.length - 'amd.js'.length);
+            isSecure = contextScriptUrl.substring(0, baseUrl.length) === baseUrl;
+        }
 
         logger.trace('Determined script "{}" to be secure: {}', contextScriptUrl, isSecure);
 
@@ -1078,7 +1136,7 @@
         var contextScriptUrl;
 
         // skip this and the caller script to determine script URL of callers caller
-        contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
+        contextScriptUrl = taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
 
         return contextScriptUrl;
     };
@@ -1087,8 +1145,7 @@
     {
         var contextScriptUrl, contextModule, moduleId;
 
-        // skip this and the caller script to determine script URL of callers caller
-        contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
+        contextScriptUrl = taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
         contextModule = moduleByUrl[contextScriptUrl];
 
         if (isObject(contextModule))
@@ -1108,8 +1165,7 @@
     {
         var contextScriptUrl, contextModule, moduleLoader;
 
-        // skip this and the caller script to determine script URL of callers caller
-        contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
+        contextScriptUrl = taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
         contextModule = moduleByUrl[contextScriptUrl];
 
         if (isObject(contextModule))
@@ -1118,6 +1174,74 @@
         }
 
         return moduleLoader;
+    };
+
+    require.tagCallerScript = function amd__require_tagCallerScript(untaggedOnly)
+    {
+        var restoreFn, contextScriptUrl, actualCaller;
+
+        actualCaller = NashornUtils.getCallerScriptURL(true, true);
+
+        restoreFn = getRestoreTaggedCallerFn(taggedCallerScriptUrl, actualCaller);
+        if (untaggedOnly === true)
+        {
+            contextScriptUrl = taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
+        }
+        else
+        {
+            contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
+        }
+        taggedCallerScriptUrl = contextScriptUrl;
+
+        logger.debug('Script "{}" has tagged script caller as "{}"', actualCaller, contextScriptUrl);
+
+        return restoreFn;
+    };
+
+    require.withTaggedCallerScript = function amd__require_withTaggedCallerScript(callback, untaggedOnly)
+    {
+        var result, restoreFn, contextScriptUrl, actualCaller;
+
+        actualCaller = NashornUtils.getCallerScriptURL(true, true);
+
+        if (typeof callback === 'function')
+        {
+
+            restoreFn = getRestoreTaggedCallerFn(taggedCallerScriptUrl, actualCaller);
+            if (untaggedOnly === true)
+            {
+                contextScriptUrl = taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
+            }
+            else
+            {
+                contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
+            }
+            taggedCallerScriptUrl = contextScriptUrl;
+
+            logger.debug('Script "{}" is executing function with tagged script caller "{}"', actualCaller, contextScriptUrl);
+
+            try
+            {
+                result = callback();
+
+                restoreFn();
+            }
+            catch (e)
+            {
+                restoreFn();
+
+                throw e;
+            }
+        }
+        else
+        {
+            logger
+                    .info(
+                            'Script "{}" attempted to execute function with a tagged caller script URL, but provided no callback function to execute',
+                            actualCaller);
+        }
+
+        return result;
     };
 
     define = function amd__define()
@@ -1264,7 +1388,12 @@
     Object.freeze(loaderMetaLoader);
     Object.freeze(require.whenAvailable);
     Object.freeze(require.isSecureCallerScript);
+    Object.freeze(require.getCallerScriptModuleId);
+    Object.freeze(require.getCallerScriptModuleLoader);
+    Object.freeze(require.getCallerScriptURL);
     Object.freeze(require.reset);
+    Object.freeze(require.tagCallerScript);
+    Object.freeze(require.withTaggedCallerScript);
     // require / require.config can't be frozen yet
     Object.freeze(define.asSecureUseModule);
     Object.freeze(define.preload);
