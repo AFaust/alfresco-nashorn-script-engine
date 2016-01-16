@@ -17,7 +17,17 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
+import sun.misc.JavaLangAccess;
+import sun.misc.SharedSecrets;
+
 /**
+ * This class provides a collection of generic utilities to determine / collect information that scripts running inside the Nashorn engine
+ * cannot determine themselves. This currently includes the ability to determine the calling script as {@code arguments.callee} is both not
+ * available in strict mode and deprecated / removed from later EcmaScript standard revisions.
+ *
+ * This utility class makes use of {@link SharedSecrets JVM internal APIs} to improve the efficiency of its utilities that may potentially
+ * be called very frequently. These APIs might be inaccessible in Java 9, so this class is currently only guaranteed to work in Java 8.
+ *
  * @author Axel Faust
  */
 public abstract class NashornUtils
@@ -50,13 +60,22 @@ public abstract class NashornUtils
      */
     public static String getCallerScriptURL(final boolean excludeTopFrame, final boolean excludeAllFromTopFrameScript)
     {
-        final StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
         StackTraceElement topJSFrame = null;
         String topFrameScript = null;
 
+        @SuppressWarnings("restriction")
+        final JavaLangAccess access = SharedSecrets.getJavaLangAccess();
+        final Throwable throwable = new Throwable();
+        @SuppressWarnings("restriction")
+        final int depth = access.getStackTraceDepth(throwable);
+
         boolean topFrameExcluded = false;
-        for (final StackTraceElement frame : stackTrace)
+        for (int idx = 0; idx < depth; idx++)
         {
+            // Calling getStackTraceElement directly prevents the VM
+            // from paying the cost of building the entire stack frame.
+            @SuppressWarnings("restriction")
+            final StackTraceElement frame = access.getStackTraceElement(throwable, idx);
             final String className = frame.getClassName();
             final String methodName = frame.getMethodName();
 
@@ -85,11 +104,20 @@ public abstract class NashornUtils
      */
     public static String getCallerScriptURL(final Collection<String> scriptsToExclude)
     {
-        final StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
         StackTraceElement topJSFrame = null;
 
-        for (final StackTraceElement frame : stackTrace)
+        @SuppressWarnings("restriction")
+        final JavaLangAccess access = SharedSecrets.getJavaLangAccess();
+        final Throwable throwable = new Throwable();
+        @SuppressWarnings("restriction")
+        final int depth = access.getStackTraceDepth(throwable);
+
+        for (int idx = 0; idx < depth; idx++)
         {
+            // Calling getStackTraceElement directly prevents the VM
+            // from paying the cost of building the entire stack frame.
+            @SuppressWarnings("restriction")
+            final StackTraceElement frame = access.getStackTraceElement(throwable, idx);
             final String className = frame.getClassName();
             final String fileName = frame.getFileName();
             final String methodName = frame.getMethodName();
@@ -116,13 +144,22 @@ public abstract class NashornUtils
      */
     public static String getCallerScriptURL(final int excludeTopFrameScriptsCount, final boolean excludeAllFromTopFrameScripts)
     {
-        final StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
         StackTraceElement topJSFrame = null;
 
         final Set<String> excludedTopFrameScripts = new HashSet<String>();
 
-        for (final StackTraceElement frame : stackTrace)
+        @SuppressWarnings("restriction")
+        final JavaLangAccess access = SharedSecrets.getJavaLangAccess();
+        final Throwable throwable = new Throwable();
+        @SuppressWarnings("restriction")
+        final int depth = access.getStackTraceDepth(throwable);
+
+        for (int idx = 0; idx < depth; idx++)
         {
+            // Calling getStackTraceElement directly prevents the VM
+            // from paying the cost of building the entire stack frame.
+            @SuppressWarnings("restriction")
+            final StackTraceElement frame = access.getStackTraceElement(throwable, idx);
             final String className = frame.getClassName();
             final String methodName = frame.getMethodName();
 
