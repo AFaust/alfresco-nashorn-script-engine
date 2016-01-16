@@ -1,7 +1,7 @@
 /* globals _loadableModule: false */
 /* globals require: false */
 /* globals -define */
-(function amd_execute_loadable_script__root()
+(function amd_script_runner__root()
 {
     'use strict';
     var moduleName = _loadableModule.scriptModuleId, globalResult;
@@ -13,7 +13,7 @@
 
     try
     {
-        require([ 'executeAMDLoadableScript' ], function amd_execute_loadable_script__handleResult(executeAMDLoadableScript)
+        require([ 'executeAMDLoadableScript' ], function amd_script_runner__handleResult(executeAMDLoadableScript)
         {
             globalResult = executeAMDLoadableScript(moduleName);
         });
