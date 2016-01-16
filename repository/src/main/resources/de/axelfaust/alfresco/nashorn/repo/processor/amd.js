@@ -781,6 +781,8 @@
 
                 args.push(module);
 
+                // undefined / null are perfectly valid results of a module factory
+                // missingModule only triggers special handling if errCallback has been provided
                 if (module === undefined || module === null)
                 {
                     missingModule = true;
@@ -804,9 +806,8 @@
                 }
             }
 
-            if (missingModule === true)
+            if (missingModule === true && failOnMissingDependency !== true)
             {
-                // if errCallback is not a function we'd have failed during resolution instead of ending here
                 // signature is fn(dependencies[], moduleResolutions[], implicitResolutions[])
                 errCallback.call(this, dependencies, args, implicitArgs);
             }
@@ -816,7 +817,7 @@
             }
             else
             {
-                throw new Error('No success callback was provided');
+                throw new Error('No callback was provided');
             }
 
             return args;

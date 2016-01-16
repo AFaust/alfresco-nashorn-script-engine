@@ -78,7 +78,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
     private static final String SCRIPT_AMD = "amd.js";
 
-    private static final String SCRIPE_EXECUTE_AMD_LOADABLE_SCRIPT = "amd-execute-loadable-script.js";
+    private static final String SCRIPE_AMD_SCRIPT_RUNNER = "amd-script-runner.js";
 
     private static final List<String> NASHORN_GLOBAL_PROPERTIES_TO_ALWAYS_REMOVE = Arrays.asList("load", "loadWithNewGlobal", "exit",
             "quit");
@@ -359,7 +359,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
                 ctxt.setAttribute("_loadableModule", script, ScriptContext.GLOBAL_SCOPE);
                 ctxt.setAttribute("_argumentModel", model, ScriptContext.GLOBAL_SCOPE);
 
-                final URL resource = NashornScriptProcessor.class.getResource(SCRIPE_EXECUTE_AMD_LOADABLE_SCRIPT);
+                final URL resource = NashornScriptProcessor.class.getResource(SCRIPE_AMD_SCRIPT_RUNNER);
                 final Object scriptResult = this.executeScriptFromResource(resource, ctxt);
 
                 LOGGER.debug("Return value of AMD-loadable script {}: {}", script, scriptResult);
