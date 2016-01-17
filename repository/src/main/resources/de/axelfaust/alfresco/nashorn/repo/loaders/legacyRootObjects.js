@@ -4,10 +4,11 @@ define('legacyRootObject', [ 'globalProperties!nashornJavaScriptProcessor.de.axe
 {
     'use strict';
 
-    var logger, loader, isObject;
+    var logger, loader, isObject, propertyPrefix;
 
     logger = Java.type('org.slf4j.LoggerFactory').getLogger(
             'de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.legacyRootObjects');
+    propertyPrefix = 'nashornJavaScriptProcessor.de.axelfaust.alfresco.nashorn.repo.legacyRootObjects.';
 
     isObject = function legacyRootObjects_loader__isObject(o)
     {
@@ -18,42 +19,44 @@ define('legacyRootObject', [ 'globalProperties!nashornJavaScriptProcessor.de.axe
     loader = {
         load : function legacyRootObjects_loader__load(normalizedId, require, load)
         {
-            var legacyRootObject, result, isSecure, loadModuleId, resetFn;
+            var result, isSecure, legacyModuleId, legacyModuleLoaderName, legacyModuleSecure, resetFn;
 
-            if (legacyRootObjects.hasOwnProperty(normalizedId))
+            legacyModuleId = legacyRootObjects[propertyPrefix + normalizedId + '.moduleId'];
+
+            if (typeof legacyModuleId === 'string')
             {
-                legacyRootObject = legacyRootObjects[normalizedId];
+                legacyModuleLoaderName = legacyRootObjects[propertyPrefix + normalizedId + '.loaderName'];
+                legacyModuleSecure = legacyRootObjects[propertyPrefix + normalizedId + '.secure'];
 
-                if (isObject(legacyRootObject) && typeof legacyRootObject.moduleId === 'string')
+                if (typeof legacyModuleLoaderName === 'string')
                 {
-                    loadModuleId = legacyRootObject.moduleId;
+                    legacyModuleId = legacyModuleLoaderName + '!' + legacyModuleId;
+                }
+                else
+                {
+                    legacyModuleId = legacyModuleId;
+                }
 
-                    if (typeof legacyRootObject.loaderName === 'string')
+                isSecure = legacyModuleSecure === true || legacyModuleSecure === 'true';
+                logger.trace('Loading legacy root object module {} as secure={}', legacyModuleId, isSecure);
+
+                // tag our caller as the actual caller to require
+                resetFn = require.tagCallerScript(true);
+
+                try
+                {
+                    require([ legacyModuleId ], function legacyRootObjects_loader__load__legacyRootObject_callback(value)
                     {
-                        loadModuleId = legacyRootObject.loaderName + '!' + loadModuleId;
-                    }
+                        logger.debug('Resolved {} for legacy root object {}', value, legacyModuleId);
+                        result = value;
+                    });
 
-                    isSecure = legacyRootObject.secure === true || legacyRootObject.secure === 'true';
-                    logger.trace('Loading legacy root object module {} as secure={}', loadModuleId, isSecure);
-
-                    // tag our caller as the actual caller to require
-                    resetFn = require.tagCallerScript(true);
-
-                    try
-                    {
-                        require([ loadModuleId ], function legacyRootObjects_loader__load__legacyRootObject_callback(value)
-                        {
-                            logger.debug('Resolved {} for legacy root object {}', value, loadModuleId);
-                            result = value;
-                        });
-
-                        resetFn();
-                    }
-                    catch (e)
-                    {
-                        resetFn();
-                        throw e;
-                    }
+                    resetFn();
+                }
+                catch (e)
+                {
+                    resetFn();
+                    throw e;
                 }
             }
 
