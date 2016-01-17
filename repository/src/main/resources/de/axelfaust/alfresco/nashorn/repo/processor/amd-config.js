@@ -9,6 +9,10 @@
             loader : 'classpath',
             location : 'de/axelfaust/alfresco/nashorn/repo/_base'
         }, {
+            name : '_legacy',
+            loader : 'classpath',
+            location : 'de/axelfaust/alfresco/nashorn/repo/_legacy'
+        }, {
             // global alias that supports customer extensions
             name : 'alfresco',
             loader : 'extensible-classpath'

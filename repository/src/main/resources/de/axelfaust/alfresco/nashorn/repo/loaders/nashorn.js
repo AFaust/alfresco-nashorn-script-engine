@@ -1,6 +1,7 @@
 /* globals -require */
 /* globals Java: false */
 /* globals JavaImporter: false */
+/* globals JSAdapter: false */
 /* globals Packages: false */
 (function nashorn_loader_root()
 {
@@ -13,7 +14,8 @@
     globalBackup = {
         Packages : Packages,
         Java : Java,
-        JavaImporter : JavaImporter
+        JavaImporter : JavaImporter,
+        JSAdapter : JSAdapter
     };
 
     define('nashorn', [ 'define' ], function nashorn_loader(define)
