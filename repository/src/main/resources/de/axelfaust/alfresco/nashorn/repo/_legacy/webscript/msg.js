@@ -3,9 +3,11 @@ define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter' ], function msg(rhinoMs
 {
     'use strict';
 
-    var Map, JavaDate, ScriptMessage, ScriptableObject, RhinoUtils, isObject, toJava, result;
+    var Map, List, HashMap, JavaDate, ScriptMessage, ScriptableObject, RhinoUtils, isObject, toJava, result;
 
-    Map = Java.type('java.util.HashMap');
+    Map = Java.type('java.util.Map');
+    List = Java.type('java.util.List');
+    HashMap = Java.type('java.util.HashMap');
     JavaDate = Java.type('java.util.Date');
     ScriptMessage = Java.type('org.springframework.extensions.webscripts.ScriptMessage');
     ScriptableObject = Java.type('org.mozilla.javascript.ScriptableObject');
@@ -23,7 +25,7 @@ define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter' ], function msg(rhinoMs
         var result;
         if (isObject(o))
         {
-            result = new Map();
+            result = new HashMap();
             Object.keys(o).forEach(function msg__toJava_forEachKey(key)
             {
                 result[key] = toJava(o[key]);
@@ -36,7 +38,7 @@ define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter' ], function msg(rhinoMs
             {
                 result.push(toJava(element));
             });
-            result = Java.to(result, 'java.util.List');
+            result = Java.to(result, List);
         }
         else if (o instanceof Date)
         {
@@ -58,20 +60,30 @@ define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter' ], function msg(rhinoMs
             {
                 var msgValue;
 
-                if (isObject(args) || Array.isArray(args))
+                if (isObject(args) || args instanceof Map || Array.isArray(args) || args instanceof List)
                 {
                     // need to construct a Scriptable to pass to ScriptMessage
                     msgValue = RhinoUtils.inRhino(function msg__get_inRhino(cx, scope)
                     {
                         var scriptable, msgValue, arr;
 
-                        if (isObject(args))
+                        if (isObject(args) || args instanceof Map)
                         {
                             // default ScriptMessage does not support object as parameter but in case an extended variant does we
                             // cover this case here
                             scriptable = cx.newObject(scope);
 
-                            Object.keys(args).forEach(function msg__get_forEachKey(key)
+                            if (isObject(args))
+                            {
+                                arr = Object.keys(args);
+                            }
+                            else
+                            {
+                                arr = args.keys();
+                            }
+
+                            // either JS Array.forEach or Iterable.forEach
+                            arr.forEach(function msg__get_forEachKey(key)
                             {
                                 var javaValue = toJava(args[key]);
                                 ScriptableObject.putProperty(scriptable, key, javaValue);
@@ -80,6 +92,7 @@ define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter' ], function msg(rhinoMs
                         else
                         {
                             arr = [];
+                            // either JS Array.forEach or Iterable.forEach
                             args.forEach(function msg__get_forEachElement(element)
                             {
                                 arr.push(toJava(element));
