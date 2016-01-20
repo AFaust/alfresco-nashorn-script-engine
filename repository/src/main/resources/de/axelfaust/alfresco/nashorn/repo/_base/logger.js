@@ -74,6 +74,8 @@ define(
                             {
                                 values = [];
                             }
+                            
+                            // TODO wrap script objects to ensure any log framework call to toString is delegated to JS toString
                             values.push(args[idx]);
                         }
                     }
