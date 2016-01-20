@@ -1,18 +1,20 @@
 /* globals -require */
-define([ '_base/declare', '../foundation/NamespaceService', 'nashorn!Java' ], function alfresco_common_QName__root(declare,
-        NamespaceService, Java)
+define([ '_base/declare', '../foundation/NamespaceService', '_base/logger', 'nashorn!Java' ], function alfresco_common_QName__root(declare,
+        NamespaceService, logger, Java)
 {
     'use strict';
-    var QName, IllegalArgumentException;
+    var QName, IllegalArgumentException, module;
 
     QName = Java.type('org.alfresco.service.namespace.QName');
     IllegalArgumentException = Java.type('java.lang.IllegalArgumentException');
 
     // we have to encapsulate QName as we can't Java.extend due to private constructor
     // normal Java interop + extension could have save lots of boilerplate
-    return declare([], {
+    module = declare([], {
 
-        '--declare--enable-shorthand-properties' : true,
+        '--declare--enable-shorthand-properties-getters' : true,
+        // just for documentation sake
+        '--declare--enable-shorthand-properties-setters' : false,
 
         constructor : function alfresco_common_QName__contructor(qname)
         {
@@ -36,6 +38,8 @@ define([ '_base/declare', '../foundation/NamespaceService', 'nashorn!Java' ], fu
                 throw new IllegalArgumentException('qname value invalid: ' + qname);
             }
 
+            // this is intended to be our only apparent property
+            // defined this way since we want to be immutable
             Object.defineProperty(this, 'qname', {
                 value : internalQName,
                 enumerable : true
@@ -59,6 +63,8 @@ define([ '_base/declare', '../foundation/NamespaceService', 'nashorn!Java' ], fu
         {
             if (this.prefixString === undefined)
             {
+                logger.debug('Defining prefixString on {}', this.qname);
+                // just a cached value to avoid redundant toPrefixString execution
                 Object.defineProperty(this, 'prefixString', {
                     value : this.qname.toPrefixString(NamespaceService),
                     enumerable : true
@@ -71,9 +77,10 @@ define([ '_base/declare', '../foundation/NamespaceService', 'nashorn!Java' ], fu
         {
             if (this.fullString === undefined)
             {
+                logger.debug('Defining fullString on {}', this.qname);
+                // just a cached value
                 Object.defineProperty(this, 'fullString', {
-                    value : String(this.qname),
-                    enumerable : true
+                    value : String(this.qname)
                 });
             }
             return this.fullString;
@@ -86,4 +93,8 @@ define([ '_base/declare', '../foundation/NamespaceService', 'nashorn!Java' ], fu
         }
 
     });
+
+    // TODO add "static" utility valueOf() and cache to re-use already resolved, immutable instances
+
+    return module;
 });

@@ -4,7 +4,7 @@ define(
         function declare(c3mro, Java, JSAdapter)
         {
             'use strict';
-            var anonClassCount = 0, FnCtor, DummyCtor, Locale, declareAdaptee, getterNames, boolGetterNames, setterNames, isObject, fn_toString, isInstanceOf, inherited, forceNew, applyNew, standardConstructor, taggedMixin, standardPrototype, declareImpl, declareFn;
+            var anonClassCount = 0, FnCtor, DummyCtor, Locale, declareNoSuchPropertyStackKey, declareNoSuchPropertyImpl, declareAdaptee, getterNames, boolGetterNames, setterNames, isObject, fn_toString, isInstanceOf, inherited, forceNew, applyNew, standardConstructor, taggedMixin, standardPrototype, declareImpl, declareFn;
 
             FnCtor = Function;
 
@@ -12,48 +12,78 @@ define(
 
             Locale = Java.type('java.util.Locale');
 
+            declareNoSuchPropertyStackKey = '--declare--no-such-property-stack';
+            declareNoSuchPropertyImpl = function declare__noSuchProperty__(prop)
+            {
+                var result, getterName, suffix;
+
+                if (prop === '--declare--enable-shorthand-properties-getters' || prop === '--declare--enable-shorthand-properties-setters')
+                {
+                    result = false;
+                }
+                else if (this['--declare--enable-shorthand-properties-getters'] === true)
+                {
+                    if (this[declareNoSuchPropertyStackKey] === null)
+                    {
+                        this[declareNoSuchPropertyStackKey] = [];
+                    }
+
+                    if (this[declareNoSuchPropertyStackKey].indexOf(prop) === -1)
+                    {
+                        this[declareNoSuchPropertyStackKey].push(prop);
+                        try
+                        {
+                            getterName = getterNames[prop];
+                            if (getterName === undefined)
+                            {
+                                suffix = prop.substring(0, 1).toUpperCase(Locale.ENGLISH) + prop.substring(1);
+                                getterName = getterNames[prop] = ('get' + suffix);
+                            }
+
+                            this[declareNoSuchPropertyStackKey].push(getterName);
+                            if (typeof this[getterName] === 'function')
+                            {
+                                this[declareNoSuchPropertyStackKey].pop();
+                                result = this[getterName]();
+                            }
+                            else
+                            {
+                                getterName = boolGetterNames[prop];
+                                if (getterName === undefined)
+                                {
+                                    suffix = suffix || (prop.substring(0, 1).toUpperCase(Locale.ENGLISH) + prop.substring(1));
+                                    getterName = boolGetterNames[prop] = ('is' + suffix);
+                                }
+
+                                this[declareNoSuchPropertyStackKey].push(getterName);
+                                if (typeof this[getterName] === 'function')
+                                {
+                                    this[declareNoSuchPropertyStackKey].pop();
+                                    result = this[getterName]();
+                                }
+                            }
+
+                            
+                            this[declareNoSuchPropertyStackKey].pop();
+                        }
+                        catch (e)
+                        {
+                            this[declareNoSuchPropertyStackKey].pop();
+                            throw e;
+                        }
+                    }
+                }
+                
+                return result;
+            };
+
             // common adaptee for JSAdapter - every proxy instance will get
             // a __delegate override property to reference the actual instance
             declareAdaptee = {
                 __get__ : function declare_adaptee__get__(prop)
                 {
-                    var getterName, result, suffix;
-
-                    // direct always wins
-                    if (prop in this.__delegate)
-                    {
-                        result = this.__delegate[prop];
-                    }
-                    else
-                    {
-                        getterName = getterNames[prop];
-                        if (getterName === undefined)
-                        {
-                            suffix = prop.substring(0, 1).toUpperCase(Locale.ENGLISH) + prop.substring(1);
-                            getterName = getterNames[prop] = ('get' + suffix);
-                        }
-
-                        if (typeof this.__delegate[getterName] === 'function')
-                        {
-                            result = this.__delegate[getterName]();
-                        }
-                        else
-                        {
-                            getterName = boolGetterNames[prop];
-                            if (getterName === undefined)
-                            {
-                                suffix = suffix || (prop.substring(0, 1).toUpperCase(Locale.ENGLISH) + prop.substring(1));
-                                getterName = boolGetterNames[prop] = ('is' + suffix);
-                            }
-
-                            if (typeof this.__delegate[getterName] === 'function')
-                            {
-                                result = this.__delegate[getterName]();
-                            }
-                        }
-                    }
-
-                    return result;
+                    // either exists or handled by __noSuchProperty__ in delegate
+                    return this.__delegate[prop];
                 },
 
                 __put__ : function declare_adaptee__put__(prop, value)
@@ -65,7 +95,7 @@ define(
                     {
                         this.__delegate[prop] = value;
                     }
-                    else
+                    else if (this.__delegate['--declare--enable-shorthand-properties-setters'] === true)
                     {
                         setterName = setterNames[prop];
                         if (setterName === undefined)
@@ -78,12 +108,11 @@ define(
                         {
                             this.__delegate[setterName](value);
                         }
-                        else
-                        {
-                            // TODO check getter existence and if a getter exists without a setter, skip implicit definition
-                            // fall-back implicit definition
-                            this.__delegate[prop] = value;
-                        }
+                    }
+                    else
+                    {
+                        // fall-back implicit definition
+                        this.__delegate[prop] = value;
                     }
 
                     return value;
@@ -325,7 +354,7 @@ define(
                         });
                     }
 
-                    if (result['--declare--enable-shorthand-properties'] === true)
+                    if (result['--declare--enable-shorthand-properties-setters'] === true)
                     {
                         result = new JSAdapter(result, {
                             __delegate : result
@@ -434,6 +463,9 @@ define(
                 else
                 {
                     proto = {};
+                    // base of class hierarchy so add the __noSuchProperty__ handling stuff
+                    proto.__noSuchProperty__ = declareNoSuchPropertyImpl;
+                    proto[declareNoSuchPropertyStackKey] = null;
                 }
 
                 cls.prototype = proto;
