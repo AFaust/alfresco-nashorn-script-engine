@@ -4,7 +4,7 @@ define(
         function logger(require, Java)
         {
             'use strict';
-            var loggerModule, getSLF4JLogger, logImpl, isEnabledImpl, loggerByScriptUrl = {}, Throwable, LoggerFactory;
+            var loggerModule, getSLF4JLogger, isEnabledImpl, logImpl, loggerByScriptUrl = {}, Throwable, LoggerFactory;
 
             Throwable = Java.type('java.lang.Throwable');
             LoggerFactory = Java.type('org.slf4j.LoggerFactory');
@@ -41,63 +41,6 @@ define(
                 return logger;
             };
 
-            logImpl = function logger__logImpl(level, args)
-            {
-                var message, ex, values, idx, logger, meth;
-
-                for (idx = 0; idx < args.length; idx++)
-                {
-                    if (idx === 0 && typeof args[idx] === 'string')
-                    {
-                        message = args[idx];
-                    }
-
-                    if (idx > 0 && message !== undefined)
-                    {
-                        if (idx === 1
-                                && args.length === 2
-                                && (args[idx] instanceof Throwable || (args[idx] instanceof Error && args[idx].nashornException instanceof Throwable)))
-                        {
-                            // best-effort attempt - requires correct inheritance
-                            if (args[idx] instanceof Error && args[idx].nashornException instanceof Throwable)
-                            {
-                                ex = args[idx].nashornException;
-                            }
-                            else
-                            {
-                                ex = args[idx];
-                            }
-                        }
-                        else if (ex === undefined)
-                        {
-                            if (values === undefined)
-                            {
-                                values = [];
-                            }
-                            
-                            // TODO wrap script objects to ensure any log framework call to toString is delegated to JS toString
-                            values.push(args[idx]);
-                        }
-                    }
-                }
-
-                logger = getSLF4JLogger();
-
-                meth = level || 'debug';
-                if (ex !== undefined)
-                {
-                    logger[meth](message, ex);
-                }
-                else if (values !== undefined)
-                {
-                    logger[meth](message, Java.to(values, 'java.lang.Object[]'));
-                }
-                else
-                {
-                    logger[meth](message);
-                }
-            };
-
             isEnabledImpl = function logger__isEnabledImpl(level)
             {
                 var logger = getSLF4JLogger(), prop, isEnabled = false;
@@ -107,6 +50,78 @@ define(
                 isEnabled = logger[String(prop)];
 
                 return isEnabled;
+            };
+
+            logImpl = function logger__logImpl(level, args)
+            {
+                var message, ex, values, idx, logger, enabledProp, meth;
+
+                // we could delegate to isEnabledImpl but that would mean retrieving logger potentially twice
+                logger = getSLF4JLogger();
+                enabledProp = (level || 'debug') + 'Enabled';
+
+                // to avoid interop performance overhead we should drop out as soon as possible
+                // JavaLinker has a minor bug not handling ConsString -> force String
+                if (logger[String(enabledProp)])
+                {
+                    for (idx = 0; idx < args.length; idx++)
+                    {
+                        if (idx === 0 && typeof args[idx] === 'string')
+                        {
+                            message = args[idx];
+                        }
+
+                        if (idx > 0 && message !== undefined)
+                        {
+                            if (idx === 1
+                                    && args.length === 2
+                                    && (args[idx] instanceof Throwable || (args[idx] instanceof Error && args[idx].nashornException instanceof Throwable)))
+                            {
+                                // best-effort attempt - requires correct inheritance
+                                if (args[idx] instanceof Error && args[idx].nashornException instanceof Throwable)
+                                {
+                                    ex = args[idx].nashornException;
+                                }
+                                else
+                                {
+                                    ex = args[idx];
+                                }
+                            }
+                            else if (ex === undefined)
+                            {
+                                if (values === undefined)
+                                {
+                                    values = [];
+                                }
+
+                                switch (typeof args[idx])
+                                {
+                                    case 'object':
+                                    case 'function':
+                                        // script objects passed to logger would not have their JS toString called (Java toString of Nashorn types provides little to no value)
+                                        values.push(String(args[idx]));
+                                        break;
+                                    default:
+                                        values.push(args[idx]);
+                                }
+                            }
+                        }
+                    }
+
+                    meth = level || 'debug';
+                    if (ex !== undefined)
+                    {
+                        logger[meth](message, ex);
+                    }
+                    else if (values !== undefined)
+                    {
+                        logger[meth](message, Java.to(values, 'java.lang.Object[]'));
+                    }
+                    else
+                    {
+                        logger[meth](message);
+                    }
+                }
             };
 
             loggerModule = {
