@@ -37,13 +37,19 @@ public class AlfrescoClasspathURLConnection extends URLConnection
 
     protected String basePath = "alfresco";
 
+    protected int basePathLength = this.basePath.length();
+
     protected String extensionPath = "extension";
+
+    protected int extensionPathLength = this.extensionPath.length();
 
     protected boolean allowExtension;
 
     protected transient long contentLength = -1;
 
     protected transient long lastModified = -1;
+
+    private StringBuilder delete;
 
     public AlfrescoClasspathURLConnection(final URL url)
     {
@@ -66,18 +72,21 @@ public class AlfrescoClasspathURLConnection extends URLConnection
     {
         this(url);
         this.basePath = basePath;
+        this.basePathLength = basePath != null ? basePath.length() : -1;
     }
 
     public AlfrescoClasspathURLConnection(final URL url, final String basePath, final boolean allowExtension)
     {
         this(url, allowExtension);
         this.basePath = basePath;
+        this.basePathLength = basePath != null ? basePath.length() : -1;
     }
 
     public AlfrescoClasspathURLConnection(final URL url, final String basePath, final boolean allowExtension, final String extensionPath)
     {
         this(url, basePath, allowExtension);
         this.extensionPath = extensionPath;
+        this.extensionPathLength = basePath != null ? extensionPath.length() : -1;
     }
 
     /**
@@ -144,7 +153,7 @@ public class AlfrescoClasspathURLConnection extends URLConnection
             {
                 final StringBuilder pathBuilder = new StringBuilder();
 
-                if (this.basePath != null)
+                if (this.basePathLength > 0)
                 {
                     pathBuilder.append(this.basePath);
                     pathBuilder.append('/');
@@ -162,28 +171,29 @@ public class AlfrescoClasspathURLConnection extends URLConnection
                             pathBuilder.append(suffix);
                         }
 
-                        if (this.allowExtension && this.extensionPath != null)
+                        if (this.allowExtension && this.extensionPathLength > 0)
                         {
-                            if (this.basePath != null)
+                            if (this.basePathLength > 0)
                             {
-                                pathBuilder.insert(this.basePath.length(), '/');
-                                pathBuilder.insert(this.basePath.length() + 1, this.extensionPath);
+                                pathBuilder.insert(this.basePathLength, '/');
+                                pathBuilder.insert(this.basePathLength + 1, this.extensionPath);
                             }
                             else
                             {
                                 pathBuilder.insert(0, this.extensionPath);
-                                pathBuilder.insert(this.extensionPath.length(), '/');
+                                pathBuilder.insert(this.extensionPathLength, '/');
                             }
 
                             this.resource = classLoader.getResource(pathBuilder.toString());
 
-                            if (this.basePath != null)
+                            if (this.basePathLength > 0)
                             {
-                                pathBuilder.delete(this.basePath.length(), this.extensionPath.length() + 1);
+
+                                pathBuilder.delete(this.basePathLength, this.basePathLength + this.extensionPathLength + 1);
                             }
                             else
                             {
-                                pathBuilder.delete(0, this.extensionPath.length() + 1);
+                                pathBuilder.delete(0, this.extensionPathLength + 1);
                             }
                         }
 
