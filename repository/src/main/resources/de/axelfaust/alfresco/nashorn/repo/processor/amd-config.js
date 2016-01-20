@@ -15,7 +15,8 @@
         }, {
             // global alias that supports customer extensions
             name : 'alfresco',
-            loader : 'extensible-classpath'
+            loader : 'extensible-classpath',
+            location : 'scripts/nashorn/alfresco'
         }, {
             // alias to Java services via ServiceRegistry
             name : 'alfrescoServices',
