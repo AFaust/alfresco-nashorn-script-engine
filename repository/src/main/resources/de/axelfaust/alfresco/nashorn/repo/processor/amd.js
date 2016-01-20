@@ -145,7 +145,8 @@
                 }
             }
         }
-        else if (mappings.hasOwnProperty('*'))
+        
+        if (mapped !== true && mappings.hasOwnProperty('*'))
         {
             mapping = mappings['*'];
             fragments = moduleId.split('/');
@@ -222,7 +223,7 @@
                         throw new Error('Module ID is relative with too many parent-level elements for current module context');
                     }
 
-                    moduleFragments.shift();
+                    moduleFragments.pop();
                 }
 
                 fragments = moduleFragments.concat(fragments);
