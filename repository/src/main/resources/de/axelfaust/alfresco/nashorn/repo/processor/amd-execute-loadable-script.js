@@ -1,6 +1,7 @@
 /* globals -require */
 // wrapped as a module so any other modules behave properly (i.e. logger)
-define('executeAMDLoadableScript', [ 'require', '_base/logger' ], function amd_execute_loadable_script(require, logger)
+define('executeAMDLoadableScript', [ 'require', '_base/logger', '_base/JavaConvertableMixin' ], function amd_execute_loadable_script(
+        require, logger, JavaConvertableMixin)
 {
     'use strict';
     var executeFn;
@@ -8,7 +9,7 @@ define('executeAMDLoadableScript', [ 'require', '_base/logger' ], function amd_e
     executeFn = function amd_execute_loadable_script__executeScript(moduleName)
     {
         var result, fnResolved, fnResolveFailed;
-        
+
         fnResolved = function amd_execute_loadable_script__executeScript_onModuleResolved(module)
         {
             // module may have been declared as a main()-style entry function
@@ -27,7 +28,8 @@ define('executeAMDLoadableScript', [ 'require', '_base/logger' ], function amd_e
             logger.trace('Module "{}" yielded result "{}"', moduleName, result);
         };
 
-        fnResolveFailed = function amd_execute_loadable_script__executeScript_onModuleResolutionFailed(dependencies, modules, implicitModules)
+        fnResolveFailed = function amd_execute_loadable_script__executeScript_onModuleResolutionFailed(dependencies, modules,
+                implicitModules)
         {
             var module;
 
@@ -60,9 +62,22 @@ define('executeAMDLoadableScript', [ 'require', '_base/logger' ], function amd_e
 
         require([ moduleName ], fnResolved, fnResolveFailed);
 
+        if (result !== undefined && result !== null)
+        {
+            if (result instanceof JavaConvertableMixin
+                    || (typeof result.isInstanceOf === 'function' && result.isInstanceOf(JavaConvertableMixin)))
+            {
+                result = result.getJavaValue();
+            }
+            else if (result.javaValue !== undefined && result.javaValue !== null)
+            {
+                result = result.javaValue;
+            }
+        }
+
         return result;
     };
-    
+
     Object.freeze(executeFn);
 
     return executeFn;
