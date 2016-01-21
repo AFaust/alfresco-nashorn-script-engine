@@ -15,6 +15,8 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '../foundation/Namespace
                 '--declare--enable-shorthand-properties-getters' : true,
                 // just for documentation sake
                 '--declare--enable-shorthand-properties-setters' : false,
+                
+                '--declare--enable-properties-getter-simulation' : true,
 
                 internalJavaValueProperty : 'qname',
 
@@ -46,6 +48,12 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '../foundation/Namespace
                         value : internalQName,
                         enumerable : true
                     });
+                },
+                
+                // due to potential case diferences (xy.qname / xy.qName) we provide this getter
+                getQName : function alfresco_common_QName__getQName()
+                {
+                    return this.qname;
                 },
 
                 // could have been avoided with Java.extend
