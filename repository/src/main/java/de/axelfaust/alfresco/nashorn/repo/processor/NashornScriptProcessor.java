@@ -359,6 +359,9 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
                 ctxt.setAttribute("_loadableModule", script, ScriptContext.GLOBAL_SCOPE);
                 ctxt.setAttribute("_argumentModel", model, ScriptContext.GLOBAL_SCOPE);
 
+                // unique object reference as key for current execution (may be used in modules for execution local caching
+                ctxt.setAttribute("_executionKey", new Object(), ScriptContext.GLOBAL_SCOPE);
+
                 final URL resource = NashornScriptProcessor.class.getResource(SCRIPE_AMD_SCRIPT_RUNNER);
                 final Object scriptResult = this.executeScriptFromResource(resource, ctxt);
 

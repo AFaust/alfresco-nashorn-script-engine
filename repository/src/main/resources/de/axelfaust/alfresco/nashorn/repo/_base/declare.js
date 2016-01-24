@@ -17,7 +17,8 @@ define(
             {
                 var result, getterName, suffix;
 
-                if (prop === '--declare--enable-shorthand-properties-getters' || prop === '--declare--enable-shorthand-properties-setters')
+                // don't handle our special properties
+                if (String(prop).startsWith('--'))
                 {
                     result = false;
                 }
@@ -63,7 +64,6 @@ define(
                                 }
                             }
 
-                            
                             this[declareNoSuchPropertyStackKey].pop();
                         }
                         catch (e)
@@ -73,7 +73,7 @@ define(
                         }
                     }
                 }
-                
+
                 return result;
             };
 
@@ -90,12 +90,8 @@ define(
                 {
                     var setterName, suffix;
 
-                    // direct always wins
-                    if (prop in this.__delegate)
-                    {
-                        this.__delegate[prop] = value;
-                    }
-                    else if (this.__delegate['--declare--enable-shorthand-properties-setters'] === true)
+                    // setter always has precedence
+                    if (this.__delegate['--declare--enable-shorthand-properties-setters'] === true)
                     {
                         setterName = setterNames[prop];
                         if (setterName === undefined)
@@ -111,7 +107,7 @@ define(
                     }
                     else
                     {
-                        // fall-back implicit definition
+                        // fall-back implicit / direct definition
                         this.__delegate[prop] = value;
                     }
 
@@ -125,9 +121,14 @@ define(
                     result = this.__delegate[name].apply(this.__delegate, Array.prototype.slice.call(arguments, 1));
 
                     return result;
+                },
+
+                __getIds__ : function declare_adaptee__getIds__()
+                {
+                    return Object.keys(this.__delegate);
                 }
 
-            // TODO add __delete__ and __getIds__
+            // TODO add __delete__
             };
 
             getterNames = {};
@@ -354,7 +355,8 @@ define(
                         });
                     }
 
-                    if (result['--declare--enable-shorthand-properties-setters'] === true)
+                    if (result['--declare--enable-shorthand-properties-setters'] === true
+                            || result['--declare--enable-properties-getter-simulation'] === true)
                     {
                         result = new JSAdapter(result, {
                             __delegate : result
@@ -527,7 +529,6 @@ define(
                 Object.freeze(meta);
                 Object.freeze(bases);
                 Object.freeze(structure);
-                Object.freeze(ctor);
 
                 return ctor;
             };
