@@ -13,7 +13,8 @@
         _preloadModule : true,
         _loadableModule : true,
         _scriptContextUUID : true,
-        _argumentModel : true
+        _argumentModel : true,
+        _executionKey : true
     };
 
     _this = this;
