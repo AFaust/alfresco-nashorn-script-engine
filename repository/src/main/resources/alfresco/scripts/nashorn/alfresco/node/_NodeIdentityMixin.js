@@ -12,11 +12,16 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '../common/QName', '_bas
     ContentModel = Java.type('org.alfresco.model.ContentModel');
 
     return declare([ JavaConvertableMixin ], {
-        '--declare--enable-shorthand-properties-getters' : true,
-        // just for documentation sake
-        '--declare--enable-shorthand-properties-setters' : true,
 
-        '--declare--enable-properties-getter-simulation' : true,
+        '--declare--proxy-support-enabled' : true,
+
+        '--declare--proxy-getter-redirection-enabled' : true,
+
+        '--declare--proxy-setter-redirection-enabled' : true,
+
+        '--declare--proxy-virtual-getters-enabled' : true,
+
+        '--declare--proxy-extension-hooks-enabled' : true,
 
         internalJavaValueProperty : 'nodeRef',
 
@@ -50,12 +55,6 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '../common/QName', '_bas
             });
         },
 
-        // TODO Add declare option to simulate getter / setter for actually existing properties
-        getNodeRef : function alfresco_node_NodeIdentityMixin__getNodeRef()
-        {
-            return this.nodeRef;
-        },
-
         getId : function alfresco_node_NodeIdentityMixin__getId()
         {
             return this.nodeRef.id;
@@ -75,7 +74,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '../common/QName', '_bas
         {
             return this.nodeRef.storeRef.identifier;
         },
-        
+
         // due to potential case diferences (xy.qnameType / xy.qNameType) we provide this getter
         getQnameType : function alfresco_node_NodeIdentityMixin__getQnameType()
         {
@@ -117,7 +116,8 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '../common/QName', '_bas
             return type;
         },
 
-        // provides the shorthand xy.exists property (can't provide both property and exists() method of Rhino ScriptNode)
+        // provides the shorthand xy.exists property
+        // we aim to provide both property and exists() method of Rhino ScriptNode by implementing the __call__ extension hook)
         getExists : function alfresco_node_NodeIdentityMixin__getExists()
         {
             return NodeService.exists(this.nodeRef);
@@ -169,6 +169,22 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '../common/QName', '_bas
                     NodeService.setProperty(this.nodeRef, ContentModel.PROP_NAME, name);
                 }
             }
+        },
+
+        __call__ : function alfresco_node_NodeIdentity__call__(name)
+        {
+            var result;
+            if (name === 'exists' && arguments.length === 1)
+            {
+                result = this.getExists();
+            }
+            else
+            {
+                // if prop with name does not exist or isn't a function it is problem of (transitive) caller
+                result = this[name].apply(this, Array.prototype.slice.call(arguments, 0));
+            }
+
+            return result;
         },
 
         toString : function alfresco_node_NodeIdentity__toString()

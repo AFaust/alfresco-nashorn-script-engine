@@ -1,7 +1,7 @@
 /* globals -require */
 define(
-        [ './c3mro', 'nashorn!Java', 'nashorn!JSAdapter' ],
-        function declare(c3mro, Java, JSAdapter)
+        [ './c3mro', './logger', 'nashorn!Java', 'nashorn!JSAdapter' ],
+        function declare(c3mro, logger, Java, JSAdapter)
         {
             'use strict';
             var anonClassCount = 0, FnCtor, DummyCtor, Locale, declareNoSuchPropertyStackKey, declareNoSuchPropertyImpl, declareAdaptee, getterNames, boolGetterNames, setterNames, isObject, fn_toString, isInstanceOf, inherited, forceNew, applyNew, standardConstructor, taggedMixin, standardPrototype, declareImpl, declareFn;
@@ -22,56 +22,79 @@ define(
                 {
                     result = false;
                 }
-                else if (this['--declare--enable-shorthand-properties-getters'] === true)
+                // this isn't actually part of the proxy but it delegates this feature here
+                else if (this['--declare--proxy-support-enabled'] === true)
                 {
-                    if (this[declareNoSuchPropertyStackKey] === null)
+                    if (this['--declare--proxy-getter-redirection-enabled'] === true)
                     {
-                        this[declareNoSuchPropertyStackKey] = [];
-                    }
-
-                    if (this[declareNoSuchPropertyStackKey].indexOf(prop) === -1)
-                    {
-                        this[declareNoSuchPropertyStackKey].push(prop);
-                        try
+                        if (this[declareNoSuchPropertyStackKey] === null)
                         {
-                            getterName = getterNames[prop];
-                            if (getterName === undefined)
-                            {
-                                suffix = prop.substring(0, 1).toUpperCase(Locale.ENGLISH) + prop.substring(1);
-                                getterName = getterNames[prop] = ('get' + suffix);
-                            }
+                            this[declareNoSuchPropertyStackKey] = [];
+                        }
 
-                            this[declareNoSuchPropertyStackKey].push(getterName);
-                            if (typeof this[getterName] === 'function')
+                        if (this[declareNoSuchPropertyStackKey].indexOf(prop) === -1)
+                        {
+                            this[declareNoSuchPropertyStackKey].push(prop);
+                            try
                             {
-                                this[declareNoSuchPropertyStackKey].pop();
-                                result = this[getterName]();
-                            }
-                            else
-                            {
-                                getterName = boolGetterNames[prop];
+                                getterName = getterNames[prop];
                                 if (getterName === undefined)
                                 {
-                                    suffix = suffix || (prop.substring(0, 1).toUpperCase(Locale.ENGLISH) + prop.substring(1));
-                                    getterName = boolGetterNames[prop] = ('is' + suffix);
+                                    suffix = prop.substring(0, 1).toUpperCase(Locale.ENGLISH) + prop.substring(1);
+                                    getterName = getterNames[prop] = ('get' + suffix);
                                 }
 
                                 this[declareNoSuchPropertyStackKey].push(getterName);
                                 if (typeof this[getterName] === 'function')
                                 {
                                     this[declareNoSuchPropertyStackKey].pop();
+                                    logger.trace('Simulating property {} via getter {} on {}', prop, getterName, this);
                                     result = this[getterName]();
                                 }
-                            }
+                                else
+                                {
+                                    getterName = boolGetterNames[prop];
+                                    if (getterName === undefined)
+                                    {
+                                        suffix = suffix || (prop.substring(0, 1).toUpperCase(Locale.ENGLISH) + prop.substring(1));
+                                        getterName = boolGetterNames[prop] = ('is' + suffix);
+                                    }
 
-                            this[declareNoSuchPropertyStackKey].pop();
-                        }
-                        catch (e)
-                        {
-                            this[declareNoSuchPropertyStackKey].pop();
-                            throw e;
+                                    this[declareNoSuchPropertyStackKey].push(getterName);
+                                    if (typeof this[getterName] === 'function')
+                                    {
+                                        this[declareNoSuchPropertyStackKey].pop();
+                                        logger.trace('Simulating property {} via getter {} on {}', prop, getterName, this);
+                                        result = this[getterName]();
+                                    }
+                                    else
+                                    {
+                                        logger.trace('Found no getter for {}', prop);
+                                    }
+                                }
+
+                                this[declareNoSuchPropertyStackKey].pop();
+                            }
+                            catch (e)
+                            {
+                                this[declareNoSuchPropertyStackKey].pop();
+                                logger.debug('Error simulating getter for {}: {}', prop, e.message);
+                                throw e;
+                            }
                         }
                     }
+                    else if (this['--declare--proxy-extension-hooks-enabled'] === true && typeof this.__get__ === 'function')
+                    {
+                        result = this.__get__(prop);
+                    }
+                    else
+                    {
+                        logger.trace('Not configured to simulate property {} via getter on {}', prop, this);
+                    }
+                }
+                else
+                {
+                    logger.trace('Not configured to simulate property {} via getter on {}', prop, this);
                 }
 
                 return result;
@@ -82,16 +105,63 @@ define(
             declareAdaptee = {
                 __get__ : function declare_adaptee__get__(prop)
                 {
-                    // either exists or handled by __noSuchProperty__ in delegate
-                    return this.__delegate[prop];
+                    var result, getterName, suffix;
+
+                    if (this.__delegate['--declare--proxy-use-getter-only'] !== true)
+                    {
+                        // either exists or handled by __noSuchProperty__ in delegate
+                        result = this.__delegate[prop];
+                    }
+                    else
+                    {
+                        getterName = getterNames[prop];
+                        if (getterName === undefined)
+                        {
+                            suffix = prop.substring(0, 1).toUpperCase(Locale.ENGLISH) + prop.substring(1);
+                            getterName = getterNames[prop] = ('get' + suffix);
+                        }
+
+                        if (typeof this.__delegate[getterName] === 'function')
+                        {
+                            logger.trace('Simulating property {} via getter {} on {}', prop, getterName, this.__delegate);
+                            result = this.__delegate[getterName]();
+                        }
+                        else
+                        {
+                            getterName = boolGetterNames[prop];
+                            if (getterName === undefined)
+                            {
+                                suffix = suffix || (prop.substring(0, 1).toUpperCase(Locale.ENGLISH) + prop.substring(1));
+                                getterName = boolGetterNames[prop] = ('is' + suffix);
+                            }
+
+                            if (typeof this.__delegate[getterName] === 'function')
+                            {
+                                logger.trace('Simulating property {} via getter {} on {}', prop, getterName, this.__delegate);
+                                result = this.__delegate[getterName]();
+                            }
+                            else if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
+                                    && typeof this.__delegate.__get__ === 'function')
+                            {
+                                result = this.__delegate.__get__(prop);
+                            }
+                            else
+                            {
+                                logger.trace('Found no getter for property {} on {}', prop, this.__delegate);
+                            }
+                        }
+                    }
+
+                    return result;
                 },
 
                 __put__ : function declare_adaptee__put__(prop, value)
                 {
-                    var setterName, suffix;
+                    var result, setterName, suffix;
 
                     // setter always has precedence
-                    if (this.__delegate['--declare--enable-shorthand-properties-setters'] === true)
+                    if (this.__delegate['--declare--proxy-setter-redirection-enabled'] === true
+                            || this.__delegate['--declare--proxy-use-setter-only'] === true)
                     {
                         setterName = setterNames[prop];
                         if (setterName === undefined)
@@ -102,33 +172,141 @@ define(
 
                         if (typeof this.__delegate[setterName] === 'function')
                         {
-                            this.__delegate[setterName](value);
+                            result = this.__delegate[setterName](value);
+                            logger.trace('Redirected property put {} to setter {} on {} ', prop, setterName, this.__delegate);
                         }
+                        else if (this.__delegate['--declare--proxy-use-setter-only'] !== true)
+                        {
+                            if (prop in this.__delegate || this.__delegate['--declare--proxy-extension-hooks-enabled'] !== true
+                                    || typeof this.__delegate.__put__ !== 'function')
+                            {
+                                this.__delegate[prop] = value;
+                                result = value;
+                            }
+                            else
+                            {
+                                result = this.__delegate.__put__(prop, value);
+                            }
+                        }
+                        else if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
+                                && typeof this.__delegate.__put__ === 'function')
+                        {
+                            result = this.__delegate.__put__(prop, value);
+                        }
+                        else
+                        {
+                            logger.trace('Can\'t execute property put {} on {} as --declare--proxy-use-setter-only is set', prop,
+                                    this.__delegate);
+                        }
+                    }
+                    else if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
+                            && typeof this.__delegate.__put__ === 'function')
+                    {
+                        result = this.__delegate.__put__(prop, value);
                     }
                     else
                     {
-                        // fall-back implicit / direct definition
                         this.__delegate[prop] = value;
+                        result = value;
                     }
 
-                    return value;
+                    return result;
                 },
 
                 __call__ : function declare_adaptee__call__(name)
                 {
-                    var result;
+                    var result, fn, propName;
 
-                    result = this.__delegate[name].apply(this.__delegate, Array.prototype.slice.call(arguments, 1));
+                    fn = this.__delegate[name];
+
+                    if (typeof fn !== 'function')
+                    {
+                        if (arguments.length === 1 && this.__delegate['--declare--proxy-virtual-getters-enabled'] === true
+                                && (name.indexOf('get') === 0 || name.indexOf('is') === 0))
+                        {
+                            if (name.indexOf('get') === 0)
+                            {
+                                propName = name.substring(3);
+                            }
+                            else
+                            {
+                                propName = name.substring(2);
+                            }
+
+                            propName = propName.substring(0, 1).toLowerCase(Locale.ENGLISH) + propName.substring(1);
+
+                            // needs to be enumerable
+                            if (propName in this.__delegate)
+                            {
+                                try
+                                {
+                                    result = this.__delegate[propName];
+                                    fn = null;
+                                    logger.trace('Simulated virtual getter {} for {} on {}', name, propName, this.__delegate);
+                                }
+                                catch (e1)
+                                {
+                                    logger.debug('Error simulating virtual getter {} for {} on {}: {}', name, propName, this.__delegate,
+                                            e1.message);
+                                }
+                            }
+                        }
+                        else if (arguments.length === 2 && this.__delegate['--declare--proxy-virtual-setters-enabled'] === true
+                                && name.indexOf('set') === 0)
+                        {
+                            propName = name.substring(3);
+                            propName = propName.substring(0, 1).toLowerCase(Locale.ENGLISH) + propName.substring(1);
+
+                            // needs to be enumerable
+                            if (propName in this.__delegate)
+                            {
+                                try
+                                {
+                                    this.__delegate[propName] = arguments[1];
+                                    fn = null;
+                                    result = arguments[1];
+                                    logger.trace('Simulated virtual setter {} for {} on {}', name, propName, this.__delegate);
+                                }
+                                catch (e2)
+                                {
+                                    logger.debug('Error simulating virtual setter {} for {} on {}: {}', name, propName, this.__delegate,
+                                            e2.message);
+                                }
+                            }
+                        }
+                    }
+
+                    if (typeof fn === 'function')
+                    {
+                        result = fn.apply(this.__delegate, Array.prototype.slice.call(arguments, 1));
+                    }
+                    else if (fn !== null && this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
+                            && typeof this.__delegate.__call__ === 'function')
+                    {
+                        result = this.__delegate.__call__.apply(this.__delegate, Array.prototype.slice.call(arguments, 0));
+                    }
 
                     return result;
                 },
 
                 __getIds__ : function declare_adaptee__getIds__()
                 {
-                    return Object.keys(this.__delegate);
+                    var result;
+
+                    if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
+                            && typeof this.__delegate.__getIds__ === 'function')
+                    {
+                        result = this.__delegate.__getIds__();
+                    }
+                    else
+                    {
+                        result = Object.keys(this.__delegate);
+                    }
+
+                    return result;
                 }
 
-            // TODO add __delete__
+            // TODO add other adaptee fns
             };
 
             getterNames = {};
@@ -137,8 +315,8 @@ define(
 
             isObject = function declare__isObject(o)
             {
-                var isObject = o instanceof Object && Object.prototype.toString.call(o) === '[object Object]';
-                return isObject;
+                var result = o instanceof Object && Object.prototype.toString.call(o) === '[object Object]';
+                return result;
             };
 
             fn_toString = function declare__fn_toString(defaultToString)
@@ -327,17 +505,17 @@ define(
 
             standardConstructor = function declare__createStandardConstructor()
             {
-                var standardConstructor = function declare__standardConstructor()
+                var standardCtor = function declare__standardConstructor()
                 {
                     var result, idx, ctor, linearization;
 
-                    if (!(this instanceof standardConstructor))
+                    if (!(this instanceof standardCtor))
                     {
-                        result = applyNew(arguments, standardConstructor);
+                        result = applyNew(arguments, standardCtor);
                     }
                     else
                     {
-                        linearization = standardConstructor._c3mro_linearization;
+                        linearization = standardCtor._c3mro_linearization;
                         result = this;
 
                         for (idx = linearization.length - 1; idx >= 0; idx--)
@@ -351,22 +529,30 @@ define(
 
                         // class name is included in a non-enumerable field to avoid messing with potential JSON.stringify use
                         Object.defineProperty(result, '_declare_className', {
-                            value : standardConstructor._declare_meta.className
+                            value : standardCtor._declare_meta.className
                         });
                     }
 
-                    if (result['--declare--enable-shorthand-properties-setters'] === true
-                            || result['--declare--enable-properties-getter-simulation'] === true)
+                    if (result['--declare--proxy-support-enabled'] === true)
                     {
-                        result = new JSAdapter(result, {
-                            __delegate : result
-                        }, declareAdaptee);
+                        // any of these trigger JSAdapter - otherwise __noSuchProperty__ is enough
+                        if (result['--declare--proxy-virtual-getters-enabled'] === true
+                                || result['--declare--proxy-virtual-setters-enabled'] === true
+                                || result['--declare--proxy-use-getter-only'] === true
+                                || result['--declare--proxy-use-setter-only'] === true
+                                || result['--declare--proxy-setter-redirection-enabled'] === true
+                                || result['--declare--proxy-extension-hooks-enabled'] === true)
+                        {
+                            result = new JSAdapter(result, {
+                                __delegate : result
+                            }, declareAdaptee);
+                        }
                     }
 
                     return result;
                 };
 
-                return standardConstructor;
+                return standardCtor;
             };
 
             taggedMixin = function declare__taggedMixin(target, source)

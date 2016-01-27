@@ -17,11 +17,11 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '../foundation/Namespace
             // normal Java interop + extension could have save lots of boilerplate
             Module = declare([ JavaConvertableMixin ], {
 
-                '--declare--enable-shorthand-properties-getters' : true,
-                // just for documentation sake
-                '--declare--enable-shorthand-properties-setters' : false,
+                '--declare--proxy-support-enabled' : true,
+                
+                '--declare--proxy-getter-redirection-enabled' : true,
 
-                '--declare--enable-properties-getter-simulation' : true,
+                '--declare--proxy-virtual-getters-enabled' : true,
 
                 internalJavaValueProperty : 'qname',
 
