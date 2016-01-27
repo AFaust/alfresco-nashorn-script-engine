@@ -145,7 +145,7 @@
                 }
             }
         }
-        
+
         if (mapped !== true && mappings.hasOwnProperty('*'))
         {
             mapping = mappings['*'];
@@ -1108,13 +1108,21 @@
         }
     };
 
-    require.isSecureCallerScript = function amd__require_isSecureCallerScript()
+    require.isSecureCallerScript = function amd__require_isSecureCallerScript(suppressTaggedCaller)
     {
         var amdScriptUrl, baseUrl, contextScriptUrl, contextModule, isSecure;
 
-        amdScriptUrl = taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(false, false);
+        amdScriptUrl = NashornUtils.getCallerScriptURL(false, false);
+
         // skip this and the caller script to determine script URL of callers caller
-        contextScriptUrl = NashornUtils.getCallerScriptURL();
+        if (suppressTaggedCaller === true)
+        {
+            contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
+        }
+        else
+        {
+            contextScriptUrl = taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
+        }
         contextModule = moduleByUrl[contextScriptUrl];
 
         if (isObject(contextModule))
@@ -1133,21 +1141,35 @@
         return isSecure;
     };
 
-    require.getCallerScriptURL = function amd__require_getCallerScriptURL()
+    require.getCallerScriptURL = function amd__require_getCallerScriptURL(suppressTaggedCaller)
     {
         var contextScriptUrl;
 
         // skip this and the caller script to determine script URL of callers caller
-        contextScriptUrl = taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
+        if (suppressTaggedCaller === true)
+        {
+            contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
+        }
+        else
+        {
+            contextScriptUrl = taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
+        }
 
         return contextScriptUrl;
     };
 
-    require.getCallerScriptModuleId = function amd__require_getCallerScriptModuleId()
+    require.getCallerScriptModuleId = function amd__require_getCallerScriptModuleId(suppressTaggedCaller)
     {
         var contextScriptUrl, contextModule, moduleId;
 
-        contextScriptUrl = taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
+        if (suppressTaggedCaller === true)
+        {
+            contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
+        }
+        else
+        {
+            contextScriptUrl = taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
+        }
         contextModule = moduleByUrl[contextScriptUrl];
 
         if (isObject(contextModule))
@@ -1163,11 +1185,18 @@
         return moduleId;
     };
 
-    require.getCallerScriptModuleLoader = function amd__require_getCallerScriptModuleLoader()
+    require.getCallerScriptModuleLoader = function amd__require_getCallerScriptModuleLoader(suppressTaggedCaller)
     {
         var contextScriptUrl, contextModule, moduleLoader;
 
-        contextScriptUrl = taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
+        if (suppressTaggedCaller === true)
+        {
+            contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
+        }
+        else
+        {
+            contextScriptUrl = taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
+        }
         contextModule = moduleByUrl[contextScriptUrl];
 
         if (isObject(contextModule))

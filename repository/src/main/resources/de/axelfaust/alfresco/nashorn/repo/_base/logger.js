@@ -13,7 +13,7 @@ define(
             {
                 var callerScriptURL, callerScriptModuleId, callerScriptModuleLoader, logger;
 
-                callerScriptURL = require.getCallerScriptURL();
+                callerScriptURL = require.getCallerScriptURL(true);
 
                 if (loggerByScriptUrl.hasOwnProperty(callerScriptURL))
                 {
@@ -21,8 +21,8 @@ define(
                 }
                 else
                 {
-                    callerScriptModuleId = require.getCallerScriptModuleId();
-                    callerScriptModuleLoader = require.getCallerScriptModuleLoader();
+                    callerScriptModuleId = require.getCallerScriptModuleId(true);
+                    callerScriptModuleLoader = require.getCallerScriptModuleLoader(true);
 
                     if (typeof callerScriptModuleId === 'string')
                     {
@@ -64,6 +64,8 @@ define(
                 // JavaLinker has a minor bug not handling ConsString -> force String
                 if (logger[String(enabledProp)])
                 {
+                    // TODO Determine caller fn + line and expose via MDC
+                    
                     for (idx = 0; idx < args.length; idx++)
                     {
                         if (idx === 0 && typeof args[idx] === 'string')
