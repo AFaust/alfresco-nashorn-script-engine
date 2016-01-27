@@ -55,7 +55,7 @@ define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter' ], function msg(rhinoMs
     if (rhinoMsg instanceof ScriptMessage)
     {
         result = new JSAdapter({
-            // prototype with a "normal" get to expose the legacy API of ScriptMessage
+            // overrides/prototype with a "normal" get to expose the legacy API of ScriptMessage
             get : function msg__get(msgId, args)
             {
                 var msgValue;
