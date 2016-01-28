@@ -1,7 +1,7 @@
 /* globals -require */
-define([ '_base/declare', '_base/JavaConvertableMixin', '../common/QName', '_base/logger', '../foundation/DictionaryService',
-        '../foundation/NodeService', '../foundation/FileFolderService', 'nashorn!Java' ], function alfresco_node_NodeIdentityMixin_root(
-        declare, JavaConvertableMixin, QName, logger, DictionaryService, NodeService, FileFolderService, Java)
+define([ '_base/declare', '../common/QName', '../foundation/DictionaryService', '../foundation/NodeService',
+        '../foundation/FileFolderService', '_base/logger', 'nashorn!Java' ], function alfresco_node_NodeIdentityMixin_root(declare, QName,
+        DictionaryService, NodeService, FileFolderService, logger, Java)
 {
     'use strict';
 
@@ -11,7 +11,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '../common/QName', '_bas
     IllegalArgumentException = Java.type('java.lang.IllegalArgumentException');
     ContentModel = Java.type('org.alfresco.model.ContentModel');
 
-    return declare([ JavaConvertableMixin ], {
+    return declare([], {
 
         '--declare--proxy-support-enabled' : true,
 
@@ -22,8 +22,6 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '../common/QName', '_bas
         '--declare--proxy-virtual-getters-enabled' : true,
 
         '--declare--proxy-extension-hooks-enabled' : true,
-
-        internalJavaValueProperty : 'nodeRef',
 
         constructor : function alfresco_node_NodeIdentityMixin__contructor(nodeRef)
         {
@@ -44,7 +42,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '../common/QName', '_bas
 
             if (internalNodeRef === null)
             {
-                throw new IllegalArgumentException('noderef value invalid: ' + nodeRef);
+                throw new IllegalArgumentException('nodeRef value invalid: ' + nodeRef);
             }
 
             // this is intended to be our only apparent property
@@ -180,8 +178,8 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '../common/QName', '_bas
             }
             else
             {
-                // if prop with name does not exist or isn't a function it is problem of (transitive) caller
-                result = this[name].apply(this, Array.prototype.slice.call(arguments, 0));
+                // TODO Define a core module that defaults __call__ behaviour
+                result = this.inherited(alfresco_node_NodeIdentity__call__, arguments);
             }
 
             return result;

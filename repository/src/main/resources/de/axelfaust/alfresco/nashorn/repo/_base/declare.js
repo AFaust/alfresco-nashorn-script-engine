@@ -304,6 +304,19 @@ define(
                     }
 
                     return result;
+                },
+
+                __delete__ : function declare_adaptee__delete__(name)
+                {
+                    if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
+                            && typeof this.__delegate.__delete__ === 'function')
+                    {
+                        this.__delegate.__delete__(name);
+                    }
+                    else if (this.__delegate.hasOwnProperty(name))
+                    {
+                        delete this.__delegate;
+                    }
                 }
 
             // TODO add other adaptee fns
