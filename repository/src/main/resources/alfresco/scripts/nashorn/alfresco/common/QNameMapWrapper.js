@@ -41,6 +41,16 @@ define([ '_base/declare', '_base/JavaConvertableMixin', './QName', '_base/logger
                             case 'length':
                                 value = this.backingMap.size();
                                 break;
+                            case 'clear':
+                                /* falls through */
+                            case 'size':
+                                value = Function.prototype.bind(function alfresco_common_QNameMapWrapper__get__virtualZeroArgFn(fnName)
+                                {
+                                    // if caller does not call with correct 'this' then it's their fault
+                                    var result = this.backingMap[fnName]();
+                                    return result;
+                                }, undefined, prop);
+                                break;
                             default:
                                 qname = QName.valueOf(prop);
                                 value = this.backingMap.get(qname);
@@ -48,6 +58,25 @@ define([ '_base/declare', '_base/JavaConvertableMixin', './QName', '_base/logger
                     }
 
                     return value;
+                },
+
+                __has__ : function alfresco_common_QNameMapWrapper__has__(prop)
+                {
+                    var qname, result = false;
+
+                    if (typeof prop === 'string')
+                    {
+                        switch (prop)
+                        {
+                            case 'length':
+                                break;
+                            default:
+                                qname = QName.valueOf(prop);
+                                result = this.backingMap.containsKey(qname);
+                        }
+                    }
+
+                    return result;
                 },
 
                 __put__ : function alfresco_common_QNameMapWrapper__put__(prop, value)
