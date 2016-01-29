@@ -13,12 +13,21 @@ define(
             Locale = Java.type('java.util.Locale');
 
             declareNoSuchPropertyStackKey = '--declare--no-such-property-stack';
-            declareNoSuchPropertyImpl = function declare__noSuchProperty__(prop)
+            declareNoSuchPropertyImpl = function declare__noSuchProperty__(name)
             {
-                var result, getterName, suffix;
+                var result, getterName, suffix, prop;
+
+                if (typeof name !== 'string')
+                {
+                    prop = String(name);
+                }
+                else
+                {
+                    prop = name;
+                }
 
                 // don't handle our special properties
-                if (String(prop).startsWith('--'))
+                if (prop.startsWith('--'))
                 {
                     result = false;
                 }
@@ -85,7 +94,7 @@ define(
                     }
                     else if (this['--declare--proxy-extension-hooks-enabled'] === true && typeof this.__get__ === 'function')
                     {
-                        result = this.__get__(prop);
+                        result = this.__get__(name);
                     }
                     else
                     {
@@ -103,17 +112,31 @@ define(
             // common adaptee for JSAdapter - every proxy instance will get
             // a __delegate override property to reference the actual instance
             declareAdaptee = {
-                __get__ : function declare_adaptee__get__(prop)
+                __get__ : function declare_adaptee__get__(name)
                 {
-                    var result, getterName, suffix;
+                    var result, getterName, suffix, prop;
+
+                    if (this.__delegate === undefined)
+                    {
+                        logger.error('this.__delegate is undefined in overrides of JSAdapter');
+                    }
 
                     if (this.__delegate['--declare--proxy-use-getter-only'] !== true)
                     {
                         // either exists or handled by __noSuchProperty__ in delegate
-                        result = this.__delegate[prop];
+                        result = this.__delegate[name];
                     }
                     else
                     {
+                        if (typeof name !== 'string')
+                        {
+                            prop = String(name);
+                        }
+                        else
+                        {
+                            prop = name;
+                        }
+
                         getterName = getterNames[prop];
                         if (getterName === undefined)
                         {
@@ -143,7 +166,7 @@ define(
                             else if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
                                     && typeof this.__delegate.__get__ === 'function')
                             {
-                                result = this.__delegate.__get__(prop);
+                                result = this.__delegate.__get__(name);
                             }
                             else
                             {
@@ -152,17 +175,52 @@ define(
                         }
                     }
 
+                    // guard to handle __get__(name) + fn.call instead of __call__(name)
+                    if (typeof result === 'function')
+                    {
+                        // must ensure proper scope
+                        result = Function.prototype.bind.call(function declare_adaptee__get__boundFunction(delegate, fn)
+                        {
+                            var fnResult;
+
+                            if (this.__delegate === delegate)
+                            {
+                                fnResult = fn.apply(delegate, Array.prototype.slice(arguments, 2));
+                            }
+                            else
+                            {
+                                fnResult = fn.apply(this, Array.prototype.slice(arguments, 2));
+                            }
+
+                            return fnResult;
+                        }, undefined, this.__delegate, result);
+                    }
+
                     return result;
                 },
 
-                __put__ : function declare_adaptee__put__(prop, value)
+                __put__ : function declare_adaptee__put__(name, value)
                 {
-                    var result, setterName, suffix;
+                    var result, setterName, suffix, prop;
+
+                    if (this.__delegate === undefined)
+                    {
+                        logger.error('this.__delegate is undefined in overrides of JSAdapter');
+                    }
 
                     // setter always has precedence
                     if (this.__delegate['--declare--proxy-setter-redirection-enabled'] === true
                             || this.__delegate['--declare--proxy-use-setter-only'] === true)
                     {
+                        if (typeof name !== 'string')
+                        {
+                            prop = String(name);
+                        }
+                        else
+                        {
+                            prop = name;
+                        }
+
                         setterName = setterNames[prop];
                         if (setterName === undefined)
                         {
@@ -177,21 +235,21 @@ define(
                         }
                         else if (this.__delegate['--declare--proxy-use-setter-only'] !== true)
                         {
-                            if (prop in this.__delegate || this.__delegate['--declare--proxy-extension-hooks-enabled'] !== true
+                            if (name in this.__delegate || this.__delegate['--declare--proxy-extension-hooks-enabled'] !== true
                                     || typeof this.__delegate.__put__ !== 'function')
                             {
-                                this.__delegate[prop] = value;
+                                this.__delegate[name] = value;
                                 result = value;
                             }
                             else
                             {
-                                result = this.__delegate.__put__(prop, value);
+                                result = this.__delegate.__put__(name, value);
                             }
                         }
                         else if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
                                 && typeof this.__delegate.__put__ === 'function')
                         {
-                            result = this.__delegate.__put__(prop, value);
+                            result = this.__delegate.__put__(name, value);
                         }
                         else
                         {
@@ -202,11 +260,11 @@ define(
                     else if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
                             && typeof this.__delegate.__put__ === 'function')
                     {
-                        result = this.__delegate.__put__(prop, value);
+                        result = this.__delegate.__put__(name, value);
                     }
                     else
                     {
-                        this.__delegate[prop] = value;
+                        this.__delegate[name] = value;
                         result = value;
                     }
 
@@ -216,6 +274,11 @@ define(
                 __call__ : function declare_adaptee__call__(name)
                 {
                     var result, fn, propName;
+
+                    if (this.__delegate === undefined)
+                    {
+                        logger.error('this.__delegate is undefined in overrides of JSAdapter');
+                    }
 
                     fn = this.__delegate[name];
 
@@ -289,18 +352,109 @@ define(
                     return result;
                 },
 
+                // __getIds__ is identical to __getKeys__ (JDK 6 compatibility)
                 __getIds__ : function declare_adaptee__getIds__()
                 {
-                    var result;
+                    /* jshint forin: false */
+                    var result, name;
+
+                    if (this.__delegate === undefined)
+                    {
+                        logger.error('this.__delegate is undefined in overrides of JSAdapter');
+                    }
 
                     if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
                             && typeof this.__delegate.__getIds__ === 'function')
                     {
                         result = this.__delegate.__getIds__();
                     }
+                    else if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
+                            && typeof this.__delegate.__getKeys__ === 'function')
+                    {
+                        result = this.__delegate.__getKeys__();
+                    }
                     else
                     {
-                        result = Object.keys(this.__delegate);
+                        result = [];
+                        for (name in this.__delegate)
+                        {
+                            result.push(name);
+                        }
+                    }
+
+                    return result;
+                },
+
+                __getKeys__ : function declare_adaptee__getKeys__()
+                {
+                    /* jshint forin: false */
+                    var result, name;
+
+                    if (this.__delegate === undefined)
+                    {
+                        logger.error('this.__delegate is undefined in overrides of JSAdapter');
+                    }
+
+                    if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
+                            && typeof this.__delegate.__getKeys__ === 'function')
+                    {
+                        result = this.__delegate.__getKeys__();
+                    }
+                    else if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
+                            && typeof this.__delegate.__getIds__ === 'function')
+                    {
+                        result = this.__delegate.__getIds__();
+                    }
+                    else
+                    {
+                        result = [];
+                        for (name in this.__delegate)
+                        {
+                            result.push(name);
+                        }
+                    }
+
+                    return result;
+                },
+
+                __getValues__ : function declare_adaptee__getValues__()
+                {
+                    var result = [];
+
+                    if (this.__delegate === undefined)
+                    {
+                        logger.error('this.__delegate is undefined in overrides of JSAdapter');
+                    }
+
+                    if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
+                            && typeof this.__delegate.__getValues__ === 'function')
+                    {
+                        result = this.__delegate.__getValues__();
+                    }
+
+                    return result;
+                },
+
+                __has__ : function declare_adaptee__has__(name)
+                {
+                    var result = false;
+
+                    if (this.__delegate === undefined)
+                    {
+                        logger.error('this.__delegate is undefined in overrides of JSAdapter');
+                    }
+
+                    if (this.__delegate['--declare--proxy-use-getter-only'] !== true)
+                    {
+                        result = name in this.__delegate;
+                    }
+
+                    // TODO option to expose properties based on getter-existence
+
+                    if (!result && this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
+                            && typeof this.__delegate.__has__ === 'function')
+                    {
+                        result = this.__delegate.__has__(name);
                     }
 
                     return result;
@@ -308,15 +462,48 @@ define(
 
                 __delete__ : function declare_adaptee__delete__(name)
                 {
+                    var result = false;
+
+                    if (this.__delegate === undefined)
+                    {
+                        logger.error('this.__delegate is undefined in overrides of JSAdapter');
+                    }
+
                     if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
                             && typeof this.__delegate.__delete__ === 'function')
                     {
-                        this.__delegate.__delete__(name);
+                        result = this.__delegate.__delete__(name);
                     }
-                    else if (this.__delegate.hasOwnProperty(name))
+                    else
                     {
-                        delete this.__delegate;
+                        result = delete this.__delegate;
                     }
+
+                    return result;
+                },
+
+                __new__ : function delcare_adaptee__new__()
+                {
+                    var result, BoundCtor;
+
+                    if (this.__delegate === undefined)
+                    {
+                        logger.error('this.__delegate is undefined in overrides of JSAdapter');
+                    }
+
+                    if (typeof this.__delegate === 'function')
+                    {
+                        BoundCtor = Function.prototype.bind.apply(this.__delegate, [ undefined ]
+                                .concat(Array.prototype.slice(arguments, 0)));
+                        result = new BoundCtor();
+                    }
+                    else if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
+                            && typeof this.__delegate.__new__ === 'function')
+                    {
+                        result = this.__delegate.__new__.apply(this.__delegate, Array.prototype.slice(arguments, 0));
+                    }
+
+                    return result;
                 }
 
             // TODO add other adaptee fns
@@ -520,7 +707,7 @@ define(
             {
                 var standardCtor = function declare__standardConstructor()
                 {
-                    var result, idx, ctor, linearization;
+                    var result, idx, ctor, linearization, proxyOverrides;
 
                     if (!(this instanceof standardCtor))
                     {
@@ -556,9 +743,12 @@ define(
                                 || result['--declare--proxy-setter-redirection-enabled'] === true
                                 || result['--declare--proxy-extension-hooks-enabled'] === true)
                         {
-                            result = new JSAdapter(result, {
-                                __delegate : result
-                            }, declareAdaptee);
+                            proxyOverrides = {};
+                            // __delegate should be non-enumerable, non-writable, non-configurable
+                            Object.defineProperty(proxyOverrides, '__delegate', {
+                                value : result
+                            });
+                            result = new JSAdapter(result, proxyOverrides, Object.create(declareAdaptee, proxyOverrides));
                         }
                     }
 
