@@ -12,13 +12,19 @@
             <list>
                 <!-- scripting is not configurable -->
                 <value>-scripting=false</value>
+                
                 <value>-strict=${nashornJavaScriptProcessor.nashorn.flag.strict}</value>
+                <value>--const-as-var=${nashornJavaScriptProcessor.nashorn.flag.constAsVar}</value>
+                
                 <value>-doe=true</value>
                 <value>-pcc=${nashornJavaScriptProcessor.nashorn.flag.persistentScriptCache}</value>
                 <value>-ot=${nashornJavaScriptProcessor.nashorn.flag.optimisticTypes}</value>
+                <value>--class-cache-size=${nashornJavaScriptProcessor.nashorn.flag.classCacheSize}</value>
 
                 <value>--debug-lines=${nashornJavaScriptProcessor.nashorn.flag.debugLines}</value>
                 <value>--debug-locals=${nashornJavaScriptProcessor.nashorn.flag.debugLocals}</value>
+                
+                <value>--profile-callsites=${nashornJavaScriptProcessor.nashorn.flag.profileCallsites}</value>
             </list>
         </constructor-arg>
     </bean>
