@@ -25,6 +25,7 @@
                 <value>--debug-locals=${nashornJavaScriptProcessor.nashorn.flag.debugLocals}</value>
                 
                 <value>--profile-callsites=${nashornJavaScriptProcessor.nashorn.flag.profileCallsites}</value>
+                <value>--trace-callsites=${nashornJavaScriptProcessor.nashorn.flag.traceCallsites}</value>
             </list>
         </constructor-arg>
     </bean>
