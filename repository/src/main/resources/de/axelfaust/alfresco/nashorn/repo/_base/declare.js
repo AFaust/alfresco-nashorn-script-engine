@@ -112,19 +112,14 @@ define(
             // common adaptee for JSAdapter - every proxy instance will get
             // a __delegate override property to reference the actual instance
             declareAdaptee = {
-                __get__ : function declare_adaptee__get__(name)
+                __get__ : function declare_adaptee__get__(delegate, name)
                 {
                     var result, getterName, suffix, prop;
 
-                    if (this.__delegate === undefined)
-                    {
-                        logger.error('this.__delegate is undefined in overrides of JSAdapter');
-                    }
-
-                    if (this.__delegate['--declare--proxy-use-getter-only'] !== true)
+                    if (delegate['--declare--proxy-use-getter-only'] !== true)
                     {
                         // either exists or handled by __noSuchProperty__ in delegate
-                        result = this.__delegate[name];
+                        result = delegate[name];
                     }
                     else
                     {
@@ -144,10 +139,10 @@ define(
                             getterName = getterNames[prop] = ('get' + suffix);
                         }
 
-                        if (typeof this.__delegate[getterName] === 'function')
+                        if (typeof delegate[getterName] === 'function')
                         {
-                            logger.trace('Simulating property {} via getter {} on {}', prop, getterName, this.__delegate);
-                            result = this.__delegate[getterName]();
+                            logger.trace('Simulating property {} via getter {} on {}', prop, getterName, delegate);
+                            result = delegate[getterName]();
                         }
                         else
                         {
@@ -158,19 +153,19 @@ define(
                                 getterName = boolGetterNames[prop] = ('is' + suffix);
                             }
 
-                            if (typeof this.__delegate[getterName] === 'function')
+                            if (typeof delegate[getterName] === 'function')
                             {
-                                logger.trace('Simulating property {} via getter {} on {}', prop, getterName, this.__delegate);
-                                result = this.__delegate[getterName]();
+                                logger.trace('Simulating property {} via getter {} on {}', prop, getterName, delegate);
+                                result = delegate[getterName]();
                             }
-                            else if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
-                                    && typeof this.__delegate.__get__ === 'function')
+                            else if (delegate['--declare--proxy-extension-hooks-enabled'] === true
+                                    && typeof delegate.__get__ === 'function')
                             {
-                                result = this.__delegate.__get__(name);
+                                result = delegate.__get__(name);
                             }
                             else
                             {
-                                logger.trace('Found no getter for property {} on {}', prop, this.__delegate);
+                                logger.trace('Found no getter for property {} on {}', prop, delegate);
                             }
                         }
                     }
@@ -183,34 +178,29 @@ define(
                         {
                             var fnResult;
 
-                            if (this.__delegate === delegate)
+                            if (delegate === delegate)
                             {
-                                fnResult = fn.apply(delegate, Array.prototype.slice(arguments, 2));
+                                fnResult = fn.apply(delegate, Array.prototype.slice(arguments, 3));
                             }
                             else
                             {
-                                fnResult = fn.apply(this, Array.prototype.slice(arguments, 2));
+                                fnResult = fn.apply(this, Array.prototype.slice(arguments, 3));
                             }
 
                             return fnResult;
-                        }, undefined, this.__delegate, result);
+                        }, undefined, delegate, result);
                     }
 
                     return result;
                 },
 
-                __put__ : function declare_adaptee__put__(name, value)
+                __put__ : function declare_adaptee__put__(delegate, name, value)
                 {
                     var result, setterName, suffix, prop;
 
-                    if (this.__delegate === undefined)
-                    {
-                        logger.error('this.__delegate is undefined in overrides of JSAdapter');
-                    }
-
                     // setter always has precedence
-                    if (this.__delegate['--declare--proxy-setter-redirection-enabled'] === true
-                            || this.__delegate['--declare--proxy-use-setter-only'] === true)
+                    if (delegate['--declare--proxy-setter-redirection-enabled'] === true
+                            || delegate['--declare--proxy-use-setter-only'] === true)
                     {
                         if (typeof name !== 'string')
                         {
@@ -228,63 +218,55 @@ define(
                             setterName = setterNames[prop] = ('set' + suffix);
                         }
 
-                        if (typeof this.__delegate[setterName] === 'function')
+                        if (typeof delegate[setterName] === 'function')
                         {
-                            result = this.__delegate[setterName](value);
-                            logger.trace('Redirected property put {} to setter {} on {} ', prop, setterName, this.__delegate);
+                            result = delegate[setterName](value);
+                            logger.trace('Redirected property put {} to setter {} on {} ', prop, setterName, delegate);
                         }
-                        else if (this.__delegate['--declare--proxy-use-setter-only'] !== true)
+                        else if (delegate['--declare--proxy-use-setter-only'] !== true)
                         {
-                            if (name in this.__delegate || this.__delegate['--declare--proxy-extension-hooks-enabled'] !== true
-                                    || typeof this.__delegate.__put__ !== 'function')
+                            if (name in delegate || delegate['--declare--proxy-extension-hooks-enabled'] !== true
+                                    || typeof delegate.__put__ !== 'function')
                             {
-                                this.__delegate[name] = value;
+                                delegate[name] = value;
                                 result = value;
                             }
                             else
                             {
-                                result = this.__delegate.__put__(name, value);
+                                result = delegate.__put__(name, value);
                             }
                         }
-                        else if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
-                                && typeof this.__delegate.__put__ === 'function')
+                        else if (delegate['--declare--proxy-extension-hooks-enabled'] === true && typeof delegate.__put__ === 'function')
                         {
-                            result = this.__delegate.__put__(name, value);
+                            result = delegate.__put__(name, value);
                         }
                         else
                         {
-                            logger.trace('Can\'t execute property put {} on {} as --declare--proxy-use-setter-only is set', prop,
-                                    this.__delegate);
+                            logger.trace('Can\'t execute property put {} on {} as --declare--proxy-use-setter-only is set', prop, delegate);
                         }
                     }
-                    else if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
-                            && typeof this.__delegate.__put__ === 'function')
+                    else if (delegate['--declare--proxy-extension-hooks-enabled'] === true && typeof delegate.__put__ === 'function')
                     {
-                        result = this.__delegate.__put__(name, value);
+                        result = delegate.__put__(name, value);
                     }
                     else
                     {
-                        this.__delegate[name] = value;
+                        delegate[name] = value;
                         result = value;
                     }
 
                     return result;
                 },
 
-                __call__ : function declare_adaptee__call__(name)
+                __call__ : function declare_adaptee__call__(delegate, name)
                 {
                     var result, fn, propName;
 
-                    if (this.__delegate === undefined)
-                    {
-                        logger.error('this.__delegate is undefined in overrides of JSAdapter');
-                    }
-
-                    fn = this.__delegate[name];
+                    fn = delegate[name];
 
                     if (typeof fn !== 'function')
                     {
-                        if (arguments.length === 1 && this.__delegate['--declare--proxy-virtual-getters-enabled'] === true
+                        if (arguments.length === 1 && delegate['--declare--proxy-virtual-getters-enabled'] === true
                                 && (name.indexOf('get') === 0 || name.indexOf('is') === 0))
                         {
                             if (name.indexOf('get') === 0)
@@ -299,40 +281,40 @@ define(
                             propName = propName.substring(0, 1).toLowerCase(Locale.ENGLISH) + propName.substring(1);
 
                             // needs to be enumerable
-                            if (propName in this.__delegate)
+                            if (propName in delegate)
                             {
                                 try
                                 {
-                                    result = this.__delegate[propName];
+                                    result = delegate[propName];
                                     fn = null;
-                                    logger.trace('Simulated virtual getter {} for {} on {}', name, propName, this.__delegate);
+                                    logger.trace('Simulated virtual getter {} for {} on {}', name, propName, delegate);
                                 }
                                 catch (e1)
                                 {
-                                    logger.debug('Error simulating virtual getter {} for {} on {}: {}', name, propName, this.__delegate,
+                                    logger.debug('Error simulating virtual getter {} for {} on {}: {}', name, propName, delegate,
                                             e1.message);
                                 }
                             }
                         }
-                        else if (arguments.length === 2 && this.__delegate['--declare--proxy-virtual-setters-enabled'] === true
+                        else if (arguments.length === 2 && delegate['--declare--proxy-virtual-setters-enabled'] === true
                                 && name.indexOf('set') === 0)
                         {
                             propName = name.substring(3);
                             propName = propName.substring(0, 1).toLowerCase(Locale.ENGLISH) + propName.substring(1);
 
                             // needs to be enumerable
-                            if (propName in this.__delegate)
+                            if (propName in delegate)
                             {
                                 try
                                 {
-                                    this.__delegate[propName] = arguments[1];
+                                    delegate[propName] = arguments[1];
                                     fn = null;
                                     result = arguments[1];
-                                    logger.trace('Simulated virtual setter {} for {} on {}', name, propName, this.__delegate);
+                                    logger.trace('Simulated virtual setter {} for {} on {}', name, propName, delegate);
                                 }
                                 catch (e2)
                                 {
-                                    logger.debug('Error simulating virtual setter {} for {} on {}: {}', name, propName, this.__delegate,
+                                    logger.debug('Error simulating virtual setter {} for {} on {}: {}', name, propName, delegate,
                                             e2.message);
                                 }
                             }
@@ -341,42 +323,35 @@ define(
 
                     if (typeof fn === 'function')
                     {
-                        result = fn.apply(this.__delegate, Array.prototype.slice.call(arguments, 1));
+                        result = fn.apply(delegate, Array.prototype.slice.call(arguments, 2));
                     }
-                    else if (fn !== null && this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
-                            && typeof this.__delegate.__call__ === 'function')
+                    else if (fn !== null && delegate['--declare--proxy-extension-hooks-enabled'] === true
+                            && typeof delegate.__call__ === 'function')
                     {
-                        result = this.__delegate.__call__.apply(this.__delegate, Array.prototype.slice.call(arguments, 0));
+                        result = delegate.__call__.apply(delegate, Array.prototype.slice.call(arguments, 1));
                     }
 
                     return result;
                 },
 
                 // __getIds__ is identical to __getKeys__ (JDK 6 compatibility)
-                __getIds__ : function declare_adaptee__getIds__()
+                __getIds__ : function declare_adaptee__getIds__(delegate)
                 {
                     /* jshint forin: false */
                     var result, name;
 
-                    if (this.__delegate === undefined)
+                    if (delegate['--declare--proxy-extension-hooks-enabled'] === true && typeof delegate.__getIds__ === 'function')
                     {
-                        logger.error('this.__delegate is undefined in overrides of JSAdapter');
+                        result = delegate.__getIds__();
                     }
-
-                    if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
-                            && typeof this.__delegate.__getIds__ === 'function')
+                    else if (delegate['--declare--proxy-extension-hooks-enabled'] === true && typeof delegate.__getKeys__ === 'function')
                     {
-                        result = this.__delegate.__getIds__();
-                    }
-                    else if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
-                            && typeof this.__delegate.__getKeys__ === 'function')
-                    {
-                        result = this.__delegate.__getKeys__();
+                        result = delegate.__getKeys__();
                     }
                     else
                     {
                         result = [];
-                        for (name in this.__delegate)
+                        for (name in delegate)
                         {
                             result.push(name);
                         }
@@ -385,30 +360,23 @@ define(
                     return result;
                 },
 
-                __getKeys__ : function declare_adaptee__getKeys__()
+                __getKeys__ : function declare_adaptee__getKeys__(delegate)
                 {
                     /* jshint forin: false */
                     var result, name;
 
-                    if (this.__delegate === undefined)
+                    if (delegate['--declare--proxy-extension-hooks-enabled'] === true && typeof delegate.__getKeys__ === 'function')
                     {
-                        logger.error('this.__delegate is undefined in overrides of JSAdapter');
+                        result = delegate.__getKeys__();
                     }
-
-                    if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
-                            && typeof this.__delegate.__getKeys__ === 'function')
+                    else if (delegate['--declare--proxy-extension-hooks-enabled'] === true && typeof delegate.__getIds__ === 'function')
                     {
-                        result = this.__delegate.__getKeys__();
-                    }
-                    else if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
-                            && typeof this.__delegate.__getIds__ === 'function')
-                    {
-                        result = this.__delegate.__getIds__();
+                        result = delegate.__getIds__();
                     }
                     else
                     {
                         result = [];
-                        for (name in this.__delegate)
+                        for (name in delegate)
                         {
                             result.push(name);
                         }
@@ -417,90 +385,65 @@ define(
                     return result;
                 },
 
-                __getValues__ : function declare_adaptee__getValues__()
+                __getValues__ : function declare_adaptee__getValues__(delegate)
                 {
                     var result = [];
 
-                    if (this.__delegate === undefined)
+                    if (delegate['--declare--proxy-extension-hooks-enabled'] === true && typeof delegate.__getValues__ === 'function')
                     {
-                        logger.error('this.__delegate is undefined in overrides of JSAdapter');
-                    }
-
-                    if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
-                            && typeof this.__delegate.__getValues__ === 'function')
-                    {
-                        result = this.__delegate.__getValues__();
+                        result = delegate.__getValues__();
                     }
 
                     return result;
                 },
 
-                __has__ : function declare_adaptee__has__(name)
+                __has__ : function declare_adaptee__has__(delegate, name)
                 {
                     var result = false;
 
-                    if (this.__delegate === undefined)
+                    if (delegate['--declare--proxy-use-getter-only'] !== true)
                     {
-                        logger.error('this.__delegate is undefined in overrides of JSAdapter');
-                    }
-
-                    if (this.__delegate['--declare--proxy-use-getter-only'] !== true)
-                    {
-                        result = name in this.__delegate;
+                        result = name in delegate;
                     }
 
                     // TODO option to expose properties based on getter-existence
 
-                    if (!result && this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
-                            && typeof this.__delegate.__has__ === 'function')
+                    if (!result && delegate['--declare--proxy-extension-hooks-enabled'] === true && typeof delegate.__has__ === 'function')
                     {
-                        result = this.__delegate.__has__(name);
+                        result = delegate.__has__(name);
                     }
 
                     return result;
                 },
 
-                __delete__ : function declare_adaptee__delete__(name)
+                __delete__ : function declare_adaptee__delete__(delegate, name)
                 {
                     var result = false;
 
-                    if (this.__delegate === undefined)
+                    if (delegate['--declare--proxy-extension-hooks-enabled'] === true && typeof delegate.__delete__ === 'function')
                     {
-                        logger.error('this.__delegate is undefined in overrides of JSAdapter');
-                    }
-
-                    if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
-                            && typeof this.__delegate.__delete__ === 'function')
-                    {
-                        result = this.__delegate.__delete__(name);
+                        result = delegate.__delete__(name);
                     }
                     else
                     {
-                        result = delete this.__delegate;
+                        result = delete delegate[name];
                     }
 
                     return result;
                 },
 
-                __new__ : function delcare_adaptee__new__()
+                __new__ : function delcare_adaptee__new__(delegate)
                 {
                     var result, BoundCtor;
 
-                    if (this.__delegate === undefined)
+                    if (typeof delegate === 'function')
                     {
-                        logger.error('this.__delegate is undefined in overrides of JSAdapter');
-                    }
-
-                    if (typeof this.__delegate === 'function')
-                    {
-                        BoundCtor = Function.prototype.bind.apply(this.__delegate, [ undefined ]
-                                .concat(Array.prototype.slice(arguments, 0)));
+                        BoundCtor = Function.prototype.bind.apply(delegate, [ undefined ].concat(Array.prototype.slice(arguments, 1)));
                         result = new BoundCtor();
                     }
-                    else if (this.__delegate['--declare--proxy-extension-hooks-enabled'] === true
-                            && typeof this.__delegate.__new__ === 'function')
+                    else if (delegate['--declare--proxy-extension-hooks-enabled'] === true && typeof delegate.__new__ === 'function')
                     {
-                        result = this.__delegate.__new__.apply(this.__delegate, Array.prototype.slice(arguments, 0));
+                        result = delegate.__new__.apply(delegate, Array.prototype.slice(arguments, 1));
                     }
 
                     return result;
@@ -707,7 +650,7 @@ define(
             {
                 var standardCtor = function declare__standardConstructor()
                 {
-                    var result, idx, ctor, linearization, proxyOverrides;
+                    var result, idx, ctor, linearization, specificAdaptee;
 
                     if (!(this instanceof standardCtor))
                     {
@@ -743,12 +686,12 @@ define(
                                 || result['--declare--proxy-setter-redirection-enabled'] === true
                                 || result['--declare--proxy-extension-hooks-enabled'] === true)
                         {
-                            proxyOverrides = {};
-                            // __delegate should be non-enumerable, non-writable, non-configurable
-                            Object.defineProperty(proxyOverrides, '__delegate', {
-                                value : result
+                            specificAdaptee = {};
+                            Object.keys(declareAdaptee).forEach(function declare__standardConstructor_forDeclareAdapteeKeys(key)
+                            {
+                                specificAdaptee[key] = Function.prototype.bind.call(declareAdaptee[key], undefined, result);
                             });
-                            result = new JSAdapter(result, proxyOverrides, Object.create(declareAdaptee, proxyOverrides));
+                            result = new JSAdapter(result, {}, specificAdaptee);
                         }
                     }
 
