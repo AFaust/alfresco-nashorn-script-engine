@@ -107,6 +107,8 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
     protected int scriptContextWarmupCount = DEFAULT_SCRIPT_CONTEXT_WARMUP_COUNT;
 
+    protected boolean executeArbitraryScriptStringsAsSecure = false;
+
     /**
      * {@inheritDoc}
      */
@@ -177,6 +179,15 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
     public void setScriptContextWarmupCount(final int scriptContextWarmupCount)
     {
         this.scriptContextWarmupCount = scriptContextWarmupCount;
+    }
+
+    /**
+     * @param executeArbitraryScriptStringsAsSecure
+     *            the executeArbitraryScriptStringsAsSecure to set
+     */
+    public void setExecuteArbitraryScriptStringsAsSecure(final boolean executeArbitraryScriptStringsAsSecure)
+    {
+        this.executeArbitraryScriptStringsAsSecure = executeArbitraryScriptStringsAsSecure;
     }
 
     /**
@@ -285,7 +296,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
     {
         ParameterCheck.mandatoryString("script", scriptStr);
 
-        CallerProvidedURLConnection.registerCallerProvidedScript(scriptStr);
+        CallerProvidedURLConnection.registerCallerProvidedScript(scriptStr, this.executeArbitraryScriptStringsAsSecure);
         try
         {
             final String location = MD5.Digest(scriptStr.getBytes(StandardCharsets.UTF_8));

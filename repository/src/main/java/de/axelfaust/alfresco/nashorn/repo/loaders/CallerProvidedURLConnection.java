@@ -19,8 +19,10 @@ import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
+
 import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.service.cmr.repository.ScriptLocation;
+import org.alfresco.util.Pair;
 
 /**
  *
@@ -29,7 +31,7 @@ import org.alfresco.service.cmr.repository.ScriptLocation;
 public class CallerProvidedURLConnection extends URLConnection
 {
 
-    private static final ThreadLocal<String> CURRENT_CALLER_PROVIDED_SCRIPT = new ThreadLocal<String>();
+    private static final ThreadLocal<Pair<String, Boolean>> CURRENT_CALLER_PROVIDED_SCRIPT = new ThreadLocal<Pair<String, Boolean>>();
 
     private static final ThreadLocal<ScriptLocation> CURRENT_CALLER_PROVIDED_LOCATION = new ThreadLocal<ScriptLocation>();
 
@@ -39,10 +41,10 @@ public class CallerProvidedURLConnection extends URLConnection
         CURRENT_CALLER_PROVIDED_SCRIPT.remove();
     }
 
-    public static void registerCallerProvidedScript(final String script)
+    public static void registerCallerProvidedScript(final String script, final boolean secure)
     {
         CURRENT_CALLER_PROVIDED_LOCATION.remove();
-        CURRENT_CALLER_PROVIDED_SCRIPT.set(script);
+        CURRENT_CALLER_PROVIDED_SCRIPT.set(new Pair<>(script, Boolean.valueOf(secure)));
     }
 
     public static void registerCallerProvidedScript(final ScriptLocation scriptLocation)
@@ -55,7 +57,8 @@ public class CallerProvidedURLConnection extends URLConnection
     {
         final boolean result;
         final ScriptLocation scriptLocation = CURRENT_CALLER_PROVIDED_LOCATION.get();
-        result = scriptLocation != null && scriptLocation.isSecure();
+        final Pair<String, Boolean> script = CURRENT_CALLER_PROVIDED_SCRIPT.get();
+        result = (scriptLocation != null && scriptLocation.isSecure()) || (script != null && Boolean.TRUE.equals(script.getSecond()));
         return result;
     }
 
@@ -87,11 +90,11 @@ public class CallerProvidedURLConnection extends URLConnection
         if (this.contentLength == -1)
         {
             final ScriptLocation scriptLocation = CURRENT_CALLER_PROVIDED_LOCATION.get();
-            final String script = CURRENT_CALLER_PROVIDED_SCRIPT.get();
+            final Pair<String, Boolean> script = CURRENT_CALLER_PROVIDED_SCRIPT.get();
 
             if (script != null)
             {
-                this.contentLength = script.length();
+                this.contentLength = script.getFirst().length();
             }
             else if (scriptLocation != null)
             {
@@ -142,12 +145,12 @@ public class CallerProvidedURLConnection extends URLConnection
     public InputStream getInputStream() throws IOException
     {
         final ScriptLocation scriptLocation = CURRENT_CALLER_PROVIDED_LOCATION.get();
-        final String script = CURRENT_CALLER_PROVIDED_SCRIPT.get();
+        final Pair<String, Boolean> script = CURRENT_CALLER_PROVIDED_SCRIPT.get();
 
         final InputStream is;
         if (script != null)
         {
-            is = new ByteArrayInputStream(script.getBytes(StandardCharsets.UTF_8));
+            is = new ByteArrayInputStream(script.getFirst().getBytes(StandardCharsets.UTF_8));
         }
         else if (scriptLocation != null)
         {
