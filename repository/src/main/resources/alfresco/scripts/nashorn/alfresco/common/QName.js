@@ -18,7 +18,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '../foundation/Namespace
             Module = declare([ JavaConvertableMixin ], {
 
                 '--declare--proxy-support-enabled' : true,
-                
+
                 '--declare--proxy-getter-redirection-enabled' : true,
 
                 '--declare--proxy-virtual-getters-enabled' : true,
@@ -113,6 +113,8 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '../foundation/Namespace
             {
                 var result, cache;
 
+                logger.trace('valueOf called for {}', qname);
+
                 cache = qnameCache.get(_executionKey);
                 if (cache === null)
                 {
@@ -148,7 +150,9 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '../foundation/Namespace
                         cache.put(String(result.qname), result);
                     }
                 }
-                
+
+                logger.debug('valueOf for {} yielded {}', qname, result);
+
                 return result;
             };
 

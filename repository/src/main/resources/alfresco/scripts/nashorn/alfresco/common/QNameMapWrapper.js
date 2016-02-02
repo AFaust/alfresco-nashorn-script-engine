@@ -34,6 +34,8 @@ define([ '_base/declare', '_base/JavaConvertableMixin', './QName', '_base/logger
                 {
                     var qname, value;
 
+                    logger.trace('__get__ called for {}', prop);
+
                     if (typeof prop === 'string')
                     {
                         switch (prop)
@@ -44,18 +46,19 @@ define([ '_base/declare', '_base/JavaConvertableMixin', './QName', '_base/logger
                             case 'clear':
                                 /* falls through */
                             case 'size':
-                                value = Function.prototype.bind(function alfresco_common_QNameMapWrapper__get__virtualZeroArgFn(fnName)
+                                value = Function.prototype.bind.call(function alfresco_common_QNameMapWrapper__get__virtualZeroArgFn(fnName)
                                 {
-                                    // if caller does not call with correct 'this' then it's their fault
                                     var result = this.backingMap[fnName]();
                                     return result;
-                                }, undefined, prop);
+                                }, this, prop);
                                 break;
                             default:
                                 qname = QName.valueOf(prop);
-                                value = this.backingMap.get(qname);
+                                value = this.backingMap.get(qname.javaValue);
                         }
                     }
+
+                    logger.debug('__get__ for {} yielded {}', prop, value);
 
                     return value;
                 },
@@ -64,6 +67,8 @@ define([ '_base/declare', '_base/JavaConvertableMixin', './QName', '_base/logger
                 {
                     var qname, result = false;
 
+                    logger.trace('__has__ called for {}', prop);
+
                     if (typeof prop === 'string')
                     {
                         switch (prop)
@@ -72,9 +77,11 @@ define([ '_base/declare', '_base/JavaConvertableMixin', './QName', '_base/logger
                                 break;
                             default:
                                 qname = QName.valueOf(prop);
-                                result = this.backingMap.containsKey(qname);
+                                result = this.backingMap.containsKey(qname.javaValue);
                         }
                     }
+
+                    logger.debug('__has__ for {} yielded {}', prop, result);
 
                     return result;
                 },
@@ -83,6 +90,8 @@ define([ '_base/declare', '_base/JavaConvertableMixin', './QName', '_base/logger
                 {
                     var qname, result;
 
+                    logger.trace('__put__ called for {} and value {}', prop, value);
+
                     if (typeof prop === 'string')
                     {
                         switch (prop)
@@ -91,10 +100,12 @@ define([ '_base/declare', '_base/JavaConvertableMixin', './QName', '_base/logger
                                 break;
                             default:
                                 qname = QName.valueOf(prop);
-                                this.backingMap.put(qname, value);
+                                this.backingMap.put(qname.javaValue, value !== null ? (value.javaValue || value) : value);
                                 result = value;
                         }
                     }
+
+                    logger.debug('__put__ for {} and value {} yielded {}', prop, value, result);
 
                     return result;
                 },
@@ -102,6 +113,8 @@ define([ '_base/declare', '_base/JavaConvertableMixin', './QName', '_base/logger
                 __getIds__ : function alfresco_common_QNameMapWrapper__getIds__()
                 {
                     var ids = [];
+
+                    logger.trace('__getIds__ called');
 
                     this.backingMap.keySet().forEach(function(qname)
                     {
@@ -113,7 +126,9 @@ define([ '_base/declare', '_base/JavaConvertableMixin', './QName', '_base/logger
 
                 __delete__ : function alfresco_common_QNameMapWrapper__delete__(prop)
                 {
-                    var qname;
+                    var qname, result;
+
+                    logger.trace('__delete__ called for {}', prop);
 
                     if (typeof prop === 'string')
                     {
@@ -123,14 +138,20 @@ define([ '_base/declare', '_base/JavaConvertableMixin', './QName', '_base/logger
                                 break;
                             default:
                                 qname = QName.valueOf(prop);
-                                this.backingMap.remove(qname);
+                                result = this.backingMap.remove(qname.javaValue);
                         }
                     }
+
+                    logger.debug('__delete__ for {} yielded', prop, result);
+
+                    return result;
                 },
 
                 __call__ : function alfresco_common_QNameMapWapper__call__(name)
                 {
                     var result;
+
+                    logger.trace('__call__ called for {}', name);
 
                     switch (name)
                     {
@@ -147,6 +168,8 @@ define([ '_base/declare', '_base/JavaConvertableMixin', './QName', '_base/logger
                             // TODO Define a core module that defaults __call__ behaviour
                             result = this.inherited(alfresco_common_QNameMapWapper__call__, arguments);
                     }
+
+                    logger.debug('__call__ for {} yielded', name, result);
 
                     return result;
                 }
