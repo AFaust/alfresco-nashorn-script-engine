@@ -4,10 +4,11 @@ define(
         function logger(require, Java)
         {
             'use strict';
-            var loggerModule, getSLF4JLogger, isEnabledImpl, logImpl, loggerByScriptUrl = {}, Throwable, LoggerFactory;
+            var loggerModule, getSLF4JLogger, isEnabledImpl, logImpl, loggerByScriptUrl = {}, Throwable, LoggerFactory, NativeLogMessageArgumentWrapper;
 
             Throwable = Java.type('java.lang.Throwable');
             LoggerFactory = Java.type('org.slf4j.LoggerFactory');
+            NativeLogMessageArgumentWrapper = Java.type('de.axelfaust.alfresco.nashorn.repo.utils.NativeLogMessageArgumentWrapper');
 
             getSLF4JLogger = function logger__getSLF4JLogger()
             {
@@ -65,7 +66,7 @@ define(
                 if (logger[String(enabledProp)])
                 {
                     // TODO Determine caller fn + line and expose via MDC
-                    
+
                     for (idx = 0; idx < args.length; idx++)
                     {
                         if (idx === 0 && typeof args[idx] === 'string')
@@ -100,8 +101,17 @@ define(
                                 {
                                     case 'object':
                                     case 'function':
-                                        // script objects passed to logger would not have their JS toString called (Java toString of Nashorn types provides little to no value)
-                                        values.push(String(args[idx]));
+                                        // typeof null === 'object' so exclude here
+                                        // also: typeof javaObj === 'object' so add instanceof check against native prototype too
+                                        if (args[idx] !== null && (args[idx] instanceof Object || args[idx] instanceof Function))
+                                        {
+                                            // script objects passed to logger would not have their JS toString called
+                                            values.push(new NativeLogMessageArgumentWrapper(args[idx]));
+                                        }
+                                        else
+                                        {
+                                            values.push(args[idx]);
+                                        }
                                         break;
                                     default:
                                         values.push(args[idx]);
@@ -126,6 +136,7 @@ define(
                 }
             };
 
+            // TODO Provide option to hook in dynamic log delegates (i.e. for JavaScript Console)
             loggerModule = {
                 trace : function logger__trace()
                 {
