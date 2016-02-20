@@ -4,7 +4,7 @@ define(
         function declare(c3mro, logger, Java, JSAdapter)
         {
             'use strict';
-            var anonClassCount = 0, FnCtor, DummyCtor, Locale, declareNoSuchPropertyStackKey, declareNoSuchPropertyImpl, declareAdaptee, getterNames, boolGetterNames, setterNames, isObject, fn_toString, isInstanceOf, inherited, forceNew, applyNew, standardConstructor, taggedMixin, standardPrototype, declareImpl, declareFn;
+            var anonClassCount = 0, FnCtor, DummyCtor, Locale, declareNoSuchPropertyStackKey, declareNoSuchPropertyImpl, declareAdaptee, getterNames, boolGetterNames, setterNames, isObject, fn_toString, isInstanceOf, inherited, forceNew, applyNew, createStandardConstructor, standardConstructorImpl, taggedMixin, standardPrototype, declareImpl, declareFn;
 
             FnCtor = Function;
 
@@ -646,55 +646,62 @@ define(
                 return instance;
             };
 
-            standardConstructor = function declare__createStandardConstructor()
+            standardConstructorImpl = function declare__standardConstructorImpl(standardCtor, args)
             {
+                var result, idx, ctor, linearization, specificAdaptee;
+
+                if (!(this instanceof standardCtor))
+                {
+                    result = applyNew(args, standardCtor);
+                }
+                else
+                {
+                    linearization = standardCtor._c3mro_linearization;
+                    result = this;
+
+                    for (idx = linearization.length - 1; idx >= 0; idx--)
+                    {
+                        ctor = linearization[idx]._declare_meta.constructor;
+                        if (typeof ctor === 'function')
+                        {
+                            ctor.apply(result, args);
+                        }
+                    }
+
+                    // class name is included in a non-enumerable field to avoid messing with potential JSON.stringify use
+                    Object.defineProperty(result, '_declare_className', {
+                        value : standardCtor._declare_meta.className
+                    });
+                }
+
+                if (result['--declare--proxy-support-enabled'] === true)
+                {
+                    // any of these trigger JSAdapter - otherwise __noSuchProperty__ is enough
+                    if (result['--declare--proxy-virtual-getters-enabled'] === true
+                            || result['--declare--proxy-virtual-setters-enabled'] === true
+                            || result['--declare--proxy-use-getter-only'] === true || result['--declare--proxy-use-setter-only'] === true
+                            || result['--declare--proxy-setter-redirection-enabled'] === true
+                            || result['--declare--proxy-extension-hooks-enabled'] === true)
+                    {
+                        specificAdaptee = {};
+                        Object.keys(declareAdaptee).forEach(function declare__standardConstructorImpl_forDeclareAdapteeKeys(key)
+                        {
+                            specificAdaptee[key] = Function.prototype.bind.call(declareAdaptee[key], undefined, result);
+                        });
+                        result = new JSAdapter(result, {}, specificAdaptee);
+                    }
+                }
+
+                return result;
+            };
+
+            createStandardConstructor = function declare__createStandardConstructor()
+            {
+                // we need a separate standardConstructor instance for every class due to inidividual prototype
+                // fn should be as thin as possible - oursourcing most logic to common code in standardConstructorImpl
                 var standardCtor = function declare__standardConstructor()
                 {
-                    var result, idx, ctor, linearization, specificAdaptee;
-
-                    if (!(this instanceof standardCtor))
-                    {
-                        result = applyNew(arguments, standardCtor);
-                    }
-                    else
-                    {
-                        linearization = standardCtor._c3mro_linearization;
-                        result = this;
-
-                        for (idx = linearization.length - 1; idx >= 0; idx--)
-                        {
-                            ctor = linearization[idx]._declare_meta.constructor;
-                            if (typeof ctor === 'function')
-                            {
-                                ctor.apply(result, arguments);
-                            }
-                        }
-
-                        // class name is included in a non-enumerable field to avoid messing with potential JSON.stringify use
-                        Object.defineProperty(result, '_declare_className', {
-                            value : standardCtor._declare_meta.className
-                        });
-                    }
-
-                    if (result['--declare--proxy-support-enabled'] === true)
-                    {
-                        // any of these trigger JSAdapter - otherwise __noSuchProperty__ is enough
-                        if (result['--declare--proxy-virtual-getters-enabled'] === true
-                                || result['--declare--proxy-virtual-setters-enabled'] === true
-                                || result['--declare--proxy-use-getter-only'] === true
-                                || result['--declare--proxy-use-setter-only'] === true
-                                || result['--declare--proxy-setter-redirection-enabled'] === true
-                                || result['--declare--proxy-extension-hooks-enabled'] === true)
-                        {
-                            specificAdaptee = {};
-                            Object.keys(declareAdaptee).forEach(function declare__standardConstructor_forDeclareAdapteeKeys(key)
-                            {
-                                specificAdaptee[key] = Function.prototype.bind.call(declareAdaptee[key], undefined, result);
-                            });
-                            result = new JSAdapter(result, {}, specificAdaptee);
-                        }
-                    }
-
+                    var result = standardConstructorImpl.call(this, standardCtor, arguments);
                     return result;
                 };
 
@@ -818,7 +825,7 @@ define(
             {
                 var ctor, proto, meta, structure;
 
-                ctor = standardConstructor();
+                ctor = createStandardConstructor();
 
                 // flip bases into order "right most mixin -> left most mixin -> superClass"
                 // ensures linearization results in correct override order for mixins over base class
