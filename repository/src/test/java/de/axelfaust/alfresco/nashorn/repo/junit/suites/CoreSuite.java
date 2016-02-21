@@ -11,15 +11,18 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package de.axelfaust.alfresco.nashorn.repo.junit.interop;
+package de.axelfaust.alfresco.nashorn.repo.junit.suites;
 
-import junit.framework.TestCase;
+import org.junit.runner.RunWith;
+
+import de.axelfaust.alfresco.nashorn.repo.junit.runners.ScriptSuite;
 
 /**
  * @author Axel Faust
  */
-public interface JUnitBeforeAwareScript
+@RunWith(ScriptSuite.class)
+@ScriptSuite.SuiteFolders("/junit/tests/core")
+public class CoreSuite
 {
 
-    public void before(TestCase testCase);
 }

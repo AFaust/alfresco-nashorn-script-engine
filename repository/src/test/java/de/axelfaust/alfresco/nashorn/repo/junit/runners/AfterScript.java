@@ -11,15 +11,19 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package de.axelfaust.alfresco.nashorn.repo.junit.interop;
+package de.axelfaust.alfresco.nashorn.repo.junit.runners;
 
-import junit.framework.TestCase;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
  * @author Axel Faust
  */
-public interface JUnitBeforeAwareScript
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
+public @interface AfterScript
 {
 
-    public void before(TestCase testCase);
 }

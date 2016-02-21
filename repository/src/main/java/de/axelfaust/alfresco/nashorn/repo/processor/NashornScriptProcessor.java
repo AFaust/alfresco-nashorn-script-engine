@@ -19,6 +19,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -70,6 +71,9 @@ import de.axelfaust.alfresco.nashorn.repo.loaders.CallerProvidedURLConnection;
 public class NashornScriptProcessor extends BaseProcessor implements ScriptProcessor, InitializingBean, ApplicationContextAware
 {
 
+    public static final List<String> NASHORN_GLOBAL_PROPERTIES_TO_ALWAYS_REMOVE = Collections.unmodifiableList(Arrays.asList("load",
+            "loadWithNewGlobal", "exit", "quit"));
+
     private static final Logger LOGGER = LoggerFactory.getLogger(NashornScriptProcessor.class);
 
     private static final String _PRELOAD_MODULE_FIELD = "_preloadModule";
@@ -79,9 +83,6 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
     private static final String SCRIPT_AMD = "amd.js";
 
     private static final String SCRIPE_AMD_SCRIPT_RUNNER = "amd-script-runner.js";
-
-    private static final List<String> NASHORN_GLOBAL_PROPERTIES_TO_ALWAYS_REMOVE = Arrays.asList("load", "loadWithNewGlobal", "exit",
-            "quit");
 
     private static final int DEFAULT_SCRIPT_CONTEXT_WARMUP_COUNT = 10;
 

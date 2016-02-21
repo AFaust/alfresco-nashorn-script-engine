@@ -13,6 +13,7 @@
  */
 package de.axelfaust.alfresco.nashorn.repo.junit.interop;
 
+import junit.framework.TestCase;
 
 /**
  * @author Axel Faust
@@ -20,5 +21,5 @@ package de.axelfaust.alfresco.nashorn.repo.junit.interop;
 public interface JUnitAfterAwareScript
 {
 
-    public void after();
+    public void after(TestCase testCase);
 }

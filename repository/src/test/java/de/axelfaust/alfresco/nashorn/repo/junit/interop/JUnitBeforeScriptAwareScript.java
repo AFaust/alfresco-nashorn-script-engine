@@ -13,13 +13,11 @@
  */
 package de.axelfaust.alfresco.nashorn.repo.junit.interop;
 
-import junit.framework.TestCase;
-
 /**
  * @author Axel Faust
  */
-public interface JUnitBeforeAwareScript
+public interface JUnitBeforeScriptAwareScript
 {
 
-    public void before(TestCase testCase);
+    public void beforeScript();
 }

@@ -15,6 +15,7 @@ package de.axelfaust.alfresco.nashorn.repo.junit.runners;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.lang.annotation.Annotation;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +26,7 @@ import javax.script.Invocable;
 import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
 import javax.script.ScriptException;
+import javax.script.SimpleBindings;
 import javax.script.SimpleScriptContext;
 
 import jdk.nashorn.api.scripting.NashornScriptEngineFactory;
@@ -50,10 +52,14 @@ import org.junit.runners.model.Statement;
 
 import de.axelfaust.alfresco.nashorn.repo.junit.interop.InvokeScriptFunction;
 import de.axelfaust.alfresco.nashorn.repo.junit.interop.JUnitAfterAwareScript;
+import de.axelfaust.alfresco.nashorn.repo.junit.interop.JUnitAfterScriptAwareScript;
 import de.axelfaust.alfresco.nashorn.repo.junit.interop.JUnitBeforeAwareScript;
+import de.axelfaust.alfresco.nashorn.repo.junit.interop.JUnitBeforeScriptAwareScript;
 import de.axelfaust.alfresco.nashorn.repo.junit.interop.JUnitTestCaseAwareScript;
 import de.axelfaust.alfresco.nashorn.repo.junit.interop.JUnitTestScript;
+import de.axelfaust.alfresco.nashorn.repo.junit.interop.RunScriptLifecycleMethods;
 import de.axelfaust.alfresco.nashorn.repo.junit.interop.ScriptFunction;
+import de.axelfaust.alfresco.nashorn.repo.junit.tests.ScriptContextReusingTestCase;
 import de.axelfaust.alfresco.nashorn.repo.junit.tests.SimpleScriptTestCase;
 
 /**
@@ -128,7 +134,7 @@ public class ScriptFile extends ParentRunner<ScriptFunction>
 
         try
         {
-            this.scriptTestObject = this.createScriptTest();
+            this.scriptTestObject = this.createScriptTest(null);
         }
         catch (final Exception ex)
         {
@@ -190,7 +196,107 @@ public class ScriptFile extends ParentRunner<ScriptFunction>
         this.runLeaf(this.methodBlock(scriptFunction), description, notifier);
     }
 
-    // TODO classBlock with beforeClass/afterClass from script
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    protected Statement withBeforeClasses(final Statement statement)
+    {
+        Statement resultStatement = statement;
+
+        resultStatement = super.withBeforeClasses(resultStatement);
+
+        final List<FrameworkMethod> scriptBefores = this.getTestClass().getAnnotatedMethods(BeforeScript.class);
+        resultStatement = scriptBefores.isEmpty() ? resultStatement : new RunScriptLifecycleMethods(resultStatement, false, scriptBefores,
+                null, this.scriptFile, NASHORN_ENGINE);
+
+        if (((Invocable) NASHORN_ENGINE).getInterface(this.scriptTestObject, JUnitBeforeScriptAwareScript.class) != null)
+        {
+            Object target;
+            Object scriptTarget;
+            try
+            {
+                target = new ReflectiveCallable()
+                {
+
+                    @Override
+                    protected Object runReflectiveCall() throws Throwable
+                    {
+                        return ScriptFile.this.createTest();
+                    }
+                }.run();
+                scriptTarget = new ReflectiveCallable()
+                {
+
+                    @Override
+                    protected Object runReflectiveCall() throws Throwable
+                    {
+                        return ScriptFile.this.createScriptTest(target);
+                    }
+                }.run();
+            }
+            catch (final Throwable e)
+            {
+                return new Fail(e);
+            }
+
+            resultStatement = new InvokeScriptFunction(resultStatement, false, scriptTarget, new ScriptFunction("beforeScript"));
+        }
+
+        return resultStatement;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    protected Statement withAfterClasses(final Statement statement)
+    {
+        Statement resultStatement = statement;
+
+        if (((Invocable) NASHORN_ENGINE).getInterface(this.scriptTestObject, JUnitAfterScriptAwareScript.class) != null)
+        {
+            Object target;
+            Object scriptTarget;
+            try
+            {
+                target = new ReflectiveCallable()
+                {
+
+                    @Override
+                    protected Object runReflectiveCall() throws Throwable
+                    {
+                        return ScriptFile.this.createTest();
+                    }
+                }.run();
+                scriptTarget = new ReflectiveCallable()
+                {
+
+                    @Override
+                    protected Object runReflectiveCall() throws Throwable
+                    {
+                        return ScriptFile.this.createScriptTest(target);
+                    }
+                }.run();
+            }
+            catch (final Throwable e)
+            {
+                return new Fail(e);
+            }
+
+            resultStatement = new InvokeScriptFunction(resultStatement, false, scriptTarget, new ScriptFunction("afterScript"));
+        }
+
+        final List<FrameworkMethod> scriptAfters = this.getTestClass().getAnnotatedMethods(AfterScript.class);
+        resultStatement = scriptAfters.isEmpty() ? resultStatement : new RunScriptLifecycleMethods(resultStatement, true, scriptAfters,
+                null, this.scriptFile, NASHORN_ENGINE);
+
+        resultStatement = super.withAfterClasses(resultStatement);
+
+        return resultStatement;
+    }
 
     protected Statement methodBlock(final ScriptFunction scriptFunction)
     {
@@ -213,7 +319,7 @@ public class ScriptFile extends ParentRunner<ScriptFunction>
                 @Override
                 protected Object runReflectiveCall() throws Throwable
                 {
-                    return ScriptFile.this.createScriptTest();
+                    return ScriptFile.this.createScriptTest(test);
                 }
             }.run();
         }
@@ -246,20 +352,21 @@ public class ScriptFile extends ParentRunner<ScriptFunction>
 
     protected Statement withAfters(final Object target, final Object scriptTarget, final Statement statement)
     {
-        final List<FrameworkMethod> afters = this.getTestClass().getAnnotatedMethods(After.class);
-        Statement resultStatement = afters.isEmpty() ? statement : new RunAfters(statement, afters, target);
-
+        Statement resultStatement = statement;
         final JUnitAfterAwareScript beforeAwareScript = ((Invocable) NASHORN_ENGINE)
                 .getInterface(scriptTarget, JUnitAfterAwareScript.class);
         if (beforeAwareScript != null)
         {
-            resultStatement = new InvokeScriptFunction(statement, false, scriptTarget, new ScriptFunction("after"), target);
+            resultStatement = new InvokeScriptFunction(resultStatement, false, scriptTarget, new ScriptFunction("after"), target);
         }
+
+        final List<FrameworkMethod> afters = this.getTestClass().getAnnotatedMethods(After.class);
+        resultStatement = afters.isEmpty() ? resultStatement : new RunAfters(resultStatement, afters, target);
 
         return resultStatement;
     }
 
-    private Statement withTestRules(final ScriptFunction scriptFunction, final List<TestRule> testRules, final Statement statement)
+    protected Statement withTestRules(final ScriptFunction scriptFunction, final List<TestRule> testRules, final Statement statement)
     {
         return testRules.isEmpty() ? statement : new RunRules(statement, testRules, this.describeChild(scriptFunction));
     }
@@ -273,14 +380,30 @@ public class ScriptFile extends ParentRunner<ScriptFunction>
 
     protected Object createTest() throws Exception
     {
-        return this.getTestClass().getOnlyConstructor().newInstance();
+        final Object test = this.getTestClass().getOnlyConstructor().newInstance();
+        return test;
     }
 
-    protected Object createScriptTest() throws Exception
+    protected Object createScriptTest(final Object test) throws Exception
     {
-        final Bindings bindings = NASHORN_ENGINE.createBindings();
-        final SimpleScriptContext scriptContext = new SimpleScriptContext();
-        scriptContext.setBindings(bindings, ScriptContext.GLOBAL_SCOPE);
+        final ScriptContext scriptContext;
+
+        if (test instanceof ScriptContextReusingTestCase)
+        {
+            scriptContext = ((ScriptContextReusingTestCase) test).getReusableScriptContext(this.scriptFile, NASHORN_ENGINE);
+        }
+        else
+        {
+            scriptContext = new SimpleScriptContext();
+            final Bindings bindings = NASHORN_ENGINE.createBindings();
+            scriptContext.setBindings(bindings, ScriptContext.ENGINE_SCOPE);
+
+            final Bindings globalBindings = new SimpleBindings();
+            scriptContext.setBindings(globalBindings, ScriptContext.GLOBAL_SCOPE);
+
+            // self reference
+            globalBindings.put("context", scriptContext);
+        }
 
         final URL resource = ScriptFile.class.getResource(this.scriptFile);
         final Object scriptTestObject = executeScriptFromResource(resource, this.scriptFile, scriptContext);
@@ -295,6 +418,9 @@ public class ScriptFile extends ParentRunner<ScriptFunction>
     protected void collectInitializationErrors(final List<Throwable> errors)
     {
         super.collectInitializationErrors(errors);
+
+        this.validatePublicVoidScriptArgMethods(BeforeScript.class, true, errors);
+        this.validatePublicVoidScriptArgMethods(AfterScript.class, true, errors);
 
         // copied from BlockJUnit4ClassRunner
         this.validateConstructor(errors);
@@ -327,6 +453,28 @@ public class ScriptFile extends ParentRunner<ScriptFunction>
         {
             final String gripe = "Test class should have exactly one public zero-argument constructor";
             errors.add(new Exception(gripe));
+        }
+    }
+
+    protected void validatePublicVoidScriptArgMethods(final Class<? extends Annotation> annotation, final boolean isStatic,
+            final List<Throwable> errors)
+    {
+        final List<FrameworkMethod> methods = this.getTestClass().getAnnotatedMethods(annotation);
+
+        for (final FrameworkMethod eachTestMethod : methods)
+        {
+            eachTestMethod.validatePublicVoid(isStatic, errors);
+
+            final Class<?>[] parameterTypes = eachTestMethod.getMethod().getParameterTypes();
+            if (parameterTypes.length != 2)
+            {
+                errors.add(new Exception("Method " + eachTestMethod.getName() + " should have two parameters"));
+            }
+
+            if (!String.class.isAssignableFrom(parameterTypes[0]) || !ScriptEngine.class.isAssignableFrom(parameterTypes[1]))
+            {
+                errors.add(new Exception("Method " + eachTestMethod.getName() + " should have signature (String, ScriptEngine)V;"));
+            }
         }
     }
 
