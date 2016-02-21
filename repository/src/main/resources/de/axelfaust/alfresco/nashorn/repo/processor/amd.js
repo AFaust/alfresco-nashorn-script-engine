@@ -115,6 +115,7 @@
         return result;
     };
 
+    // TODO Outsource / delegate to Java code for potential performance improvements
     mapModuleId = function amd__mapModuleId(moduleId, contextModuleId)
     {
         var result = moduleId, mapped = false, mapping, contextFragments, fragments, cmax, max, contextLookup, lookup;
@@ -168,6 +169,7 @@
         return result;
     };
 
+    // TODO Outsource / delegate to Java code for potential performance improvements
     normalizeSimpleId = function amd__normalizeSimpleId(id, contextModule)
     {
         var fragments, result, moduleFragments;
@@ -597,6 +599,7 @@
                                 {
                                     logger.debug('Loading dependency "{}" for module "{}"', module.dependencies[idx], normalizedId);
 
+                                    // TODO Find a way to bind module.url/callerScriptURL context for provided modules to avoid repeated retrievals)
                                     dependency = getModule(module.dependencies[idx], true, isSecure, module.url);
 
                                     resolvedDependencies.push(dependency);
@@ -780,6 +783,7 @@
                     }
                 }
 
+                // TODO Find a way to bind callerScriptUrl context for provided modules to avoid repeated retrievals)
                 args.push(module);
 
                 // undefined / null are perfectly valid results of a module factory

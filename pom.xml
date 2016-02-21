@@ -17,6 +17,8 @@
 
     <properties>
         <alfresco.version>5.0.d</alfresco.version>
+        
+        <app.testing.jvm.args>-Xmx2G -Duser.language=en</app.testing.jvm.args>
     </properties>
 
     <dependencyManagement>
