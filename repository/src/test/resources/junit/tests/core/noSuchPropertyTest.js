@@ -14,7 +14,10 @@
 
 (function noSuchPropertyTest()
 {
-    var testObj = {
+    // need to bind ctxt early - won't be available when testObj.<fn> is invoked via extracted interface
+    var testObj, ctxt = context;
+    
+    testObj = {
 
         getTestFunctionNames : function noSuchPropertyTest_getTestFunctionNames()
         {
@@ -25,10 +28,10 @@
         {
             var SimpleScriptTestCase = Java.type('de.axelfaust.alfresco.nashorn.repo.junit.tests.SimpleScriptTestCase');
 
-            // TODO Find out why "context" does not work
-            SimpleScriptTestCase.initializeAMD(engine, context);
+            SimpleScriptTestCase.initializeAMD(engine, ctxt);
 
             // now we can use define
+            define.preload('loaderMetaLoader!nashorn');
             define.preload('loaderMetaLoader!classpath');
             define.preload('classpath!de/axelfaust/alfresco/nashorn/repo/processor/noSuchProperty');
 
@@ -53,7 +56,7 @@
         testStrictMiss : function noSuchPropertyTest_testStrictMiss(testCase)
         {
             'use strict';
-            var globalValue, accessError, Assert = Java.type('org.junit.Assert');
+            var globalValue, accessError = null, Assert = Java.type('org.junit.Assert');
 
             try
             {
@@ -63,10 +66,14 @@
             {
                 accessError = e;
             }
-
+            
             Assert.assertTrue('unknownVariable should not have been defined', globalValue === undefined);
-            Assert.assertTrue('accessError should not have been a ReferenceError', accessError instanceof ReferenceError);
+            // currently fails because __noSuchProperty__ hook uses closure _this as scope and does not know if caller is strict or not 
+            Assert.assertNotNull('An error should have been thrown and caught', accessError);
+            Assert.assertTrue('accessError should have been a ReferenceError', accessError instanceof ReferenceError);
         }
+        
+        // TODO Test case for lazy legacy root provisioning
     };
     return testObj;
 }());

@@ -509,7 +509,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         // 2) the nashorn loader plugin so we can control access to globals
         this.preloadAMDModule(ctxt, "loaderMetaLoader", "nashorn");
 
-        // remove Nashorn globals
+        // 3) remove Nashorn globals
         for (final String property : NASHORN_GLOBAL_PROPERTIES_TO_ALWAYS_REMOVE)
         {
             engineBindings.remove(property);
@@ -523,14 +523,17 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
             }
         }
 
+        // 4) Java extensions (must be picked up by modules before #7)
         globalBindings.put("processorExtensions", this.processorExtensions);
 
         LOGGER.trace("Checking for extension scripts");
 
+        // 5) configured JavaScript extension modules
         this.initScriptContextExtensions(ctxt);
 
         LOGGER.trace("Finalizing script context");
 
+        // 6) AMD config
         try
         {
             resource = this.amdConfig.getURL();
@@ -543,7 +546,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
         ctxt.setAttribute(CONTEXT_UUID_FIELD, uuid, ScriptContext.ENGINE_SCOPE);
 
-        // remove any init data that shouldn't be publicly available
+        // 7) remove any init data that shouldn't be publicly available
         globalBindings.clear();
 
         return ctxt;

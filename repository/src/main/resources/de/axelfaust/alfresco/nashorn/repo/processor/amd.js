@@ -60,12 +60,21 @@
         };
     };
 
-    SecureUseOnlyWrapper = function amd__SecureUseOnlyWrapper_constructor(module)
+    SecureUseOnlyWrapper = function amd__SecureUseOnlyWrapper_constructor(module, url)
     {
         Object.defineProperty(this, 'wrapped', {
             value : module,
             enumerable : true
         });
+
+        if (typeof url === 'string')
+        {
+            Object.defineProperty(this, 'url', {
+                value : url,
+                enumerable : true
+            });
+        }
+
         Object.defineProperty(this, 'secureUseOnly', {
             value : true,
             enumerable : true
@@ -409,6 +418,11 @@
                 Object.freeze(module.dependencies);
 
                 modules[normalizedId] = module;
+
+                if (value.hasOwnProperty('wrapped') && typeof value.url === 'string')
+                {
+                    moduleByUrl[value.url] = module;
+                }
             }
         }
     };
@@ -599,7 +613,8 @@
                                 {
                                     logger.debug('Loading dependency "{}" for module "{}"', module.dependencies[idx], normalizedId);
 
-                                    // TODO Find a way to bind module.url/callerScriptURL context for provided modules to avoid repeated retrievals)
+                                    // TODO Find a way to bind module.url/callerScriptURL context for provided modules to avoid repeated
+                                    // retrievals)
                                     dependency = getModule(module.dependencies[idx], true, isSecure, module.url);
 
                                     resolvedDependencies.push(dependency);
@@ -1384,9 +1399,9 @@
         moduleByUrl[contextScriptUrl] = module;
     };
 
-    define.asSecureUseModule = function amd__define_asSecureUseModule(module)
+    define.asSecureUseModule = function amd__define_asSecureUseModule(module, url)
     {
-        return new SecureUseOnlyWrapper(module);
+        return new SecureUseOnlyWrapper(module, url);
     };
 
     define.preload = function amd__define_preload(moduleId)
