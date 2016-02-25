@@ -22,7 +22,7 @@ define('args', [ 'nashorn!Java' ], function args_loader(Java)
 
             // arguments are never considered secure
             // TODO Use a converter registry to convert simple argument values into more intelligent script objects
-            // e.g. NodeRef into an instanceo of a ScriptNode-like module
+            // e.g. NodeRef into an instanceof of a ScriptNode-like module
             load(result, false);
         }
     };

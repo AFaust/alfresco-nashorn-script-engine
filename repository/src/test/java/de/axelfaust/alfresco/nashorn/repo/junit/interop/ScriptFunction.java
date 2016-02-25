@@ -15,12 +15,17 @@ package de.axelfaust.alfresco.nashorn.repo.junit.interop;
 
 import jdk.nashorn.api.scripting.ScriptObjectMirror;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * @author Axel Faust
  */
 @SuppressWarnings("restriction")
 public class ScriptFunction
 {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ScriptFunction.class);
 
     protected final String fnName;
 
@@ -38,6 +43,7 @@ public class ScriptFunction
     {
         if (target instanceof ScriptObjectMirror)
         {
+            LOGGER.debug("Calling script function {}", this.fnName);
             return ((ScriptObjectMirror) target).callMember(this.fnName, params);
         }
         throw new UnsupportedOperationException("Can't invoke " + this.fnName + " on target " + target);

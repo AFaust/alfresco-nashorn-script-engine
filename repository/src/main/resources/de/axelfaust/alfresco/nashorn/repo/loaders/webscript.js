@@ -42,7 +42,7 @@ define(
 
                     if (script !== null)
                     {
-                        logger.trace('Script stores contains a script {} for module id {}', script, normalizedId);
+                        logger.trace('Script stores contains a script {} for module id {}', [ script, normalizedId ]);
                         url = new URL('webscript', null, -1, normalizedId, new WebScriptURLStreamHandler(script, contentService,
                                 retryingTransactionHelper));
                         load(url, script.isSecure());

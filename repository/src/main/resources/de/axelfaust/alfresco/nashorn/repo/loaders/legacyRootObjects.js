@@ -38,7 +38,7 @@ define('legacyRootObject', [ 'globalProperties!nashornJavaScriptProcessor.de.axe
                 }
 
                 isSecure = legacyModuleSecure === true || legacyModuleSecure === 'true';
-                logger.trace('Loading legacy root object module {} as secure={}', legacyModuleId, isSecure);
+                logger.trace('Loading legacy root object module {} as secure={}', [ legacyModuleId, isSecure ]);
 
                 // tag our caller as the actual caller to require
                 resetFn = require.tagCallerScript(true);

@@ -25,7 +25,7 @@ define('executeAMDLoadableScript', [ 'require', '_base/logger', '_base/JavaConve
                 result = module;
             }
 
-            logger.trace('Module "{}" yielded result "{}"', moduleName, result);
+            logger.trace('Module "{}" yielded result "{}"', [ moduleName, result ]);
         };
 
         fnResolveFailed = function amd_execute_loadable_script__executeScript_onModuleResolutionFailed(dependencies, modules,
@@ -57,7 +57,7 @@ define('executeAMDLoadableScript', [ 'require', '_base/logger', '_base/JavaConve
                 logger.trace('A module "{}" has not been defined as an AMD-style module', moduleName);
             }
 
-            logger.trace('Module "{}" yielded result "{}"', moduleName, result);
+            logger.trace('Module "{}" yielded result "{}"', [ moduleName, result ]);
         };
 
         require([ moduleName ], fnResolved, fnResolveFailed);

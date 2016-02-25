@@ -127,7 +127,7 @@ define(
                     }
                     else if (values !== undefined)
                     {
-                        logger[meth](message, Java.to(values, 'java.lang.Object[]'));
+                        logger[meth](message, values);
                     }
                     else
                     {

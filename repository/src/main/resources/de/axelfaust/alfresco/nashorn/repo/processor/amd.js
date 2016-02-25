@@ -88,6 +88,7 @@
     clone = function amd__clone(obj, protectedKeys)
     {
         var result, desc;
+        // TODO Ensure values with multiple key-mappings are not cloned into two disjunct values
 
         if (obj === undefined || obj === null)
         {
@@ -149,7 +150,7 @@
                             result += '/' + fragments.slice(max, fragments.length).join('/');
                             mapped = true;
 
-                            logger.trace('Mapped module id {} to {} via mapping of package {}', moduleId, result, lookup);
+                            logger.trace('Mapped module id {} to {} via mapping of package {}', [ moduleId, result, lookup ]);
                         }
                     }
                 }
@@ -170,7 +171,7 @@
                     result += '/' + fragments.slice(max, fragments.length).join('/');
                     mapped = true;
 
-                    logger.trace('Mapped module id {} to {} via asterisk mapping', moduleId, result);
+                    logger.trace('Mapped module id {} to {} via asterisk mapping', [ moduleId, result ]);
                 }
             }
         }
@@ -201,7 +202,7 @@
                 throw new Error('Module ID is relative but call to normalize was made outside of an active module context');
             }
 
-            logger.trace('Simple id "{}" will be resolved against context module "{}"', id, contextModule.id);
+            logger.trace('Simple id "{}" will be resolved against context module "{}"', [ id, contextModule.id ]);
 
             moduleFragments = contextModule.id.split('/');
             // always remove the actual module identifier
@@ -248,7 +249,7 @@
 
         result = mapModuleId(result, isObject(contextModule) ? contextModule.id : '');
 
-        logger.trace('Normalized simple id "{}" to "{}"', id, result);
+        logger.trace('Normalized simple id "{}" to "{}"', [ id, result ]);
 
         return result;
     };
@@ -268,7 +269,7 @@
             loaderName = id.substring(0, id.indexOf('!'));
             realId = (id.length >= loaderName.length + 1) ? id.substring(id.indexOf('!') + 1) : '';
 
-            logger.trace('Retrieving loader "{}" for module "{}"', loaderName, id);
+            logger.trace('Retrieving loader "{}" for module "{}"', [ loaderName, id ]);
 
             isSecure = forceIsSecure === true || (isObject(contextModule) && contextModule.secureSource === true);
             loader = getModule(loaderName, true, isSecure, isObject(contextModule) ? contextModule.url : contextUrl);
@@ -297,7 +298,7 @@
         return normalizedId;
     };
 
-    _load = function amd__load(value, normalizedId, loaderName, isSecureSource)
+    _load = function amd__load(value, normalizedId, loaderName, isSecureSource, overrideUrl)
     {
         var url, module, implicitResult, currentlyTaggedCallerScriptUrl;
 
@@ -314,14 +315,14 @@
                                 + '\' has already been loaded once - it should not have been loaded again');
                     }
 
-                    logger.trace('Remapping already loaded module "{}" from url "{}"', normalizedId, url);
+                    logger.trace('Remapping already loaded module "{}" from url "{}"', [ normalizedId, url ]);
 
                     // simply remap the existing module
                     modules[normalizedId] = modules[moduleByUrl[String(url)].id];
                 }
                 else
                 {
-                    logger.debug('Loading module "{}" from url "{}" (secure: {})', normalizedId, url, isSecureSource === true);
+                    logger.debug('Loading module "{}" from url "{}" (secure: {})', [ normalizedId, url, isSecureSource === true ]);
 
                     module = {};
 
@@ -362,7 +363,7 @@
 
                     // script may not define a module
                     // we store the result of script execution for require(dependencies[], successFn, errorFn)
-                    logger.debug('Module "{}" from url "{}" yielded implicit result "{}"', normalizedId, url, implicitResult);
+                    logger.debug('Module "{}" from url "{}" yielded implicit result "{}"', [ normalizedId, url, implicitResult ]);
 
                     Object.defineProperty(module, 'implicitResult', {
                         value : implicitResult,
@@ -419,9 +420,9 @@
 
                 modules[normalizedId] = module;
 
-                if (value.hasOwnProperty('wrapped') && typeof value.url === 'string')
+                if (typeof overrideUrl === 'string')
                 {
-                    moduleByUrl[value.url] = module;
+                    moduleByUrl[overrideUrl] = module;
                 }
             }
         }
@@ -438,7 +439,7 @@
             loaderName = normalizedId.substring(0, normalizedId.indexOf('!'));
             id = normalizedId.substring(normalizedId.indexOf('!') + 1);
 
-            logger.trace('Retrieving loader "{}" for module "{}"', loaderName, id);
+            logger.trace('Retrieving loader "{}" for module "{}"', [ loaderName, id ]);
 
             loader = getModule(loaderName, true, callerSecure, callerUrl);
 
@@ -446,11 +447,11 @@
 
             if (typeof loader.load === 'function')
             {
-                loader.load(id, require, function amd__loadModule_explicitLoaderCallback(value, isSecureSource)
+                loader.load(id, require, function amd__loadModule_explicitLoaderCallback(value, isSecureSource, overrideUrl)
                 {
                     if (secureLoader === true || isSecureSource === false)
                     {
-                        _load(value, normalizedId, loaderName, isSecureSource);
+                        _load(value, normalizedId, loaderName, isSecureSource, overrideUrl);
                     }
                     else
                     {
@@ -487,7 +488,7 @@
                     id = packageConfig.location + '/' + id;
                 }
 
-                logger.trace('Retrieving loader "{}" for module "{}"', loaderName, id);
+                logger.trace('Retrieving loader "{}" for module "{}"', [ loaderName, id ]);
 
                 loader = getModule(loaderName, true, callerSecure, callerUrl);
 
@@ -523,7 +524,7 @@
     {
         var module, isSecure, moduleResult, dependency, resolvedDependencies, idx, currentlyTaggedCallerScriptUrl;
 
-        logger.debug('Retrieving module "{}" (force load: {})', normalizedId, doLoad);
+        logger.debug('Retrieving module "{}" (force load: {})', [ normalizedId, doLoad ]);
 
         if (modules.hasOwnProperty(normalizedId))
         {
@@ -594,6 +595,8 @@
                         {
                             isSecure = module.secureSource === true;
 
+                            logger.trace('Resolving {} dependencies for call to factory of {}',
+                                    [ module.dependencies.length, normalizedId ]);
                             resolvedDependencies = [];
                             for (idx = 0; idx < module.dependencies.length; idx += 1)
                             {
@@ -611,7 +614,7 @@
                                 }
                                 else
                                 {
-                                    logger.debug('Loading dependency "{}" for module "{}"', module.dependencies[idx], normalizedId);
+                                    logger.debug('Loading dependency "{}" for module "{}"', [ module.dependencies[idx], normalizedId ]);
 
                                     // TODO Find a way to bind module.url/callerScriptURL context for provided modules to avoid repeated
                                     // retrievals)
@@ -742,7 +745,7 @@
 
     require = function amd__require(dependencies, callback, errCallback)
     {
-        var idx, args, implicitArgs, normalizedModuleId, module, contextScriptUrl, contextModule, isSecure, failOnMissingDependency, missingModule = true;
+        var idx, args, implicitArgs, normalizedModuleId, module, contextScriptUrl, contextModule, isSecure, failOnMissingDependency, missingModule = false;
 
         // skip this script to determine script URL of caller
         contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
@@ -771,7 +774,7 @@
 
             for (idx = 0; idx < dependencies.length; idx += 1)
             {
-                logger.trace('Resolving dependency "{}" for call to require(string[])', dependencies[0]);
+                logger.trace('Resolving dependency "{}" for call to require(string[], function, function?)', dependencies[0]);
                 normalizedModuleId = normalizeModuleId(dependencies[idx], contextModule, contextScriptUrl);
 
                 try
@@ -805,6 +808,7 @@
                 // missingModule only triggers special handling if errCallback has been provided
                 if (module === undefined || module === null)
                 {
+                    logger.trace('Module "{}" in call to require(string[], function, function?) is undefined/null', normalizedModuleId);
                     missingModule = true;
                 }
 
@@ -821,18 +825,20 @@
                         implicitArgs.push(undefined);
                     }
 
-                    logger.trace('Added implicit module result "{}" for call to require(string[], function, function?',
+                    logger.trace('Added implicit module result "{}" for call to require(string[], function, function?)',
                             implicitArgs[implicitArgs.length - 1]);
                 }
             }
 
             if (missingModule === true && failOnMissingDependency !== true)
             {
+                logger.debug('Calling errCallback for call to require(string[], function, function?)');
                 // signature is fn(dependencies[], moduleResolutions[], implicitResolutions[])
                 errCallback.call(this, dependencies, args, implicitArgs);
             }
             else if (typeof callback === 'function')
             {
+                logger.debug('Calling standard callback for call to require(string[], function, function?)');
                 callback.apply(this, args);
             }
             else
@@ -893,12 +899,12 @@
 
         if (logger.traceEnabled)
         {
-            logger.trace('Registered listener from url "{}" (secure: {}) for modules {}', contextScriptUrl, isSecure, JSON
-                    .stringify(listener.dependencies));
+            logger.trace('Registered listener from url "{}" (secure: {}) for modules {}', [ contextScriptUrl, isSecure,
+                    JSON.stringify(listener.dependencies) ]);
         }
         else
         {
-            logger.trace('Registered listener from url "{}" (secure: {})', contextScriptUrl, isSecure);
+            logger.trace('Registered listener from url "{}" (secure: {})', [ contextScriptUrl, isSecure ]);
         }
 
         // TODO check current resolution and trigger if all dependencies already resolved
@@ -999,7 +1005,7 @@
                 throw new Error('Loader name for package \'' + packName + '\' has not been set or is not a valid string');
             }
 
-            logger.trace('Adding AMD package "{}" using loader "{}" (package location: {})', packName, packLoader, packLocation);
+            logger.trace('Adding AMD package "{}" using loader "{}" (package location: {})', [ packName, packLoader, packLocation ]);
 
             packages[packName] = {
                 name : packName,
@@ -1155,7 +1161,7 @@
             isSecure = contextScriptUrl.substring(0, baseUrl.length) === baseUrl;
         }
 
-        logger.trace('Determined script "{}" to be secure: {}', contextScriptUrl, isSecure);
+        logger.trace('Determined script "{}" to be secure: {}', [ contextScriptUrl, isSecure ]);
 
         return isSecure;
     };
@@ -1243,7 +1249,7 @@
         }
         taggedCallerScriptUrl = contextScriptUrl;
 
-        logger.debug('Script "{}" has tagged script caller as "{}"', actualCaller, contextScriptUrl);
+        logger.debug('Script "{}" has tagged script caller as "{}"', [ actualCaller, contextScriptUrl ]);
 
         return restoreFn;
     };
@@ -1268,7 +1274,7 @@
             }
             taggedCallerScriptUrl = contextScriptUrl;
 
-            logger.debug('Script "{}" is executing function with tagged script caller "{}"', actualCaller, contextScriptUrl);
+            logger.debug('Script "{}" is executing function with tagged script caller "{}"', [ actualCaller, contextScriptUrl ]);
 
             try
             {
@@ -1352,13 +1358,13 @@
 
         if (logger.traceEnabled)
         {
-            logger.trace('Defining module "{}" from url "{}" with dependencies {} (secureSource: {})', id, contextScriptUrl, JSON
-                    .stringify(dependencies), isObject(contextModule) ? contextModule.secureSource : false);
+            logger.trace('Defining module "{}" from url "{}" with dependencies {} (secureSource: {})', [ id, contextScriptUrl,
+                    JSON.stringify(dependencies), isObject(contextModule) ? contextModule.secureSource : false ]);
         }
         else
         {
-            logger.debug('Defining module "{}" from url "{}" (secureSource: {})', id, contextScriptUrl,
-                    isObject(contextModule) ? contextModule.secureSource : false);
+            logger.debug('Defining module "{}" from url "{}" (secureSource: {})', [ id, contextScriptUrl,
+                    isObject(contextModule) ? contextModule.secureSource : false ]);
         }
 
         module = {};

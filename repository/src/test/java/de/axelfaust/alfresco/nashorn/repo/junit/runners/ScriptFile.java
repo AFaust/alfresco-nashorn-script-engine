@@ -49,6 +49,8 @@ import org.junit.runners.ParentRunner;
 import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.Statement;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import de.axelfaust.alfresco.nashorn.repo.junit.interop.InvokeScriptFunction;
 import de.axelfaust.alfresco.nashorn.repo.junit.interop.JUnitAfterAwareScript;
@@ -68,6 +70,8 @@ import de.axelfaust.alfresco.nashorn.repo.junit.tests.SimpleScriptTestCase;
 @SuppressWarnings("restriction")
 public class ScriptFile extends ParentRunner<ScriptFunction>
 {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ScriptFile.class);
 
     protected static final ScriptEngine NASHORN_ENGINE;
     static
@@ -147,6 +151,17 @@ public class ScriptFile extends ParentRunner<ScriptFunction>
      * {@inheritDoc}
      */
     @Override
+    public void run(final RunNotifier notifier)
+    {
+        LOGGER.info("Runing test script {}", this.scriptFile);
+        super.run(notifier);
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
     protected String getName()
     {
         return this.scriptFile;
@@ -192,6 +207,7 @@ public class ScriptFile extends ParentRunner<ScriptFunction>
     @Override
     protected void runChild(final ScriptFunction scriptFunction, final RunNotifier notifier)
     {
+        LOGGER.info("Runing test function {} in script {}", scriptFunction.getFunctionName(), this.scriptFile);
         final Description description = this.describeChild(scriptFunction);
         this.runLeaf(this.methodBlock(scriptFunction), description, notifier);
     }

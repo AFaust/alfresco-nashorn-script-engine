@@ -30,8 +30,8 @@ define('node', [ 'define', 'nashorn!Java', 'serviceRegistry!NamespaceService', '
             {
                 if (contextModule.loader === 'node')
                 {
-                    logger.trace('Context module "{}" was loaded by "node" loader too - normalizing potentially relative module id "{}"',
-                            contextModule.id, moduleId);
+                    logger.trace('Context module "{}" was loaded by "node" loader too - normalizing potentially relative module id "{}"', [
+                            contextModule.id, moduleId ]);
                     baseModuleId = normalizeSimpleId(moduleId, contextModule);
                 }
                 else

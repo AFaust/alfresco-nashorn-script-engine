@@ -23,12 +23,7 @@
 
                 if (modules.hasOwnProperty(normalizedId))
                 {
-                    module = {
-                        wrapped : modules[normalizedId].module,
-                        url : modules[normalizedId].url,
-                        secureUseOnly : false
-                    };
-                    load(module, modules[normalizedId].isSecure);
+                    load(modules[normalizedId].module, modules[normalizedId].isSecure, modules[normalizedId].url);
                 }
             }
         };

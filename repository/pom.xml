@@ -47,6 +47,12 @@
                     <groupId>org.springframework</groupId>
                     <artifactId>spring-orm</artifactId>
                 </exclusion>
+                
+                <!-- who'd still want log4j? -->
+                <exclusion>
+                    <groupId>log4j</groupId>
+                    <artifactId>log4j</artifactId>
+                </exclusion>
 
                 <!-- There is so much more that we could exclude (especially most of the Commons stuff) -->
                 <!-- the exclusions above are convenient enough to handle -->
@@ -129,9 +135,32 @@
                     <groupId>com.ibm.icu</groupId>
                     <artifactId>icu4j</artifactId>
                 </exclusion>
+                
+                <!-- who'd still want log4j? -->
+                <exclusion>
+                    <groupId>log4j</groupId>
+                    <artifactId>log4j</artifactId>
+                </exclusion>
+                
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
 
                 <!-- There is so much more that we could exclude (especially most of the Commons stuff) -->
                 <!-- the exclusions above are convenient enough to handle -->
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.1.3</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <artifactId>slf4j-api</artifactId>
+                    <groupId>org.slf4j</groupId>
+                </exclusion>
             </exclusions>
         </dependency>
     </dependencies>
