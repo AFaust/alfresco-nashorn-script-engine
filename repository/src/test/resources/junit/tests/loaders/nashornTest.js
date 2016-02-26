@@ -27,7 +27,9 @@
 
         getTestFunctionNames : function nashornTest_getTestFunctionNames()
         {
-            return Java.to([ 'testInaccessibles', 'testJavaAccess' ], 'java.util.List');
+            return Java.to(
+                    [ 'testInaccessibles', 'testJavaAccess', 'testPackagesAccess', 'testJSAdapterAccess', 'testJavaImporterAccess' ],
+                    'java.util.List');
         },
 
         beforeScript : function nashornTest_beforeScript()
@@ -109,7 +111,8 @@
 
                     testClass = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor');
 
-                    if (testClass === undefined || testClass === null)
+                    if (testClass === undefined || testClass === null || testClass.class === undefined || testClass.class === null
+                            || testClass.class.name !== 'de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor')
                     {
                         expected = new Error('NativeJava.type() should have been able to provide static class for NashornScriptProcessor');
                         throw expected;
@@ -128,6 +131,90 @@
                     throw e;
                 }
                 throw new Error('NativeJava should have been provided via module nashorn!Java - failed instead with ' + e);
+            }
+        },
+
+        testPackagesAccess : function nashornTest_testPackagesAccess(testCase)
+        {
+            var expected;
+            try
+            {
+                require([ 'nashorn!Packages' ], function nashornTest_testPackagesAccess_loaded(Packages)
+                {
+                    var testClass;
+
+                    testClass = Packages.de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor;
+
+                    if (testClass === undefined || testClass === null || testClass.class === undefined || testClass.class === null
+                            || testClass.class.name !== 'de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor')
+                    {
+                        expected = new Error('Packages should have been able to provide static class for NashornScriptProcessor');
+                        throw expected;
+                    }
+
+                }, function nashornTest_testPackagesAccess_failed(dependencies, modules, implicitModules)
+                {
+                    expected = new Error('Packages should have been provided via module nashorn!Packages');
+                    throw expected;
+                });
+            }
+            catch (e)
+            {
+                if (e === expected)
+                {
+                    throw e;
+                }
+                throw new Error('Packages should have been provided via module nashorn!Packages - failed instead with ' + e);
+            }
+        },
+
+        testJSAdapterAccess : function nashornTest_testJSAdapterAccess(testCase)
+        {
+            var expected;
+            try
+            {
+                require([ 'nashorn!JSAdapter' ], function nashornTest_testJSAdapterAccess_loaded(JSAdapter)
+                {
+                    expected = new Error('Test not implemented yet');
+                    throw expected;
+                }, function nashornTest_testJSAdapterAccess_failed(dependencies, modules, implicitModules)
+                {
+                    expected = new Error('JSAdapter should have been provided via module nashorn!JSAdapter');
+                    throw expected;
+                });
+            }
+            catch (e)
+            {
+                if (e === expected)
+                {
+                    throw e;
+                }
+                throw new Error('JSAdapter should have been provided via module nashorn!JSAdapter - failed instead with ' + e);
+            }
+        },
+
+        testJavaImporterAccess : function nashornTest_testJavaImporterAccess(testCase)
+        {
+            var expected;
+            try
+            {
+                require([ 'nashorn!JavaImporter' ], function nashornTest_testJavaImporterAccess_loaded(JSAdapter)
+                {
+                    expected = new Error('Test not implemented yet');
+                    throw expected;
+                }, function nashornTest_testJavaImporterAccess_failed(dependencies, modules, implicitModules)
+                {
+                    expected = new Error('JavaImporter should have been provided via module nashorn!JavaImporter');
+                    throw expected;
+                });
+            }
+            catch (e)
+            {
+                if (e === expected)
+                {
+                    throw e;
+                }
+                throw new Error('JavaImporter should have been provided via module nashorn!JavaImporter - failed instead with ' + e);
             }
         }
     };
