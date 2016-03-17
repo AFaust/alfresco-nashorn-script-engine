@@ -1,7 +1,7 @@
 /* globals _executionKey: false */
 /* globals -require */
-define([ '_base/declare', '_base/JavaConvertableMixin', '../foundation/NamespaceService', '_base/logger', 'nashorn!Java' ],
-        function alfresco_common_QName__root(declare, JavaConvertableMixin, NamespaceService, logger, Java)
+define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', '../foundation/NamespaceService', '_base/logger', 'nashorn!Java' ],
+        function alfresco_common_QName__root(declare, JavaConvertableMixin, ProxySupport, NamespaceService, logger, Java)
         {
             'use strict';
             var QName, IllegalArgumentException, HashMap, WeakHashMap, Module, qnameCache;
@@ -15,17 +15,17 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '../foundation/Namespace
 
             // we have to encapsulate QName as we can't Java.extend due to private constructor
             // normal Java interop + extension could have save lots of boilerplate
-            Module = declare([ JavaConvertableMixin ], {
+            Module = declare([ JavaConvertableMixin, ProxySupport ], {
 
-                '--declare--proxy-support-enabled' : true,
+                '--proxy-support-enabled' : true,
 
-                '--declare--proxy-getter-redirection-enabled' : true,
+                '--proxy-getter-redirection-enabled' : true,
 
-                '--declare--proxy-virtual-getters-enabled' : true,
+                '--proxy-virtual-getters-enabled' : true,
 
                 internalJavaValueProperty : 'qname',
 
-                constructor : function alfresco_common_QName__contructor(qname)
+                classConstructor : function alfresco_common_QName__contructor(qname)
                 {
                     var internalQName;
 

@@ -1,7 +1,7 @@
 /* globals -require */
-define([ '_base/declare', '../common/QName', '../foundation/DictionaryService', '../foundation/NodeService',
-        '../foundation/FileFolderService', '_base/logger', 'nashorn!Java' ], function alfresco_node_NodeIdentityMixin_root(declare, QName,
-        DictionaryService, NodeService, FileFolderService, logger, Java)
+define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundation/DictionaryService', '../foundation/NodeService',
+        '../foundation/FileFolderService', '_base/logger', 'nashorn!Java' ], function alfresco_node_NodeIdentityMixin_root(declare,
+        ProxySupport, QName, DictionaryService, NodeService, FileFolderService, logger, Java)
 {
     'use strict';
 
@@ -11,19 +11,17 @@ define([ '_base/declare', '../common/QName', '../foundation/DictionaryService', 
     IllegalArgumentException = Java.type('java.lang.IllegalArgumentException');
     ContentModel = Java.type('org.alfresco.model.ContentModel');
 
-    return declare([], {
+    return declare([ ProxySupport ], {
 
-        '--declare--proxy-support-enabled' : true,
+        '--proxy-support-enabled' : true,
 
-        '--declare--proxy-getter-redirection-enabled' : true,
+        '--proxy-getter-redirection-enabled' : true,
 
-        '--declare--proxy-setter-redirection-enabled' : true,
+        '--proxy-setter-redirection-enabled' : true,
 
-        '--declare--proxy-virtual-getters-enabled' : true,
+        '--proxy-virtual-getters-enabled' : true,
 
-        '--declare--proxy-extension-hooks-enabled' : true,
-
-        constructor : function alfresco_node_NodeIdentityMixin__contructor(nodeRef)
+        classConstructor : function alfresco_node_NodeIdentityMixin__classConstructor(nodeRef)
         {
             var internalNodeRef;
 
@@ -178,7 +176,6 @@ define([ '_base/declare', '../common/QName', '../foundation/DictionaryService', 
             }
             else
             {
-                // TODO Define a core module that defaults __call__ behaviour
                 result = this.inherited(alfresco_node_NodeIdentity__call__, arguments);
             }
 

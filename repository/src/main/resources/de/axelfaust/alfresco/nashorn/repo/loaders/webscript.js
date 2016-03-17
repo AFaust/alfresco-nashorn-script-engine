@@ -1,8 +1,8 @@
 /* globals -require */
 define(
         'webscript',
-        [ 'spring!webscripts.searchpath', 'spring!contentService', 'spring!retryingTransactionHelper', 'nashorn!Java' ],
-        function webscript_loader(searchPath, contentService, retryingTransactionHelper, Java)
+        [ 'spring!webscripts.searchpath', 'spring!nodeService', 'spring!contentService', 'spring!retryingTransactionHelper', 'nashorn!Java' ],
+        function webscript_loader(searchPath, nodeService, contentService, retryingTransactionHelper, Java)
         {
             'use strict';
             var scriptLoader, apiStores, logger, idx, max, storeLoader, storeLoaders = [], suffixes = [ '', '.nashornjs', '.js' ], loader, URL, WebScriptURLStreamHandler, MultiScriptLoader;
@@ -43,8 +43,8 @@ define(
                     if (script !== null)
                     {
                         logger.trace('Script stores contains a script {} for module id {}', [ script, normalizedId ]);
-                        url = new URL('webscript', null, -1, normalizedId, new WebScriptURLStreamHandler(script, contentService,
-                                retryingTransactionHelper));
+                        url = new URL('webscript', null, -1, normalizedId, new WebScriptURLStreamHandler(script, nodeService,
+                                contentService, retryingTransactionHelper));
                         load(url, script.isSecure());
                     }
                     else

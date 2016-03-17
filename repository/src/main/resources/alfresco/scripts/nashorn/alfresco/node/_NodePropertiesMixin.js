@@ -1,6 +1,6 @@
 /* globals -require */
-define([ '_base/declare', '../common/QNameMapWrapper', '../foundation/NodeService', '_base/logger', 'nashorn!Java' ],
-        function alfresco_node_NodePropertiesMixin_root(declare, QNameMapWrapper, NodeService, logger, Java)
+define([ '_base/declare', '_base/ProxySupport', '../common/QNameMapWrapper', '../foundation/NodeService', '_base/logger', 'nashorn!Java' ],
+        function alfresco_node_NodePropertiesMixin_root(declare, ProxySupport, QNameMapWrapper, NodeService, logger, Java)
         {
             'use strict';
 
@@ -8,11 +8,11 @@ define([ '_base/declare', '../common/QNameMapWrapper', '../foundation/NodeServic
 
             NodeRef = Java.type('org.alfresco.service.cmr.repository.NodeRef');
 
-            return declare([], {
+            return declare([ ProxySupport ], {
 
-                '--declare--proxy-support-enabled' : true,
+                '--proxy-support-enabled' : true,
 
-                '--declare--proxy-getter-redirection-enabled' : true,
+                '--proxy-getter-redirection-enabled' : true,
 
                 getProperties : function alfresco_node_NodePropertiesMixin__getProperties()
                 {

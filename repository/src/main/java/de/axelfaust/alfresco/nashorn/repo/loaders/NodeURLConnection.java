@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Axel Faust
+ * Copyright 2015, 2016 Axel Faust
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.charset.Charset;
 
 import org.alfresco.model.ContentModel;
 import org.alfresco.service.cmr.repository.ContentReader;
@@ -123,6 +124,7 @@ public class NodeURLConnection extends URLConnection
     /**
      * {@inheritDoc}
      */
+    @SuppressWarnings("resource")
     @Override
     public InputStream getInputStream() throws IOException
     {
@@ -134,6 +136,18 @@ public class NodeURLConnection extends URLConnection
             throw new IOException("Node has no content");
         }
 
-        return reader.getContentInputStream();
+        final InputStream contentInputStream = reader.getContentInputStream();
+        final InputStream result;
+        if (reader.getEncoding() != null)
+        {
+            result = new StrictScriptEnforcingSourceInputStream(contentInputStream, Charset.forName(reader.getEncoding()));
+        }
+        else
+        {
+            // this assumes UTF-8
+            result = new StrictScriptEnforcingSourceInputStream(contentInputStream);
+        }
+
+        return result;
     }
 }

@@ -28,7 +28,7 @@ define(
                     if (typeof callerScriptModuleId === 'string')
                     {
                         logger = LoggerFactory.getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
-                                + callerScriptModuleLoader + '.' + callerScriptModuleId);
+                                + callerScriptModuleLoader + '.' + callerScriptModuleId.replace(/\//, '.'));
                     }
                     else
                     {
@@ -105,8 +105,17 @@ define(
                                         // also: typeof javaObj === 'object' so add instanceof check against native prototype too
                                         if (args[idx] !== null && (args[idx] instanceof Object || args[idx] instanceof Function))
                                         {
-                                            // script objects passed to logger would not have their JS toString called
-                                            values.push(new NativeLogMessageArgumentWrapper(args[idx]));
+                                            if (!(args[idx] instanceof Function) || args[idx].name === 'toString')
+                                            {
+                                                // script objects passed to logger would not have their JS toString called
+                                                values.push(new NativeLogMessageArgumentWrapper(args[idx]));
+                                            }
+                                            else
+                                            {
+                                                // ToStringFunction functional interface captures any function, even constructors
+                                                values.push(new NativeLogMessageArgumentWrapper(Function.prototype.bind.call(
+                                                        args[idx].toString, args[idx])));
+                                            }
                                         }
                                         else
                                         {

@@ -1,460 +1,14 @@
 /* globals -require */
 define(
-        [ './c3mro', './logger', 'nashorn!Java', 'nashorn!JSAdapter' ],
-        function declare(c3mro, logger, Java, JSAdapter)
+        [ './c3mro', 'require', './logger' ],
+        function declare(c3mro, require, logger)
         {
             'use strict';
-            var anonClassCount = 0, FnCtor, DummyCtor, Locale, declareNoSuchPropertyStackKey, declareNoSuchPropertyImpl, declareAdaptee, getterNames, boolGetterNames, setterNames, isObject, fn_toString, isInstanceOf, inherited, forceNew, applyNew, createStandardConstructor, standardConstructorImpl, taggedMixin, standardPrototype, declareImpl, declareFn;
+            var anonClassCount = 0, FnCtor, DummyCtor, isObject, fn_toString, isInstanceOf, inherited, forceNew, applyNew, createStandardConstructor, standardConstructorImpl, taggedMixin, standardPrototype, declareImpl, declareFn;
 
             FnCtor = Function;
 
             DummyCtor = new FnCtor();
-
-            Locale = Java.type('java.util.Locale');
-
-            declareNoSuchPropertyStackKey = '--declare--no-such-property-stack';
-            declareNoSuchPropertyImpl = function declare__noSuchProperty__(name)
-            {
-                var result, getterName, suffix, prop;
-
-                if (typeof name !== 'string')
-                {
-                    prop = String(name);
-                }
-                else
-                {
-                    prop = name;
-                }
-
-                // don't handle our special properties
-                if (prop.startsWith('--'))
-                {
-                    result = false;
-                }
-                // this isn't actually part of the proxy but it delegates this feature here
-                else if (this['--declare--proxy-support-enabled'] === true)
-                {
-                    if (this['--declare--proxy-getter-redirection-enabled'] === true)
-                    {
-                        if (this[declareNoSuchPropertyStackKey] === null)
-                        {
-                            this[declareNoSuchPropertyStackKey] = [];
-                        }
-
-                        if (this[declareNoSuchPropertyStackKey].indexOf(prop) === -1)
-                        {
-                            this[declareNoSuchPropertyStackKey].push(prop);
-                            try
-                            {
-                                getterName = getterNames[prop];
-                                if (getterName === undefined)
-                                {
-                                    suffix = prop.substring(0, 1).toUpperCase(Locale.ENGLISH) + prop.substring(1);
-                                    getterName = getterNames[prop] = ('get' + suffix);
-                                }
-
-                                this[declareNoSuchPropertyStackKey].push(getterName);
-                                if (typeof this[getterName] === 'function')
-                                {
-                                    this[declareNoSuchPropertyStackKey].pop();
-                                    logger.trace('Simulating property {} via getter {} on {}', prop, getterName, this);
-                                    result = this[getterName]();
-                                }
-                                else
-                                {
-                                    getterName = boolGetterNames[prop];
-                                    if (getterName === undefined)
-                                    {
-                                        suffix = suffix || (prop.substring(0, 1).toUpperCase(Locale.ENGLISH) + prop.substring(1));
-                                        getterName = boolGetterNames[prop] = ('is' + suffix);
-                                    }
-
-                                    this[declareNoSuchPropertyStackKey].push(getterName);
-                                    if (typeof this[getterName] === 'function')
-                                    {
-                                        this[declareNoSuchPropertyStackKey].pop();
-                                        logger.trace('Simulating property {} via getter {} on {}', prop, getterName, this);
-                                        result = this[getterName]();
-                                    }
-                                    else
-                                    {
-                                        logger.trace('Found no getter for {}', prop);
-                                    }
-                                }
-
-                                this[declareNoSuchPropertyStackKey].pop();
-                            }
-                            catch (e)
-                            {
-                                this[declareNoSuchPropertyStackKey].pop();
-                                logger.debug('Error simulating getter for {}: {}', prop, e.message);
-                                throw e;
-                            }
-                        }
-                    }
-                    else if (this['--declare--proxy-extension-hooks-enabled'] === true && typeof this.__get__ === 'function')
-                    {
-                        result = this.__get__(name);
-                    }
-                    else
-                    {
-                        logger.trace('Not configured to simulate property {} via getter on {}', prop, this);
-                    }
-                }
-                else
-                {
-                    logger.trace('Not configured to simulate property {} via getter on {}', prop, this);
-                }
-
-                return result;
-            };
-
-            // common adaptee for JSAdapter - every proxy instance will get
-            // a __delegate override property to reference the actual instance
-            declareAdaptee = {
-                __get__ : function declare_adaptee__get__(delegate, name)
-                {
-                    var result, getterName, suffix, prop;
-
-                    if (delegate['--declare--proxy-use-getter-only'] !== true)
-                    {
-                        // either exists or handled by __noSuchProperty__ in delegate
-                        result = delegate[name];
-                    }
-                    else
-                    {
-                        if (typeof name !== 'string')
-                        {
-                            prop = String(name);
-                        }
-                        else
-                        {
-                            prop = name;
-                        }
-
-                        getterName = getterNames[prop];
-                        if (getterName === undefined)
-                        {
-                            suffix = prop.substring(0, 1).toUpperCase(Locale.ENGLISH) + prop.substring(1);
-                            getterName = getterNames[prop] = ('get' + suffix);
-                        }
-
-                        if (typeof delegate[getterName] === 'function')
-                        {
-                            logger.trace('Simulating property {} via getter {} on {}', prop, getterName, delegate);
-                            result = delegate[getterName]();
-                        }
-                        else
-                        {
-                            getterName = boolGetterNames[prop];
-                            if (getterName === undefined)
-                            {
-                                suffix = suffix || (prop.substring(0, 1).toUpperCase(Locale.ENGLISH) + prop.substring(1));
-                                getterName = boolGetterNames[prop] = ('is' + suffix);
-                            }
-
-                            if (typeof delegate[getterName] === 'function')
-                            {
-                                logger.trace('Simulating property {} via getter {} on {}', prop, getterName, delegate);
-                                result = delegate[getterName]();
-                            }
-                            else if (delegate['--declare--proxy-extension-hooks-enabled'] === true
-                                    && typeof delegate.__get__ === 'function')
-                            {
-                                result = delegate.__get__(name);
-                            }
-                            else
-                            {
-                                logger.trace('Found no getter for property {} on {}', prop, delegate);
-                            }
-                        }
-                    }
-
-                    // guard to handle __get__(name) + fn.call instead of __call__(name)
-                    if (typeof result === 'function')
-                    {
-                        // must ensure proper scope
-                        result = Function.prototype.bind.call(function declare_adaptee__get__boundFunction(delegate, fn)
-                        {
-                            var fnResult;
-
-                            if (delegate === delegate)
-                            {
-                                fnResult = fn.apply(delegate, Array.prototype.slice(arguments, 3));
-                            }
-                            else
-                            {
-                                fnResult = fn.apply(this, Array.prototype.slice(arguments, 3));
-                            }
-
-                            return fnResult;
-                        }, undefined, delegate, result);
-                    }
-
-                    return result;
-                },
-
-                __put__ : function declare_adaptee__put__(delegate, name, value)
-                {
-                    var result, setterName, suffix, prop;
-
-                    // setter always has precedence
-                    if (delegate['--declare--proxy-setter-redirection-enabled'] === true
-                            || delegate['--declare--proxy-use-setter-only'] === true)
-                    {
-                        if (typeof name !== 'string')
-                        {
-                            prop = String(name);
-                        }
-                        else
-                        {
-                            prop = name;
-                        }
-
-                        setterName = setterNames[prop];
-                        if (setterName === undefined)
-                        {
-                            suffix = prop.substring(0, 1).toUpperCase(Locale.ENGLISH) + prop.substring(1);
-                            setterName = setterNames[prop] = ('set' + suffix);
-                        }
-
-                        if (typeof delegate[setterName] === 'function')
-                        {
-                            result = delegate[setterName](value);
-                            logger.trace('Redirected property put {} to setter {} on {} ', prop, setterName, delegate);
-                        }
-                        else if (delegate['--declare--proxy-use-setter-only'] !== true)
-                        {
-                            if (name in delegate || delegate['--declare--proxy-extension-hooks-enabled'] !== true
-                                    || typeof delegate.__put__ !== 'function')
-                            {
-                                delegate[name] = value;
-                                result = value;
-                            }
-                            else
-                            {
-                                result = delegate.__put__(name, value);
-                            }
-                        }
-                        else if (delegate['--declare--proxy-extension-hooks-enabled'] === true && typeof delegate.__put__ === 'function')
-                        {
-                            result = delegate.__put__(name, value);
-                        }
-                        else
-                        {
-                            logger.trace('Can\'t execute property put {} on {} as --declare--proxy-use-setter-only is set', prop, delegate);
-                        }
-                    }
-                    else if (delegate['--declare--proxy-extension-hooks-enabled'] === true && typeof delegate.__put__ === 'function')
-                    {
-                        result = delegate.__put__(name, value);
-                    }
-                    else
-                    {
-                        delegate[name] = value;
-                        result = value;
-                    }
-
-                    return result;
-                },
-
-                __call__ : function declare_adaptee__call__(delegate, name)
-                {
-                    var result, fn, propName;
-
-                    fn = delegate[name];
-
-                    if (typeof fn !== 'function')
-                    {
-                        if (arguments.length === 1 && delegate['--declare--proxy-virtual-getters-enabled'] === true
-                                && (name.indexOf('get') === 0 || name.indexOf('is') === 0))
-                        {
-                            if (name.indexOf('get') === 0)
-                            {
-                                propName = name.substring(3);
-                            }
-                            else
-                            {
-                                propName = name.substring(2);
-                            }
-
-                            propName = propName.substring(0, 1).toLowerCase(Locale.ENGLISH) + propName.substring(1);
-
-                            // needs to be enumerable
-                            if (propName in delegate)
-                            {
-                                try
-                                {
-                                    result = delegate[propName];
-                                    fn = null;
-                                    logger.trace('Simulated virtual getter {} for {} on {}', name, propName, delegate);
-                                }
-                                catch (e1)
-                                {
-                                    logger.debug('Error simulating virtual getter {} for {} on {}: {}', name, propName, delegate,
-                                            e1.message);
-                                }
-                            }
-                        }
-                        else if (arguments.length === 2 && delegate['--declare--proxy-virtual-setters-enabled'] === true
-                                && name.indexOf('set') === 0)
-                        {
-                            propName = name.substring(3);
-                            propName = propName.substring(0, 1).toLowerCase(Locale.ENGLISH) + propName.substring(1);
-
-                            // needs to be enumerable
-                            if (propName in delegate)
-                            {
-                                try
-                                {
-                                    delegate[propName] = arguments[1];
-                                    fn = null;
-                                    result = arguments[1];
-                                    logger.trace('Simulated virtual setter {} for {} on {}', name, propName, delegate);
-                                }
-                                catch (e2)
-                                {
-                                    logger.debug('Error simulating virtual setter {} for {} on {}: {}', name, propName, delegate,
-                                            e2.message);
-                                }
-                            }
-                        }
-                    }
-
-                    if (typeof fn === 'function')
-                    {
-                        result = fn.apply(delegate, Array.prototype.slice.call(arguments, 2));
-                    }
-                    else if (fn !== null && delegate['--declare--proxy-extension-hooks-enabled'] === true
-                            && typeof delegate.__call__ === 'function')
-                    {
-                        result = delegate.__call__.apply(delegate, Array.prototype.slice.call(arguments, 1));
-                    }
-
-                    return result;
-                },
-
-                // __getIds__ is identical to __getKeys__ (JDK 6 compatibility)
-                __getIds__ : function declare_adaptee__getIds__(delegate)
-                {
-                    /* jshint forin: false */
-                    var result, name;
-
-                    if (delegate['--declare--proxy-extension-hooks-enabled'] === true && typeof delegate.__getIds__ === 'function')
-                    {
-                        result = delegate.__getIds__();
-                    }
-                    else if (delegate['--declare--proxy-extension-hooks-enabled'] === true && typeof delegate.__getKeys__ === 'function')
-                    {
-                        result = delegate.__getKeys__();
-                    }
-                    else
-                    {
-                        result = [];
-                        for (name in delegate)
-                        {
-                            result.push(name);
-                        }
-                    }
-
-                    return result;
-                },
-
-                __getKeys__ : function declare_adaptee__getKeys__(delegate)
-                {
-                    /* jshint forin: false */
-                    var result, name;
-
-                    if (delegate['--declare--proxy-extension-hooks-enabled'] === true && typeof delegate.__getKeys__ === 'function')
-                    {
-                        result = delegate.__getKeys__();
-                    }
-                    else if (delegate['--declare--proxy-extension-hooks-enabled'] === true && typeof delegate.__getIds__ === 'function')
-                    {
-                        result = delegate.__getIds__();
-                    }
-                    else
-                    {
-                        result = [];
-                        for (name in delegate)
-                        {
-                            result.push(name);
-                        }
-                    }
-
-                    return result;
-                },
-
-                __getValues__ : function declare_adaptee__getValues__(delegate)
-                {
-                    var result = [];
-
-                    if (delegate['--declare--proxy-extension-hooks-enabled'] === true && typeof delegate.__getValues__ === 'function')
-                    {
-                        result = delegate.__getValues__();
-                    }
-
-                    return result;
-                },
-
-                __has__ : function declare_adaptee__has__(delegate, name)
-                {
-                    var result = false;
-
-                    if (delegate['--declare--proxy-use-getter-only'] !== true)
-                    {
-                        result = name in delegate;
-                    }
-
-                    // TODO option to expose properties based on getter-existence
-
-                    if (!result && delegate['--declare--proxy-extension-hooks-enabled'] === true && typeof delegate.__has__ === 'function')
-                    {
-                        result = delegate.__has__(name);
-                    }
-
-                    return result;
-                },
-
-                __delete__ : function declare_adaptee__delete__(delegate, name)
-                {
-                    var result = false;
-
-                    if (delegate['--declare--proxy-extension-hooks-enabled'] === true && typeof delegate.__delete__ === 'function')
-                    {
-                        result = delegate.__delete__(name);
-                    }
-                    else
-                    {
-                        result = delete delegate[name];
-                    }
-
-                    return result;
-                },
-
-                __new__ : function delcare_adaptee__new__(delegate)
-                {
-                    var result, BoundCtor;
-
-                    if (typeof delegate === 'function')
-                    {
-                        BoundCtor = Function.prototype.bind.apply(delegate, [ undefined ].concat(Array.prototype.slice(arguments, 1)));
-                        result = new BoundCtor();
-                    }
-                    else if (delegate['--declare--proxy-extension-hooks-enabled'] === true && typeof delegate.__new__ === 'function')
-                    {
-                        result = delegate.__new__.apply(delegate, Array.prototype.slice(arguments, 1));
-                    }
-
-                    return result;
-                }
-
-            // TODO add other adaptee fns
-            };
-
-            getterNames = {};
-            boolGetterNames = {};
-            setterNames = {};
 
             isObject = function declare__isObject(o)
             {
@@ -492,10 +46,16 @@ define(
             {
                 var linearization = this.constructor._c3mro_linearization, isBase = false, idx;
 
+                logger.trace('Checking linearized classes of {} for containment of {}', this.constructor.fnClsName, cls);
+
                 for (idx = 0; idx < linearization.length && isBase === false; idx++)
                 {
                     isBase = linearization[idx] === cls;
                 }
+
+                logger.trace(
+                        isBase ? 'Found {} in linearized classes of {} at position {}' : 'Did not find {} in linearized classes of {}',
+                        cls, this.constructor.fnClsName, idx);
 
                 return isBase;
             };
@@ -505,13 +65,21 @@ define(
                 var result, fnName, fnClsName, callerFn, args, overrides, effectiveArgs, idx, lastLookup, ctor, proto, fn, clsFound;
 
                 // due to 'use strict' we can't use args.callee and have to require named function reference being passed
+                logger.trace('inherited() called - analyzing arguments');
 
                 for (idx = 0; idx < arguments.length; idx++)
                 {
                     if (idx === 0 && typeof arguments[idx] === 'string')
                     {
                         fnName = arguments[idx];
-                        fnClsName = this.constructor._declare_meta.className;
+                        if (this.constructor._declare_meta !== undefined)
+                        {
+                            fnClsName = this.constructor._declare_meta.className;
+                        }
+                        else
+                        {
+                            fnClsName = this.constructor.fnClsName;
+                        }
                     }
                     else if (idx === 0 && typeof arguments[idx] === 'function')
                     {
@@ -531,6 +99,8 @@ define(
                         overrides = arguments[idx];
                     }
                 }
+
+                logger.trace('Determined inherited() context as fn {} from class {}', fnName, fnClsName);
 
                 if (fnName === undefined)
                 {
@@ -585,8 +155,9 @@ define(
                     }
                     proto = ctor.prototype;
 
+                    logger.trace('Looking for {} to call in linearized super-classes', fnName);
                     // ascend the proto chain
-                    while (fn === undefined && ctor !== null)
+                    while (typeof fn !== 'function' && ctor !== null)
                     {
                         if (clsFound === true)
                         {
@@ -600,14 +171,17 @@ define(
                             clsFound = ctor.fnClsName === fnClsName;
                         }
 
-                        if (typeof ctor.superClass === 'function')
+                        if (typeof fn !== 'function')
                         {
-                            ctor = ctor.superClass;
-                            proto = ctor.prototype;
-                        }
-                        else
-                        {
-                            ctor = null;
+                            if (typeof ctor.superClass === 'function')
+                            {
+                                ctor = ctor.superClass;
+                                proto = ctor.prototype;
+                            }
+                            else
+                            {
+                                ctor = null;
+                            }
                         }
                     }
 
@@ -615,9 +189,14 @@ define(
                     lastLookup.callerFnClsName = fnClsName;
                     lastLookup.ctor = ctor;
 
-                    if (fn !== undefined)
+                    if (typeof fn === 'function')
                     {
+                        logger.debug('Delegating inherited() for {} to {} of super-class {}', fnName, fn, ctor);
                         result = fn.apply(this, effectiveArgs);
+                    }
+                    else
+                    {
+                        logger.debug('No function found for {} in linearized super-classes', fnName);
                     }
                 }
                 else
@@ -632,6 +211,8 @@ define(
             {
                 var instance;
 
+                logger.trace('Forcing new instance of {}', ctor.fnClsName || ctor.name);
+
                 DummyCtor.prototype = ctor.prototype;
                 instance = new DummyCtor();
                 DummyCtor.prototype = null;
@@ -641,14 +222,26 @@ define(
 
             applyNew = function declare__applyNew(args, ctor)
             {
-                var instance = forceNew(ctor);
-                ctor.apply(instance, args);
+                var instance = forceNew(ctor), altInstance;
+
+                logger.trace('Applying constructor {} to new instance {}', ctor.fnClsName || ctor.name, instance);
+
+                // allow ctor to provide an "actual" instance
+                // support of potential "parasitic inheritance" pattern
+                altInstance = ctor.apply(instance, args);
+
+                if (altInstance !== undefined && altInstance !== null)
+                {
+                    logger.trace('Application of constructor {} yielded an alternative instance', ctor.fnClsName || ctor.name);
+                    instance = altInstance;
+                }
+
                 return instance;
             };
 
             standardConstructorImpl = function declare__standardConstructorImpl(standardCtor, args)
             {
-                var result, idx, ctor, linearization, specificAdaptee;
+                var result, idx, ctor, linearization, curAltResult, altResult;
 
                 if (!(this instanceof standardCtor))
                 {
@@ -656,15 +249,25 @@ define(
                 }
                 else
                 {
+                    logger.trace('Calling constructors of linearized classes for {}', standardCtor.fnClsName || standardCtor.name);
+
                     linearization = standardCtor._c3mro_linearization;
                     result = this;
 
                     for (idx = linearization.length - 1; idx >= 0; idx--)
                     {
-                        ctor = linearization[idx]._declare_meta.constructor;
+                        ctor = linearization[idx]._declare_meta.classConstructor;
                         if (typeof ctor === 'function')
                         {
-                            ctor.apply(result, args);
+                            logger.trace('Calling constructor from {} in linearized classes for {}', linearization[idx].fnClsName
+                                    || linearization[idx].name, standardCtor.fnClsName || standardCtor.name);
+                            altResult = ctor.apply(result, args);
+                            if (altResult !== undefined && altResult !== null)
+                            {
+                                logger.trace('Application of constructor from {} yielded an alternative instance',
+                                        linearization[idx].fnClsName || linearization[idx].name);
+                            }
+                            curAltResult = altResult || curAltResult;
                         }
                     }
 
@@ -672,23 +275,10 @@ define(
                     Object.defineProperty(result, '_declare_className', {
                         value : standardCtor._declare_meta.className
                     });
-                }
 
-                if (result['--declare--proxy-support-enabled'] === true)
-                {
-                    // any of these trigger JSAdapter - otherwise __noSuchProperty__ is enough
-                    if (result['--declare--proxy-virtual-getters-enabled'] === true
-                            || result['--declare--proxy-virtual-setters-enabled'] === true
-                            || result['--declare--proxy-use-getter-only'] === true || result['--declare--proxy-use-setter-only'] === true
-                            || result['--declare--proxy-setter-redirection-enabled'] === true
-                            || result['--declare--proxy-extension-hooks-enabled'] === true)
+                    if (curAltResult !== undefined && curAltResult !== null)
                     {
-                        specificAdaptee = {};
-                        Object.keys(declareAdaptee).forEach(function declare__standardConstructorImpl_forDeclareAdapteeKeys(key)
-                        {
-                            specificAdaptee[key] = Function.prototype.bind.call(declareAdaptee[key], undefined, result);
-                        });
-                        result = new JSAdapter(result, {}, specificAdaptee);
+                        result = curAltResult;
                     }
                 }
 
@@ -711,6 +301,13 @@ define(
             taggedMixin = function declare__taggedMixin(target, source)
             {
                 var name, value;
+
+                if (logger.isTraceEnabled())
+                {
+                    logger.trace('Mixing properties {} into prototype of {}', Object.getOwnPropertyNames(source),
+                            target.constructor._declare_meta !== undefined ? target.constructor._declare_meta.className
+                                    : target.constructor.fnClsName || target.constructor.name);
+                }
 
                 for (name in source)
                 {
@@ -772,6 +369,12 @@ define(
 
                         base = clsLin[clLen - offset];
 
+                        if (logger.isTraceEnabled())
+                        {
+                            logger.trace('Mixing prototype properties {} from {} into new prototype chain of {}', Object
+                                    .getOwnPropertyNames(base.prototype), base.fnClsName || base.name, cls._declare_meta.className);
+                        }
+
                         for (name in base.prototype)
                         {
                             if (base.prototype.hasOwnProperty(name))
@@ -803,10 +406,18 @@ define(
                 }
                 else
                 {
-                    proto = {};
-                    // base of class hierarchy so add the __noSuchProperty__ handling stuff
-                    proto.__noSuchProperty__ = declareNoSuchPropertyImpl;
-                    proto[declareNoSuchPropertyStackKey] = null;
+                    logger.trace('Starting with empty prototype for {}', cls._declare_meta.className);
+                    proto = {
+                        toString : function declare_class__defaultToString()
+                        {
+                            var className, toString;
+
+                            className = this.constructor._declare_meta.className;
+                            toString = '[object ' + className + ']';
+
+                            return toString;
+                        }
+                    };
                 }
 
                 cls.prototype = proto;
@@ -825,11 +436,15 @@ define(
             {
                 var ctor, proto, meta, structure;
 
+                logger.debug('Declaring class {} wit super-class {} and {} additional bases', className, superClass !== undefined
+                        && superClass !== null ? superClass.fnClsName || superClass.name : 'n/a', bases.length);
+
                 ctor = createStandardConstructor();
 
                 // flip bases into order "right most mixin -> left most mixin -> superClass"
                 // ensures linearization results in correct override order for mixins over base class
                 bases.reverse();
+                logger.trace('Performing c3mro linearization for {}', className);
                 c3mro(ctor, bases);
                 // flip back for documentation in meta
                 bases.reverse();
@@ -847,27 +462,37 @@ define(
                 meta = {
                     className : className,
                     superClass : superClass || null,
-                    constructor : classStructure.constructor || null,
+                    classConstructor : classStructure.classConstructor || null,
                     structure : structure,
                     bases : bases
                 };
 
+                if (logger.isTraceEnabled())
+                {
+                    logger.trace('Meta for {} is {}, custom constructor provided: {}, class structure provided: {}', className, JSON
+                            .stringify(meta), typeof classStructure.classConstructor === 'function', Object
+                            .getOwnPropertyNames(classStructure));
+                }
+
                 Object.defineProperty(ctor, '_declare_meta', {
                     value : meta
                 });
+                ctor.toString = fn_toString;
 
+                logger.debug('Setting up prototype for {}', className);
                 proto = standardPrototype(ctor, classStructure);
 
                 // MAYBE Add special functions (extend / createSubclass) to ctor (if we need to support them)
 
                 proto.isInstanceOf = isInstanceOf;
                 proto.inherited = inherited;
-                ctor.toString = fn_toString;
                 // TODO Add 'standard' methods to proto
 
                 Object.freeze(meta);
                 Object.freeze(bases);
                 Object.freeze(structure);
+
+                logger.debug('Completed declaration of {}', className);
 
                 return ctor;
             };
@@ -927,8 +552,11 @@ define(
 
                 if (className === undefined || className === null)
                 {
-                    // TODO Try to derive name from calling module
-                    className = 'anonClass_' + (++anonClassCount);
+                    className = require.getCallerScriptModuleId(true);
+                    if (className === undefined || className === null)
+                    {
+                        className = 'anonClass_' + (++anonClassCount);
+                    }
                 }
 
                 if (bases.length > 0)

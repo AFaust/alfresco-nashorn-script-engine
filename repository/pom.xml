@@ -47,7 +47,7 @@
                     <groupId>org.springframework</groupId>
                     <artifactId>spring-orm</artifactId>
                 </exclusion>
-                
+
                 <!-- who'd still want log4j? -->
                 <exclusion>
                     <groupId>log4j</groupId>
@@ -135,13 +135,13 @@
                     <groupId>com.ibm.icu</groupId>
                     <artifactId>icu4j</artifactId>
                 </exclusion>
-                
+
                 <!-- who'd still want log4j? -->
                 <exclusion>
                     <groupId>log4j</groupId>
                     <artifactId>log4j</artifactId>
                 </exclusion>
-                
+
                 <exclusion>
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-log4j12</artifactId>
@@ -171,6 +171,15 @@
                 <artifactId>maven-resources-plugin</artifactId>
                 <configuration>
                     <escapeString>\</escapeString>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <includes>
+                        <include>**/*Suite.class</include>
+                    </includes>
                 </configuration>
             </plugin>
 

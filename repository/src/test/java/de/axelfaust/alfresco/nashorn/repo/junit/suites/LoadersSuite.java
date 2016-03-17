@@ -1,5 +1,5 @@
 /*
- * Copyright 2015, 2016 Axel Faust
+ * Copyright 2016 Axel Faust
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
@@ -11,26 +11,20 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package de.axelfaust.alfresco.nashorn.repo.loaders;
+package de.axelfaust.alfresco.nashorn.repo.junit.suites;
 
-import java.io.IOException;
-import java.net.URL;
-import java.net.URLConnection;
-import java.net.URLStreamHandler;
+import org.junit.runner.RunWith;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
+
+import de.axelfaust.alfresco.nashorn.repo.junit.tests.loaders.StrictScriptEnforcingSourceInputStreamTests;
 
 /**
  * @author Axel Faust
  */
-public class CallerProvidedURLStreamHandler extends URLStreamHandler
+@RunWith(Suite.class)
+@SuiteClasses({ StrictScriptEnforcingSourceInputStreamTests.class })
+public class LoadersSuite
 {
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected URLConnection openConnection(final URL u) throws IOException
-    {
-        return new CallerProvidedURLConnection(u);
-    }
-
+    // intentionally empty
 }

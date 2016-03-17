@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Axel Faust
+ * Copyright 2015, 2016 Axel Faust
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
@@ -451,7 +451,8 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
             // remove any potentially added non-default global property
             final Bindings engineBindings = ctxt.getBindings(ScriptContext.ENGINE_SCOPE);
-            for (final String key : engineBindings.keySet())
+            // decoupled to avoid co-modification
+            for (final String key : new HashSet<String>(engineBindings.keySet()))
             {
                 // we define the UUID field so we keep it
                 if (!CONTEXT_UUID_FIELD.equals(key))

@@ -13,8 +13,9 @@
  */
 package de.axelfaust.alfresco.nashorn.repo.utils;
 
-import jdk.nashorn.internal.objects.NativeObject;
 import jdk.nashorn.api.scripting.ScriptObjectMirror;
+import jdk.nashorn.api.scripting.NashornException;
+import jdk.nashorn.internal.objects.NativeObject;
 
 /**
  * Instances of this class act as a simple toString wrapper for native JavaScript objects used during logging. Since any log framework will
@@ -27,26 +28,7 @@ import jdk.nashorn.api.scripting.ScriptObjectMirror;
 public class NativeLogMessageArgumentWrapper
 {
 
-    @FunctionalInterface
-    public static interface ToStringFunction
-    {
-
-        /**
-         * @see Object#toString()
-         *
-         * @return the string representation of the object instance this function instance is bound to
-         */
-        public String scriptToString();
-    }
-
-    protected ToStringFunction toStringFunction;
-
     protected ScriptObjectMirror scriptObject;
-
-    public NativeLogMessageArgumentWrapper(final ToStringFunction toStringFunction)
-    {
-        this.toStringFunction = toStringFunction;
-    }
 
     public NativeLogMessageArgumentWrapper(final ScriptObjectMirror scriptObject)
     {
@@ -57,15 +39,29 @@ public class NativeLogMessageArgumentWrapper
     {
         String result;
 
-        if (this.toStringFunction != null)
+        final Object toStringResult;
+        try
         {
-            result = this.toStringFunction.scriptToString();
+            if (this.scriptObject.isFunction())
+            {
+                toStringResult = this.scriptObject.call(null);
+            }
+            else if (this.scriptObject.hasMember("toString"))
+            {
+                toStringResult = this.scriptObject.callMember("toString");
+            }
+            else
+            {
+                toStringResult = this.scriptObject.toString();
+            }
+
+            result = String.valueOf(toStringResult);
         }
-        else
+        catch (final NashornException ne)
         {
-            final Object toStringResult = this.scriptObject.callMember("toString");
-            result = toStringResult != null ? toStringResult.toString() : this.scriptObject.toString();
+            result = "[JS toString call error: " + ne.getClass().getSimpleName() + "]";
         }
+
         return result;
     }
 }

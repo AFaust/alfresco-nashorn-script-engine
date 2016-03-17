@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Axel Faust
+ * Copyright 2015, 2016 Axel Faust
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
@@ -150,11 +150,12 @@ public class CallerProvidedURLConnection extends URLConnection
         final InputStream is;
         if (script != null)
         {
-            is = new ByteArrayInputStream(script.getFirst().getBytes(StandardCharsets.UTF_8));
+            is = new StrictScriptEnforcingSourceInputStream(new ByteArrayInputStream(script.getFirst().getBytes(StandardCharsets.UTF_8)));
         }
         else if (scriptLocation != null)
         {
-            is = scriptLocation.getInputStream();
+            // this assumes UTF-8
+            is = new StrictScriptEnforcingSourceInputStream(scriptLocation.getInputStream());
         }
         else
         {

@@ -12,8 +12,8 @@
     moduleBackup, moduleListenersBackup,
     // dynamic static
     taggedCallerScriptUrl,
-    // Nashorn fns
-    nashornLoad = load,
+    // Nashorn script loading utils
+    nashornLoad = load, defaultScope = this,
     // internal fns
     isObject, getRestoreTaggedCallerFn, normalizeSimpleId, normalizeModuleId, mapModuleId, loadModule, getModule, checkAndFulfillModuleListeners, _load, SecureUseOnlyWrapper, clone,
     // internal error subtype
@@ -300,7 +300,7 @@
 
     _load = function amd__load(value, normalizedId, loaderName, isSecureSource, overrideUrl)
     {
-        var url, module, implicitResult, currentlyTaggedCallerScriptUrl;
+        var url, module, implicitResult, currentlyTaggedCallerScriptUrl, customScope;
 
         if (value !== undefined && value !== null)
         {
@@ -342,13 +342,16 @@
                     });
 
                     moduleByUrl[String(url)] = module;
+                    
+                    // we load with custom scope to prevent pollution of the potentially shared global
+                    customScope = Object.create(defaultScope);
 
                     currentlyTaggedCallerScriptUrl = taggedCallerScriptUrl;
                     taggedCallerScriptUrl = null;
 
                     try
                     {
-                        implicitResult = nashornLoad(url);
+                        implicitResult = nashornLoad.call(customScope, url);
 
                         // reset
                         taggedCallerScriptUrl = currentlyTaggedCallerScriptUrl;
@@ -1405,6 +1408,7 @@
         moduleByUrl[contextScriptUrl] = module;
     };
 
+    // TODO Expand into a generic "asModule" supporting modifiers such as "secureUse", "clientModuleAware"...
     define.asSecureUseModule = function amd__define_asSecureUseModule(module, url)
     {
         return new SecureUseOnlyWrapper(module, url);
