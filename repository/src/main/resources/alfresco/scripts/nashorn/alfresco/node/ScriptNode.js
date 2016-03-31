@@ -6,7 +6,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', './_NodeIdentityMixin', 
 
             return declare([ JavaConvertableMixin, _NodeIdentityMixin, _NodePropertiesMixin ], {
 
-                internalJavaValueProperty : 'nodeRef'
+                _internalJavaValueProperty : 'nodeRef'
 
             });
         });

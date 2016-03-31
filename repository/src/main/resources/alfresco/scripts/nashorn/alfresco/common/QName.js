@@ -23,7 +23,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', '.
 
                 '--proxy-virtual-getters-enabled' : true,
 
-                internalJavaValueProperty : 'qname',
+                _internalJavaValueProperty : 'qname',
 
                 classConstructor : function alfresco_common_QName__contructor(qname)
                 {

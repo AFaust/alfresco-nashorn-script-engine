@@ -22,7 +22,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', '.
 
                 '--proxy-virtual-setter-fallback-to-__put__' : true,
 
-                internalJavaValueProperty : 'backingMap',
+                _internalJavaValueProperty : 'backingMap',
 
                 classConstructor : function alfresco_common_QNameMapWrapper__classConstructor(backingMap)
                 {
