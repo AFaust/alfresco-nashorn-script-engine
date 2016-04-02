@@ -203,6 +203,24 @@
                     <reportFile>target/jshint.xml</reportFile>
                 </configuration>
             </plugin>
+
         </plugins>
     </build>
+
+    <reporting>
+        <plugins>
+            <plugin>
+                <groupId>com.phasebash.jsdoc</groupId>
+                <artifactId>jsdoc3-maven-plugin</artifactId>
+                <version>1.1.0</version>
+                <configuration>
+                    <recursive>true</recursive>
+                    <directoryRoots>
+                        <directoryRoot>${basedir}/src/main/resources/</directoryRoot>
+                    </directoryRoots>
+                    <configFile>${basedir}/conf.json</configFile>
+                </configuration>
+            </plugin>
+        </plugins>
+    </reporting>
 </project>

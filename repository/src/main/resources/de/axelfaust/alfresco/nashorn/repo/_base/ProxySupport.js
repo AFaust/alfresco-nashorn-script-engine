@@ -1,3 +1,7 @@
+/**
+ * @module _base/ProxySupport
+ * @author Axel Faust
+ */
 /* globals -require */
 define(
         [ './declare', 'nashorn!JSAdapter', 'nashorn!Java', './logger' ],
@@ -25,8 +29,21 @@ define(
 
             return declare([], {
 
+                /**
+                 * The public JSAdapter proxy for this instance
+                 * 
+                 * @instance
+                 * @type {object}
+                 */
                 '--proxy' : null,
 
+                /**
+                 * The configuration property to enable proxy support, causing this instance to be exposed via a JSAdapter proxy
+                 * 
+                 * @instance
+                 * @type {boolean}
+                 * @default false
+                 */
                 '--proxy-support-enabled' : false,
 
                 '--proxy-no-such-property-stack' : null,
@@ -206,6 +223,11 @@ define(
                         result = undefined;
                     }
 
+                    if (result === this)
+                    {
+                        result = this['--proxy'];
+                    }
+
                     return result;
                 },
 
@@ -293,6 +315,11 @@ define(
 
                             return fnResult;
                         }, undefined, result);
+                    }
+
+                    if (result === this)
+                    {
+                        result = this['--proxy'];
                     }
 
                     return result;
@@ -558,6 +585,11 @@ define(
                     else if (result === undefined && fn === undefined)
                     {
                         // TODO Throw error about fn not existing
+                    }
+
+                    if (result === this)
+                    {
+                        result = this['--proxy'];
                     }
 
                     return result;
