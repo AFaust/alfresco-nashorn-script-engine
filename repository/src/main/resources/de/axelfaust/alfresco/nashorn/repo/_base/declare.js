@@ -1,10 +1,17 @@
+/**
+ * This module provides the functionality to create class-like constructs using multiple inheritance and support of calling "inherited"
+ * functions from base classes in a defined resolution order.
+ * 
+ * @module _base/declare
+ * @author Axel Faust
+ */
 /* globals -require */
 define(
         [ './c3mro', 'require', './logger' ],
         function declare(c3mro, require, logger)
         {
             'use strict';
-            var anonClassCount = 0, FnCtor, DummyCtor, isObject, fn_toString, isInstanceOf, inherited, forceNew, applyNew, createStandardConstructor, standardConstructorImpl, taggedMixin, standardPrototype, declareImpl, declareFn;
+            var anonClassCount = 0, FnCtor, DummyCtor, isObject, fn_toString, isInstanceOf, inherited, forceNew, applyNew, createStandardConstructor, standardConstructorImpl, taggedMixin, standardPrototype, declareImpl, declare;
 
             FnCtor = Function;
 
@@ -60,6 +67,18 @@ define(
                 return isBase;
             };
 
+            /**
+             * Calls a specific function inherited from a base class using the next base class in the linearization of base classes relative
+             * to the function passed as the currently executed function.
+             * 
+             * @public
+             * @function
+             * @param {function|string}
+             *            fn - the identity handle or name of the function calling inherited (name should only be passed from the most
+             *            specialized function of an inheritance chain
+             * @param {object}
+             *            arguments - the arguments to the function call
+             */
             inherited = function declare__inherited()
             {
                 var result, fnName, fnClsName, callerFn, args, overrides, effectiveArgs, idx, lastLookup, ctor, proto, fn, clsFound;
@@ -498,20 +517,19 @@ define(
             };
 
             /**
-             * This module provides the functionality to create class-like constructs using multiple inheritance and support of calling
-             * "inherited" functions from base classes in a defined resolution order.
+             * Creates a new class from a defined class structure and optional base classes. This function is the identity of
+             * {@link module:_base/declare}.
              * 
-             * @exports _base/declare
-             * @author Axel Faust
-             * 
+             * @public
+             * @function
              * @param {string}
-             *            [name] . the name of the new class-like construct
+             *            [name] - the name of the new class-like construct
              * @param {array}
              *            [bases] - the list of base classes from which the new class should inherit
              * @param {object}
              *            structure - the "body" of the new class definining its properties and functions
              */
-            declareFn = function declare__declare()
+            declare = function declare__declare()
             {
                 var className, bases, superClass, structure, idx, fArr, fIdx;
 
@@ -581,7 +599,7 @@ define(
                 return declareImpl(className, superClass, bases, structure);
             };
 
-            Object.freeze(declareFn);
+            Object.freeze(declare);
 
-            return declareFn;
+            return declare;
         });

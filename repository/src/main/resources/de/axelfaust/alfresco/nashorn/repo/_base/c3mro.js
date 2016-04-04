@@ -1,3 +1,10 @@
+/**
+ * This module provides C3 superclass linearization functionality to be used by {@link module:_base/declare} to allow class-like definition
+ * of modules using multiple inheritance.
+ * 
+ * @module _base/c3mro
+ * @author Axel Faust
+ */
 /* globals -require */
 define([], function()
 {
@@ -33,8 +40,7 @@ define([], function()
                             else
                             {
                                 // pro-actively mark anything in tail as unsuitable to potentially short circuit further iterations of
-                                // outer
-                                // while
+                                // outer while
                                 unsuitableCandidates[baseLinearization[blIdx]._c3mro_id] = baseLinearization[blIdx]._c3mro_id;
                             }
                         }
@@ -90,14 +96,14 @@ define([], function()
     };
 
     /**
-     * This module provides C3 superclass linearization functionality to be used by {@link module:_base/declare} to allow class-like
-     * definition of modules using multiple inheritance.
+     * Perform the C3 superclass linearization for a new class. This function is the identity of {@link module:_base/c3mro}.
      * 
-     * @exports _base/c3mro
-     * @author Axel Faust
-     * 
-     * @param {function} o - the constructor of the new class
-     * @param {array} [bases] - the list of base classes from which the new class should inherit
+     * @public
+     * @function
+     * @param {function}
+     *            o - the constructor of the new class
+     * @param {array}
+     *            [bases] - the list of base classes from which the new class should inherit
      */
     c3mro = function c3mro(o, bases)
     {
