@@ -497,6 +497,20 @@ define(
                 return ctor;
             };
 
+            /**
+             * This module provides the functionality to create class-like constructs using multiple inheritance and support of calling
+             * "inherited" functions from base classes in a defined resolution order.
+             * 
+             * @exports _base/declare
+             * @author Axel Faust
+             * 
+             * @param {string}
+             *            [name] . the name of the new class-like construct
+             * @param {array}
+             *            [bases] - the list of base classes from which the new class should inherit
+             * @param {object}
+             *            structure - the "body" of the new class definining its properties and functions
+             */
             declareFn = function declare__declare()
             {
                 var className, bases, superClass, structure, idx, fArr, fIdx;
