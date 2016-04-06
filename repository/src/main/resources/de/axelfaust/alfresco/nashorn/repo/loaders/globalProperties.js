@@ -105,7 +105,36 @@ define('globalProperties', [ 'spring!global-properties', 'nashorn!Java' ], funct
         return result;
     };
 
+    /**
+     * This loader module provides the capability to load settings from the alfresco-global.properties loader as AMD modules.
+     * 
+     * @exports globalProperties
+     * @author Axel Faust
+     * 
+     * @example
+     * // loads a single property
+     * var prop = require('globalProperties!repository.name')
+     * print(prop); // prints "Main Repository" for setting of repository.name in default Repository configuration
+     * 
+     * @example
+     * // loads all properties with the prefix "index.tracking."
+     * var props = require('globalProperties!index.tracking.*');
+     * print(props['index.tracking.cronExpression']); 
+     */
     loader = {
+        /**
+         * Normalizes a potentially relative module ID to a node-based module ID. In order for relative normalization to work, the module
+         * requesting a relative dependency must have been loaded from a nodes content as well.
+         * 
+         * @instance
+         * @param {string}
+         *            moduleId - the module ID to normalize
+         * @param {function}
+         *            normalizeSimpleId - the function handle for the standard (simple) module ID normalization routine
+         * @param {object}
+         *            [contextModule] - the definition of the module requesting another the module identifier by moduleId
+         * @returns {string} the normalized module ID of the requested module
+         */
         normalize : function globalProperties_loader__normalize(moduleId, /* jshint unused: false */normalizeSimpleId, contextModule)
         {
             var idFragments, result;
@@ -116,6 +145,19 @@ define('globalProperties', [ 'spring!global-properties', 'nashorn!Java' ], funct
 
             return result;
         },
+
+        /**
+         * Loads either a single setting or object of settings with the same prefix from a normalized module ID.
+         * 
+         * @instance
+         * @param {string}
+         *            normalizedId - the normalized ID of the module to load
+         * @param {function}
+         *            require - the context-sensitive require function
+         * @param {function}
+         *            load - the callback to load either a pre-built object as the module result or a script defining a module from a script
+         *            URL
+         */
         load : function globalProperties_loader__load(normalizedId, require, load)
         {
             var property = getProperty(normalizedId);

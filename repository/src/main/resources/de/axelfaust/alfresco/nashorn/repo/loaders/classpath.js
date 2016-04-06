@@ -16,7 +16,25 @@
                         .type('de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLStreamHandler')['(java.lang.String)'];
                 streamHandler = new AlfrescoClasspathURLStreamHandler(null);
 
+                /**
+                 * This loader module provides the capability to load classpath-stored scripts as AMD modules.
+                 * 
+                 * @exports classpath
+                 * @author Axel Faust
+                 */
                 loader = {
+                    /**
+                     * Loads a script stored on the classpath from normalized module ID.
+                     * 
+                     * @instance
+                     * @param {string}
+                     *            normalizedId - the normalized ID of the module to load
+                     * @param {function}
+                     *            require - the context-sensitive require function
+                     * @param {function}
+                     *            load - the callback to load either a pre-built object as the module result or a script defining a module
+                     *            from a script URL
+                     */
                     load : function classpath_loader__load(normalizedId, require, load)
                     {
                         var url = new URL('classpath', null, -1, normalizedId, streamHandler);
@@ -44,7 +62,26 @@
         AlfrescoClasspathURLStreamHandler = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLStreamHandler');
         streamHandler = new AlfrescoClasspathURLStreamHandler(true);
 
+        /**
+         * This loader module provides the capability to load "extensible classpath"-stored scripts as AMD modules in such a way that
+         * scripts in the shared/classes/alfresco/extension/ override scripts on the classpath without any path prefixes.
+         * 
+         * @exports extensible-classpath
+         * @author Axel Faust
+         */
         loader = {
+            /**
+             * Loads a script stored on the "extensible classpath" from normalized module ID.
+             * 
+             * @instance
+             * @param {string}
+             *            normalizedId - the normalized ID of the module to load
+             * @param {function}
+             *            require - the context-sensitive require function
+             * @param {function}
+             *            load - the callback to load either a pre-built object as the module result or a script defining a module from a
+             *            script URL
+             */
             load : function extensible_classpath_loader__load(normalizedId, require, load)
             {
                 var url = new URL('extensible-classpath', null, -1, normalizedId, streamHandler);

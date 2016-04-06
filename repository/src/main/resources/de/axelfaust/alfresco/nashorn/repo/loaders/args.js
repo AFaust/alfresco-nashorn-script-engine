@@ -9,7 +9,25 @@ define('args', [ 'nashorn!Java' ], function args_loader(Java)
     logger = Java.type('org.slf4j.LoggerFactory').getLogger(
             'de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.args');
 
+    /**
+     * This loader module provides the capability to load entries from the script argument model as AMD modules.
+     * 
+     * @exports args
+     * @author Axel Faust
+     */
     loader = {
+        /**
+         * Loads a script model argument from a normalized module ID.
+         * 
+         * @instance
+         * @param {string}
+         *            normalizedId - the normalized ID of the module to load
+         * @param {function}
+         *            require - the context-sensitive require function
+         * @param {function}
+         *            load - the callback to load either a pre-built object as the module result or a script defining a module from a script
+         *            URL
+         */
         load : function args_loader__load(normalizedId, require, load)
         {
             var result;

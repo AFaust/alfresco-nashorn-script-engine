@@ -16,7 +16,28 @@ define('legacyRootObject', [ 'globalProperties!nashornJavaScriptProcessor.de.axe
         return result;
     };
 
+    /**
+     * This loader module provides the capability to load legacy root objects as AMD modules. The set of available legacy root objects is
+     * constructed from AMD modules registered with this loader via
+     * nashornJavaScriptProcessor.de.axelfaust.alfresco.nashorn.repo.legacyRootObjects.* configuration in the alfresco-global.properties
+     * file(s).
+     * 
+     * @exports legacyRootObject
+     * @author Axel Faust
+     */
     loader = {
+        /**
+         * Loads a legacy root object from a normalized module ID.
+         * 
+         * @instance
+         * @param {string}
+         *            normalizedId - the normalized ID of the module to load
+         * @param {function}
+         *            require - the context-sensitive require function
+         * @param {function}
+         *            load - the callback to load either a pre-built object as the module result or a script defining a module from a script
+         *            URL
+         */
         load : function legacyRootObjects_loader__load(normalizedId, require, load)
         {
             var result, isSecure, legacyModuleId, legacyModuleLoaderName, legacyModuleSecure, resetFn;
