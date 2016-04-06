@@ -45,6 +45,8 @@ import org.alfresco.service.cmr.search.ResultSet;
 import org.alfresco.service.cmr.search.ResultSetRow;
 import org.alfresco.service.cmr.search.SearchParameters;
 import org.alfresco.service.cmr.search.SearchService;
+import org.alfresco.service.cmr.security.AccessStatus;
+import org.alfresco.service.cmr.security.PermissionService;
 import org.alfresco.service.namespace.NamespaceService;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.service.namespace.RegexQNamePattern;
@@ -76,6 +78,8 @@ public class NodeURLHandler extends URLStreamHandler
 
     protected final NodeService nodeService;
 
+    protected final PermissionService permissionService;
+
     protected final ContentService contentService;
 
     protected final SearchService searchService;
@@ -83,11 +87,12 @@ public class NodeURLHandler extends URLStreamHandler
     public NodeURLHandler(final ServiceRegistry serviceRegistry)
     {
         this(serviceRegistry.getNamespaceService(), serviceRegistry.getDictionaryService(), serviceRegistry.getNodeService(),
-                serviceRegistry.getContentService(), serviceRegistry.getSearchService());
+                serviceRegistry.getPermissionService(), serviceRegistry.getContentService(), serviceRegistry.getSearchService());
     }
 
     public NodeURLHandler(final NamespaceService namespaceService, final DictionaryService dictionaryService,
-            final NodeService nodeService, final ContentService contentService, final SearchService searchService)
+            final NodeService nodeService, final PermissionService permissionService, final ContentService contentService,
+            final SearchService searchService)
     {
         ParameterCheck.mandatory("namespaceService", namespaceService);
         ParameterCheck.mandatory("dictionaryService", dictionaryService);
@@ -98,6 +103,7 @@ public class NodeURLHandler extends URLStreamHandler
         this.namespaceService = namespaceService;
         this.dictionaryService = dictionaryService;
         this.nodeService = nodeService;
+        this.permissionService = permissionService;
         this.contentService = contentService;
         this.searchService = searchService;
     }
@@ -107,6 +113,8 @@ public class NodeURLHandler extends URLStreamHandler
         ParameterCheck.mandatoryString("scriptContextUuid", scriptContextUuid);
         ParameterCheck.mandatoryString("moduleId", moduleId);
 
+        // normalize as system to avoid issues when admin / dev defined "../../path/to/script" temporarily navigated into a structure
+        // inaccessible to the current user (primary concern is that resolved script node must be accessible)
         final String normalizedModuleId = AuthenticationUtil.runAsSystem(new RunAsWork<String>()
         {
 
@@ -217,6 +225,7 @@ public class NodeURLHandler extends URLStreamHandler
     @Override
     protected URLConnection openConnection(final URL u) throws IOException
     {
+        final String runAsUser = AuthenticationUtil.getRunAsUser();
         final URLConnection urlConnection = AuthenticationUtil.runAsSystem(new RunAsWork<URLConnection>()
         {
 
@@ -226,13 +235,12 @@ public class NodeURLHandler extends URLStreamHandler
             @Override
             public URLConnection doWork()
             {
-                return NodeURLHandler.this.openConnectionImpl(u);
+                return NodeURLHandler.this.openConnectionImpl(u, runAsUser);
             }
         });
 
         // above resolution as system may implicitly expose existence of path identifiers
         // not resolving as system on the other hand would slow execution down and inconvenience developers of script modules
-        // TODO Configurable behaviour
 
         if (urlConnection == null)
         {
@@ -242,7 +250,7 @@ public class NodeURLHandler extends URLStreamHandler
         return urlConnection;
     }
 
-    protected URLConnection openConnectionImpl(final URL u)
+    protected URLConnection openConnectionImpl(final URL u, final String runAsUser)
     {
         final String moduleId = u.getFile();
 
@@ -268,13 +276,28 @@ public class NodeURLHandler extends URLStreamHandler
             final NodeRef contentNode = contentNodeAndProperty.getFirst();
             if (contentNode != null)
             {
-                if (contentNodeAndProperty.getSecond() != null)
+                final AccessStatus accessStatus = AuthenticationUtil.runAs(new RunAsWork<AccessStatus>()
                 {
-                    con = new NodeURLConnection(u, this.nodeService, this.contentService, contentNode, contentNodeAndProperty.getSecond());
-                }
-                else
+
+                    @Override
+                    public AccessStatus doWork() throws Exception
+                    {
+                        return NodeURLHandler.this.permissionService.hasReadPermission(contentNode);
+                    }
+
+                }, runAsUser);
+
+                if (accessStatus == AccessStatus.ALLOWED)
                 {
-                    con = new NodeURLConnection(u, this.nodeService, this.contentService, contentNode);
+                    if (contentNodeAndProperty.getSecond() != null)
+                    {
+                        con = new NodeURLConnection(u, this.nodeService, this.contentService, contentNode,
+                                contentNodeAndProperty.getSecond());
+                    }
+                    else
+                    {
+                        con = new NodeURLConnection(u, this.nodeService, this.contentService, contentNode);
+                    }
                 }
             }
         }
