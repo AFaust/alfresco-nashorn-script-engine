@@ -33,14 +33,16 @@ define(
                  * The public JSAdapter proxy for this instance
                  * 
                  * @instance
+                 * @protected
                  * @type {object}
                  */
                 '--proxy' : null,
 
                 /**
                  * The configuration property to enable proxy support, causing this instance to be exposed via a JSAdapter proxy
-                 * 
+                 *
                  * @instance
+                 * @protected
                  * @type {boolean}
                  * @default false
                  */

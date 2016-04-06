@@ -49,6 +49,17 @@ define(
                 return result;
             };
 
+            /**
+             * Checks if this instance is an instance of a specific class considering single inheritance as well as the multi-inheritance
+             * constructs this module supports. This method will be included in the prototype of any class created via
+             * {@link module:_base/declare~declare}
+             * 
+             * @public
+             * @function
+             * @param {function}
+             *            cls - the class against which to check this instance
+             * @returns boolean true if this instance is an instanceof of the specified class
+             */
             isInstanceOf = function declare__isInstanceOf(cls)
             {
                 var linearization = this.constructor._c3mro_linearization, isBase = false, idx;
@@ -69,7 +80,8 @@ define(
 
             /**
              * Calls a specific function inherited from a base class using the next base class in the linearization of base classes relative
-             * to the function passed as the currently executed function.
+             * to the function passed as the currently executed function. This method will be included in the prototype of any class created
+             * via {@link module:_base/declare~declare}
              * 
              * @public
              * @function

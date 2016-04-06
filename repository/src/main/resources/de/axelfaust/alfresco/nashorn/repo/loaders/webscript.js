@@ -27,7 +27,26 @@ define(
 
             scriptLoader = new MultiScriptLoader(Java.to(storeLoaders, 'org.springframework.extensions.webscripts.ScriptLoader[]'));
 
+            /**
+             * This loader module provides the capability to load web scripts as AMD modules, using the Surf web script loader as the lookup
+             * backend.
+             * 
+             * @exports webscript
+             * @author Axel Faust
+             */
             loader = {
+                /**
+                 * Loads a script located within the web script lookup paths from a normalized module ID.
+                 * 
+                 * @instance
+                 * @param {string}
+                 *            normalizedId - the normalized ID of the module to load
+                 * @param {function}
+                 *            require - the context-sensitive require function
+                 * @param {function}
+                 *            load - the callback to load either a pre-built object as the module result or a script defining a module from
+                 *            a script URL
+                 */
                 load : function webscript_loader__load(normalizedId, require, load)
                 {
                     var script = null, url;
