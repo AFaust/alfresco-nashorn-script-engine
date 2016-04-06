@@ -8,7 +8,7 @@
 /* globals -require */
 define(
         [ './c3mro', 'require', './logger' ],
-        function declare(c3mro, require, logger)
+        function declare_root(c3mro, require, logger)
         {
             'use strict';
             var anonClassCount = 0, FnCtor, DummyCtor, isObject, fn_toString, isInstanceOf, inherited, forceNew, applyNew, createStandardConstructor, standardConstructorImpl, taggedMixin, standardPrototype, declareImpl, declare;
