@@ -40,7 +40,7 @@ define(
 
                 /**
                  * The configuration property to enable proxy support, causing this instance to be exposed via a JSAdapter proxy
-                 *
+                 * 
                  * @instance
                  * @protected
                  * @type {boolean}
@@ -48,24 +48,115 @@ define(
                  */
                 '--proxy-support-enabled' : false,
 
+                /**
+                 * The stack of property names which are currently being processed in the
+                 * {@link module:_base/ProxySupport~__noSuchProperty__} function. This serves to guard against infinite recursions in case
+                 * the logic (a getter) to retrieve a field attempts to access that field itself.
+                 * 
+                 * @instance
+                 * @protected
+                 * @type {string[]}
+                 */
                 '--proxy-no-such-property-stack' : null,
 
+                /**
+                 * The configuration property to enable fallback of {@link module:_base/ProxySupport~__noSuchProperty__} to
+                 * {@link module:_base/ProxySupport~__get__}
+                 * 
+                 * @instance
+                 * @protected
+                 * @type {boolean}
+                 * @default false
+                 */
                 '--proxy-no-such-property-fallback-to-__get__' : false,
 
+                /**
+                 * The configuration property to enable redirection of direct property access to implemented getters via the
+                 * {@link module:_base/ProxySupport~__get__} proxy operation.
+                 * 
+                 * @instance
+                 * @protected
+                 * @type {boolean}
+                 * @default false
+                 */
                 '--proxy-getter-redirection-enabled' : false,
 
+                /**
+                 * The configuration property to enable simulation of getters for properties via the
+                 * {@link module:_base/ProxySupport~__call__} proxy operation.
+                 * 
+                 * @instance
+                 * @protected
+                 * @type {boolean}
+                 * @default false
+                 */
                 '--proxy-virtual-getters-enabled' : false,
 
+                /**
+                 * The configuration property to enable fallback of {@link module:_base/ProxySupport~__call__} to
+                 * {@link module:_base/ProxySupport~__get__} when trying to simulate a getter.
+                 * 
+                 * @instance
+                 * @protected
+                 * @type {boolean}
+                 * @default false
+                 */
                 '--proxy-virtual-getter-fallback-to-__get__' : false,
 
+                /**
+                 * The configuration property to force use of getters for any property access via the
+                 * {@link module:_base/ProxySupport~__get__} proxy operation or {@link module:_base/ProxySupport~__noSuchProperty__}
+                 * handler.
+                 * 
+                 * @instance
+                 * @protected
+                 * @type {boolean}
+                 * @default false
+                 */
                 '--proxy-use-getter-only' : false,
 
+                /**
+                 * The configuration property to enable redirection of direct property modification to implemented setters via the
+                 * {@link module:_base/ProxySupport~__put__} proxy operation.
+                 * 
+                 * @instance
+                 * @protected
+                 * @type {boolean}
+                 * @default false
+                 */
                 '--proxy-setter-redirection-enabled' : false,
 
+                /**
+                 * The configuration property to enable simulation of setters for properties via the
+                 * {@link module:_base/ProxySupport~__call__} proxy operation.
+                 * 
+                 * @instance
+                 * @protected
+                 * @type {boolean}
+                 * @default false
+                 */
                 '--proxy-virtual-setters-enabled' : false,
 
+                /**
+                 * The configuration property to enable fallback of {@link module:_base/ProxySupport~__call__} to
+                 * {@link module:_base/ProxySupport~__put__} when trying to simulate a setter.
+                 * 
+                 * @instance
+                 * @protected
+                 * @type {boolean}
+                 * @default false
+                 */
                 '--proxy-virtual-setter-fallback-to-__put__' : false,
 
+                /**
+                 * The configuration property to force use of setters for any property modification via the
+                 * {@link module:_base/ProxySupport~__put__} proxy operation.
+                 * 
+                 * @instance
+                 * @protected
+                 * @type {boolean}
+                 * @default false
+                 */
                 '--proxy-use-setter-only' : false,
 
                 classConstructor : function ProxySupport__classConstructor()
@@ -93,6 +184,15 @@ define(
                     return result;
                 },
 
+                /**
+                 * Handles the access to a non-existent property on this instance, potentially simulating it by redirecting to either an
+                 * implemented getter or the {@link module:_base/ProxySupport~__get__} function.
+                 * 
+                 * @instance
+                 * @param {string}
+                 *            name - the name of the property
+                 * @returns {object} the value of the property
+                 */
                 __noSuchProperty__ : function ProxySupport__noSuchProperty__(name)
                 {
                     var result, getterName, suffix, prop;
@@ -233,6 +333,14 @@ define(
                     return result;
                 },
 
+                /**
+                 * Retrieves the value of a specific property on this instance.
+                 * 
+                 * @instance
+                 * @param {string}
+                 *            name - the name of the property
+                 * @returns {object} the value of the property
+                 */
                 __get__ : function ProxySupport__get__(name, __noSuchProperty__call)
                 {
                     var result, getterName, suffix, prop, _this;
@@ -327,6 +435,16 @@ define(
                     return result;
                 },
 
+                /**
+                 * Sets the value of a specific property on this instance.
+                 * 
+                 * @instance
+                 * @param {string}
+                 *            name - the name of the property
+                 * @param {object}
+                 *            value - the new value of the property
+                 * @returns {object} the new value set on the property
+                 */
                 __put__ : function ProxySupport__put__(name, value)
                 {
                     var result, setterName, suffix, prop;
@@ -376,6 +494,14 @@ define(
                     return result;
                 },
 
+                /**
+                 * Determines if a specific property exists on this instance.
+                 * 
+                 * @instance
+                 * @param {string}
+                 *            name - the name of the property
+                 * @returns {boolean} true if the property exists, false otherwise
+                 */
                 __has__ : function ProxySupport__has__(name)
                 {
                     var result = false, prop, getterName, suffix;
@@ -437,6 +563,14 @@ define(
                     return result;
                 },
 
+                /**
+                 * Retrieves the ids of all (public) properties of this instance. This property handler will consider any property that can
+                 * be determined to exist on this instance via the "in" operator (unless only getters are set to be allowed) and any
+                 * property that can either be simulated via getters or have actual getters implemented (if getter redirection is enabled).
+                 * 
+                 * @instance
+                 * @returns {string[]} the array of ids of all (public) properties
+                 */
                 // __getIds__ is identical to __getKeys__ (JDK 6 compatibility)
                 __getIds__ : function ProxySupport__getIds__()
                 {
@@ -447,6 +581,14 @@ define(
                     return result;
                 },
 
+                /**
+                 * Retrieves the keys of all (public) properties of this instance. This property handler will consider any property that can
+                 * be determined to exist on this instance via the "in" operator (unless only getters are set to be allowed) and any
+                 * property that can either be simulated via getters or have actual getters implemented (if getter redirection is enabled).
+                 * 
+                 * @instance
+                 * @returns {string[]} the array of keys of all (public) properties
+                 */
                 __getKeys__ : function ProxySupport__getKeys__()
                 {
                     /* jshint forin: false */
@@ -475,6 +617,14 @@ define(
                     return result;
                 },
 
+                /**
+                 * Retrieves the values of all (public) properties of this instance. This property handler will consider any property that
+                 * can be determined to exist on this instance via the "in" operator (unless only getters are set to be allowed) and any
+                 * property that can either be simulated via getters or have actual getters implemented (if getter redirection is enabled).
+                 * 
+                 * @instance
+                 * @returns {string[]} the array of values of all (public) properties
+                 */
                 __getValues__ : function ProxySupport__getValues__()
                 {
                     var result, name, getterRedirectionEnabled, onlyGettersEnabled;
@@ -501,6 +651,15 @@ define(
                     return result;
                 },
 
+                /**
+                 * Deletes a property on this instance. This property handler will delete any property that can be determined to exist on
+                 * this instance via the "in" operator.
+                 * 
+                 * @instance
+                 * @param {string}
+                 *            name - the name of the propert to delete
+                 * @returns {boolean} true if the property was deleted, false otherwise
+                 */
                 __delete__ : function ProxySupport__delete__(name)
                 {
                     var result = false;
@@ -513,6 +672,17 @@ define(
                     return result;
                 },
 
+                /**
+                 * Calls a function on this instance. This proxy handler will simulate getters / setters if the corresponding configuration
+                 * properties have been set to enable those features and an implemented method with the same name could not be located.
+                 * 
+                 * @instance
+                 * @param {string}
+                 *            name - the name of the function to call
+                 * @param {object}
+                 *            [argX] - any number of arguments to the call
+                 * @returns {object} the result of the function call
+                 */
                 __call__ : function ProxySupport__call__(name)
                 {
                     var result, fn, propName;
@@ -597,6 +767,14 @@ define(
                     return result;
                 },
 
+                /**
+                 * Creates a new object instance from this constructor instance (if this instance is a function).
+                 * 
+                 * @instance
+                 * @param {object}
+                 *            [argX] - any number of arguments to the constructor
+                 * @returns {object} a new object instance
+                 */
                 __new__ : function ProxySupport__new__()
                 {
                     var result, BoundCtor;
