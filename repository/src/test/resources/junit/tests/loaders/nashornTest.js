@@ -14,7 +14,6 @@
 
 (function nashornTest()
 {
-    'use strict';
     // need to bind ctxt early - won't be available when testObj.<fn> is invoked via extracted interface
     var testObj, ctxt = context;
 
@@ -27,6 +26,7 @@
 
         getTestFunctionNames : function nashornTest_getTestFunctionNames()
         {
+            'use strict';
             return Java.to(
                     [ 'testInaccessibles', 'testJavaAccess', 'testPackagesAccess', 'testJSAdapterAccess', 'testJavaImporterAccess' ],
                     'java.util.List');
@@ -34,6 +34,7 @@
 
         beforeScript : function nashornTest_beforeScript()
         {
+            'use strict';
             var SimpleScriptTestCase = Java.type('de.axelfaust.alfresco.nashorn.repo.junit.tests.SimpleScriptTestCase');
 
             SimpleScriptTestCase.initializeAMD(engine, ctxt);
@@ -55,6 +56,7 @@
 
         before : function nashornTest_before()
         {
+            'use strict';
             // force load of module to register this script as secure
             require([ 'test!dummy' ], function nashornTest_before_loaded(dummy)
             {
@@ -64,6 +66,7 @@
 
         testInaccessibles : function nashornTest_testInaccessibles(testCase)
         {
+            'use strict';
             var this_ = this, checkFn;
 
             checkFn = function nashornTest_testInaccessibles_forEach(variable)
@@ -92,6 +95,7 @@
 
         testJavaAccess : function nashornTest_testJavaAccess(testCase)
         {
+            'use strict';
             // we don't test all but most relevant fns to check for "real" NativeJava
             var expected, javaTestFns = [ 'type', 'typeName', 'from', 'to', 'extend' ];
             try
@@ -136,6 +140,7 @@
 
         testPackagesAccess : function nashornTest_testPackagesAccess(testCase)
         {
+            'use strict';
             var expected;
             try
             {
@@ -170,13 +175,39 @@
 
         testJSAdapterAccess : function nashornTest_testJSAdapterAccess(testCase)
         {
+            'use strict';
             var expected;
             try
             {
-                require([ 'nashorn!JSAdapter' ], function nashornTest_testJSAdapterAccess_loaded(JSAdapter)
+                require([ 'nashorn!JSAdapter', 'nashorn!Packages' ], function nashornTest_testJSAdapterAccess_loaded(JSAdapter, Packages)
                 {
-                    expected = new Error('Test not implemented yet');
-                    throw expected;
+                    var Assert, proxy, adaptee;
+                    Assert = Packages.org.junit.Assert;
+
+                    adaptee = {
+                        __get__ : function __get__(name)
+                        {
+                            return 'simulated prop "' + name + '"';
+                        },
+
+                        __call__ : function __call__(name, arg1, arg2)
+                        {
+                            return 'simulated fn "' + name + '"';
+                        }
+                    };
+
+                    try
+                    {
+                        proxy = new JSAdapter(adaptee);
+
+                        Assert.assertEquals('simulated prop "x"', proxy.x);
+                        Assert.assertEquals('simulated fn "getX"', proxy.getX());
+                    }
+                    catch (innerE)
+                    {
+                        expected = innerE;
+                        throw innerE;
+                    }
                 }, function nashornTest_testJSAdapterAccess_failed(dependencies, modules, implicitModules)
                 {
                     expected = new Error('JSAdapter should have been provided via module nashorn!JSAdapter');
@@ -195,13 +226,40 @@
 
         testJavaImporterAccess : function nashornTest_testJavaImporterAccess(testCase)
         {
+            // not "use strict;" since that would disallow use of with
             var expected;
             try
             {
-                require([ 'nashorn!JavaImporter' ], function nashornTest_testJavaImporterAccess_loaded(JSAdapter)
+                require([ 'nashorn!JavaImporter', 'nashorn!Packages' ], function nashornTest_testJavaImporterAccess_loaded(JavaImporter,
+                        Packages)
                 {
-                    expected = new Error('Test not implemented yet');
-                    throw expected;
+                    var Assert, imports, map, list;
+
+                    Assert = Packages.org.junit.Assert;
+                    try
+                    {
+                        imports = new JavaImporter(Packages.java.util);
+
+                        with (imports)
+                        {
+                            Assert.assertTrue(typeof HashMap === 'function');
+                            Assert.assertTrue(typeof ArrayList === 'function');
+
+                            map = new HashMap();
+                            Assert.assertEquals('java.util.HashMap', map.class.name);
+                            Assert['assertEquals(long,long)'](0, map.size());
+
+                            list = new ArrayList();
+                            Assert.assertEquals('java.util.ArrayList', list.class.name);
+                            Assert['assertEquals(long,long)'](0, list.length);
+                            Assert['assertEquals(long,long)'](0, list.size());
+                        }
+                    }
+                    catch (innerE)
+                    {
+                        expected = innerE;
+                        throw innerE;
+                    }
                 }, function nashornTest_testJavaImporterAccess_failed(dependencies, modules, implicitModules)
                 {
                     expected = new Error('JavaImporter should have been provided via module nashorn!JavaImporter');
