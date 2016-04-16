@@ -13,18 +13,18 @@
  * the classpath in such a way that scripts in the servers extension-root can override scripts bundled with the WAR. 
  */
 /* globals -require */
+/* globals SimpleLogger: false */
 define(
         [ 'require', 'nashorn!Java' ],
         function logger(require, Java)
         {
             'use strict';
-            var loggerModule, getSLF4JLogger, isEnabledImpl, logImpl, loggerByScriptUrl = {}, Throwable, LoggerFactory, NativeLogMessageArgumentWrapper;
+            var loggerModule, getSimpleLogger, isEnabledImpl, logImpl, loggerByScriptUrl = {}, Throwable, NativeLogMessageArgumentWrapper;
 
             Throwable = Java.type('java.lang.Throwable');
-            LoggerFactory = Java.type('org.slf4j.LoggerFactory');
             NativeLogMessageArgumentWrapper = Java.type('de.axelfaust.alfresco.nashorn.repo.utils.NativeLogMessageArgumentWrapper');
 
-            getSLF4JLogger = function logger__getSLF4JLogger()
+            getSimpleLogger = function logger__getSimpleLogger()
             {
                 var callerScriptURL, callerScriptModuleId, callerScriptModuleLoader, logger;
 
@@ -41,13 +41,13 @@ define(
 
                     if (typeof callerScriptModuleId === 'string')
                     {
-                        logger = LoggerFactory.getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
+                        logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
                                 + callerScriptModuleLoader + '.' + callerScriptModuleId.replace(/\//, '.'));
                     }
                     else
                     {
                         // TODO Try to simplify (common) script URLs for shorter, easier-to-handle logger names
-                        logger = LoggerFactory.getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
+                        logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
                                 + callerScriptURL);
                     }
                     loggerByScriptUrl[callerScriptURL] = logger;
@@ -58,11 +58,10 @@ define(
 
             isEnabledImpl = function logger__isEnabledImpl(level)
             {
-                var logger = getSLF4JLogger(), prop, isEnabled = false;
+                var logger = getSimpleLogger(), prop, isEnabled = false;
 
                 prop = (level || 'debug') + 'Enabled';
-                // JavaLinker has a minor bug not handling ConsString -> force String
-                isEnabled = logger[String(prop)];
+                isEnabled = logger[prop];
 
                 return isEnabled;
             };
@@ -72,12 +71,11 @@ define(
                 var message, ex, values, idx, logger, enabledProp, meth;
 
                 // we could delegate to isEnabledImpl but that would mean retrieving logger potentially twice
-                logger = getSLF4JLogger();
+                logger = getSimpleLogger();
                 enabledProp = (level || 'debug') + 'Enabled';
 
                 // to avoid interop performance overhead we should drop out as soon as possible
-                // JavaLinker has a minor bug not handling ConsString -> force String
-                if (logger[String(enabledProp)])
+                if (logger[enabledProp])
                 {
                     // TODO Determine caller fn + line and expose via MDC
 
@@ -161,23 +159,27 @@ define(
 
             // TODO Provide option to hook in dynamic log delegates (i.e. for JavaScript Console)
             /**
-             * This module provides basic logging capabilities and delegates to SLF4J (which in turn will most likely be backed by Log4J). The logging
-             * functionality of this module is caller-aware, meaning that each script will log into a distinct logger depending on its module ID or -
-             * when no module ID can be determined for a caller - the URL it was loaded from.
-             *  
+             * This module provides basic logging capabilities and delegates to SLF4J (which in turn will most likely be backed by Log4J).
+             * The logging functionality of this module is caller-aware, meaning that each script will log into a distinct logger depending
+             * on its module ID or - when no module ID can be determined for a caller - the URL it was loaded from.
+             * 
              * @exports _base/logger
              * @author Axel Faust
              */
-            // @exports is an alias for @module in this specific constellation (using object literal) 
+            // @exports is an alias for @module in this specific constellation (using object literal)
             loggerModule = {
-                
+
                 /**
                  * Log a message at "trace" level
                  * 
                  * @instance
-                 * @param {string} message - the message / pattern for the log message
-                 * @param {Error|Throwable} [error] - the error / exception that needs to be logged
-                 * @param {string} [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if the log level is enabled (mutually exclusive with error)
+                 * @param {string}
+                 *            message - the message / pattern for the log message
+                 * @param {Error|Throwable}
+                 *            [error] - the error / exception that needs to be logged
+                 * @param {string}
+                 *            [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if
+                 *            the log level is enabled (mutually exclusive with error)
                  */
                 trace : function logger__trace()
                 {
@@ -199,9 +201,13 @@ define(
                  * Log a message at "debug" level
                  * 
                  * @instance
-                 * @param {string} message - the message / pattern for the log message
-                 * @param {Error|Throwable} [error] - the error / exception that needs to be logged
-                 * @param {string} [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if the log level is enabled (mutually exclusive with error)
+                 * @param {string}
+                 *            message - the message / pattern for the log message
+                 * @param {Error|Throwable}
+                 *            [error] - the error / exception that needs to be logged
+                 * @param {string}
+                 *            [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if
+                 *            the log level is enabled (mutually exclusive with error)
                  */
                 debug : function logger__debug()
                 {
@@ -224,9 +230,13 @@ define(
                  * Log a message at "info" level
                  * 
                  * @instance
-                 * @param {string} message - the message / pattern for the log message
-                 * @param {Error|Throwable} [error] - the error / exception that needs to be logged
-                 * @param {string} [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if the log level is enabled (mutually exclusive with error)
+                 * @param {string}
+                 *            message - the message / pattern for the log message
+                 * @param {Error|Throwable}
+                 *            [error] - the error / exception that needs to be logged
+                 * @param {string}
+                 *            [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if
+                 *            the log level is enabled (mutually exclusive with error)
                  */
                 info : function logger__info()
                 {
@@ -248,9 +258,13 @@ define(
                  * Log a message at "warn" level
                  * 
                  * @instance
-                 * @param {string} message - the message / pattern for the log message
-                 * @param {Error|Throwable} [error] - the error / exception that needs to be logged
-                 * @param {string} [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if the log level is enabled (mutually exclusive with error)
+                 * @param {string}
+                 *            message - the message / pattern for the log message
+                 * @param {Error|Throwable}
+                 *            [error] - the error / exception that needs to be logged
+                 * @param {string}
+                 *            [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if
+                 *            the log level is enabled (mutually exclusive with error)
                  */
                 warn : function logger__warn()
                 {
@@ -272,9 +286,13 @@ define(
                  * Log a message at "error" level
                  * 
                  * @instance
-                 * @param {string} message - the message / pattern for the log message
-                 * @param {Error|Throwable} [error] - the error / exception that needs to be logged
-                 * @param {string} [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if the log level is enabled (mutually exclusive with error)
+                 * @param {string}
+                 *            message - the message / pattern for the log message
+                 * @param {Error|Throwable}
+                 *            [error] - the error / exception that needs to be logged
+                 * @param {string}
+                 *            [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if
+                 *            the log level is enabled (mutually exclusive with error)
                  */
                 error : function logger__error()
                 {

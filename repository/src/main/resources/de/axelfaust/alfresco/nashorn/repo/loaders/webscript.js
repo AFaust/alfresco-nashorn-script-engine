@@ -1,4 +1,5 @@
 /* globals -require */
+/* globals SimpleLogger: false */
 define(
         'webscript',
         [ 'spring!webscripts.searchpath', 'spring!nodeService', 'spring!contentService', 'spring!retryingTransactionHelper', 'nashorn!Java' ],
@@ -12,8 +13,7 @@ define(
             MultiScriptLoader = Java.type('org.springframework.extensions.webscripts.MultiScriptLoader');
 
             apiStores = searchPath.stores;
-            logger = Java.type('org.slf4j.LoggerFactory').getLogger(
-                    'de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.webscript');
+            logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.webscript');
 
             for (idx = 0, max = apiStores.length; idx < max; idx++)
             {

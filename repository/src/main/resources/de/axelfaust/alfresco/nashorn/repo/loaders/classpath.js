@@ -1,4 +1,5 @@
 /* globals -require */
+/* globals SimpleLogger: false */
 (function classpath_loader_root()
 {
     'use strict';
@@ -8,8 +9,7 @@
             {
                 var URL, AlfrescoClasspathURLStreamHandler, streamHandler, logger, loader;
 
-                logger = Java.type('org.slf4j.LoggerFactory').getLogger(
-                        'de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.classpath');
+                logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.classpath');
                 URL = Java.type('java.net.URL');
                 // need to select specific constructor to override basePath
                 AlfrescoClasspathURLStreamHandler = Java
@@ -56,8 +56,7 @@
     {
         var URL, AlfrescoClasspathURLStreamHandler, streamHandler, logger, loader;
 
-        logger = Java.type('org.slf4j.LoggerFactory').getLogger(
-                'de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.extensible-classpath');
+        logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.extensible-classpath');
         URL = Java.type('java.net.URL');
         AlfrescoClasspathURLStreamHandler = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLStreamHandler');
         streamHandler = new AlfrescoClasspathURLStreamHandler(true);

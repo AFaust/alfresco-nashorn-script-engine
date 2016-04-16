@@ -36,7 +36,6 @@
         <property name="globalProperties" ref="global-properties" />
         <property name="amdConfig" value="${nashornJavaScriptProcessor.amd.config}" />
         <property name="nashornGlobalPropertiesToRemove" value="${nashornJavaScriptProcessor.nashorn.global.propertiesToRemove}" />
-        <property name="scriptContextWarmupCount" value="${nashornJavaScriptProcessor.nashorn.scriptContext.warmupCount}" />
         <property name="executeArbitraryScriptStringsAsSecure" value="${nashornJavaScriptProcessor.nashorn.executeArbitraryScriptStringsAsSecure}" />
 
         <!-- javascript is already taken by javaScriptProcessor -->

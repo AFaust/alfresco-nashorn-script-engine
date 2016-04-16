@@ -21,25 +21,19 @@ import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import javax.script.Bindings;
+import javax.script.Invocable;
 import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
 import javax.script.ScriptException;
 import javax.script.SimpleBindings;
-import javax.script.SimpleScriptContext;
 
 import jdk.nashorn.api.scripting.URLReader;
-
-import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.repo.jscript.ClasspathScriptLocation;
 import org.alfresco.repo.processor.BaseProcessor;
 import org.alfresco.service.cmr.module.ModuleDependency;
@@ -68,6 +62,7 @@ import de.axelfaust.alfresco.nashorn.repo.loaders.CallerProvidedURLConnection;
 /**
  * @author Axel Faust
  */
+@SuppressWarnings("restriction")
 public class NashornScriptProcessor extends BaseProcessor implements ScriptProcessor, InitializingBean, ApplicationContextAware
 {
 
@@ -76,15 +71,11 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NashornScriptProcessor.class);
 
-    private static final String _PRELOAD_MODULE_FIELD = "_preloadModule";
-
-    private static final String CONTEXT_UUID_FIELD = "_scriptContextUUID";
+    private static final String SCRIPT_SIMPLE_LOGGER = "simple-logger.js";
 
     private static final String SCRIPT_AMD = "amd.js";
 
     private static final String SCRIPE_AMD_SCRIPT_RUNNER = "amd-script-runner.js";
-
-    private static final int DEFAULT_SCRIPT_CONTEXT_WARMUP_COUNT = 10;
 
     protected ScriptEngine engine;
 
@@ -98,17 +89,15 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
     protected String nashornGlobalPropertiesToRemove;
 
-    protected final ReentrantReadWriteLock scriptContextLock = new ReentrantReadWriteLock(true);
-
-    protected final List<ScriptContext> reusableScriptContexts = new LinkedList<ScriptContext>();
-
-    protected final Set<String> validScriptContexts = new HashSet<String>();
-
     protected ApplicationContext applicationContext;
 
-    protected int scriptContextWarmupCount = DEFAULT_SCRIPT_CONTEXT_WARMUP_COUNT;
-
     protected boolean executeArbitraryScriptStringsAsSecure = false;
+
+    protected AMDModulePreloader amdPreloader;
+
+    protected AMDScriptRunner amdRunner;
+
+    protected final ReentrantReadWriteLock initialisationStateLock = new ReentrantReadWriteLock(true);
 
     /**
      * {@inheritDoc}
@@ -174,15 +163,6 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
     }
 
     /**
-     * @param scriptContextWarmupCount
-     *            the scriptContextWarmupCount to set
-     */
-    public void setScriptContextWarmupCount(final int scriptContextWarmupCount)
-    {
-        this.scriptContextWarmupCount = scriptContextWarmupCount;
-    }
-
-    /**
      * @param executeArbitraryScriptStringsAsSecure
      *            the executeArbitraryScriptStringsAsSecure to set
      */
@@ -206,13 +186,21 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         PropertyCheck.mandatory(this, "globalProperties", this.globalProperties);
         PropertyCheck.mandatory(this, "amdConfig", this.amdConfig);
 
-        super.register();
+        this.initialisationStateLock.writeLock().lock();
+        try
+        {
+            this.initScriptContext();
+        }
+        catch (final ScriptException sex)
+        {
+            throw new org.alfresco.scripts.ScriptException("Error initialising script processor", sex);
+        }
+        finally
+        {
+            this.initialisationStateLock.writeLock().unlock();
+        }
 
-        // this will likely be pointless because web script processor triggers reset of ALL script processors
-        // but we should not assume this and still prepare for decent "first script" performance
-        // (and web script processor should not reset script processor just for its internal registry setup)
-        // TODO Delay until context refresh and potentially outsource to background thread
-        this.prepareReusableScriptContexts();
+        super.register();
     }
 
     /**
@@ -317,243 +305,161 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
     @Override
     public void reset()
     {
-        this.scriptContextLock.writeLock().lock();
+        this.initialisationStateLock.writeLock().lock();
         try
         {
-            this.reusableScriptContexts.clear();
-            this.validScriptContexts.clear();
+            this.initScriptContext();
+        }
+        catch (final ScriptException sex)
+        {
+            throw new org.alfresco.scripts.ScriptException("Error resetting script processor", sex);
         }
         finally
         {
-            this.scriptContextLock.writeLock().unlock();
-        }
-
-        // TODO Outsource to background thread
-        this.prepareReusableScriptContexts();
-    }
-
-    protected void prepareReusableScriptContexts()
-    {
-        if (this.scriptContextWarmupCount > 0)
-        {
-            LOGGER.info("Creating {} initial reusable script contexts", Integer.valueOf(this.scriptContextWarmupCount));
-            this.scriptContextLock.writeLock().lock();
-            try
-            {
-                for (int idx = 0; idx < this.scriptContextWarmupCount; idx++)
-                {
-                    final ScriptContext context = this.initScriptContext();
-                    final String uuid = String.valueOf(context.getAttribute(CONTEXT_UUID_FIELD));
-                    this.validScriptContexts.add(uuid);
-                    this.reusableScriptContexts.add(context);
-                }
-            }
-            catch (final ScriptException sex)
-            {
-                throw new AlfrescoRuntimeException("Error creating initial reusable script contexts", sex);
-            }
-            finally
-            {
-                this.scriptContextLock.writeLock().unlock();
-            }
+            this.initialisationStateLock.writeLock().unlock();
         }
     }
 
     protected Object executeAMDLoadableScript(final AMDLoadableScript script, final Map<String, Object> model)
     {
+        this.initialisationStateLock.readLock().lock();
         try
         {
-            final ScriptContext ctxt = this.obtainScriptContext();
-            try
+            try (final NashornScriptModel scriptModel = NashornScriptModel.openModel())
             {
                 LOGGER.debug("Executing AMD-loadable script {}", script);
-                // TODO Potentially restrict access only to AMDLoadableScript API
-                ctxt.setAttribute("_loadableModule", script, ScriptContext.GLOBAL_SCOPE);
-                ctxt.setAttribute("_argumentModel", model, ScriptContext.GLOBAL_SCOPE);
+                final String moduleId;
+                if (script.getLoaderName() != null && !script.getLoaderName().isEmpty())
+                {
+                    moduleId = MessageFormat.format("{0}!{1}", script.getLoaderName(), script.getScriptModuleId());
+                }
+                else
+                {
+                    moduleId = script.getScriptModuleId();
+                }
 
-                // unique object reference as key for current execution (may be used in modules for execution local caching
-                ctxt.setAttribute("_executionKey", new Object(), ScriptContext.GLOBAL_SCOPE);
+                try
+                {
+                    final Object scriptResult = this.amdRunner.run(moduleId, model);
+                    LOGGER.debug("Return value of AMD-loadable script {}: {}", script, scriptResult);
 
-                final URL resource = NashornScriptProcessor.class.getResource(SCRIPE_AMD_SCRIPT_RUNNER);
-                final Object scriptResult = this.executeScriptFromResource(resource, ctxt);
-
-                LOGGER.debug("Return value of AMD-loadable script {}: {}", script, scriptResult);
-
-                // TODO Convert / unwrap scriptResult for Java
-                return scriptResult;
+                    // TODO Convert / unwrap scriptResult for Java (could also be done in runner)
+                    return scriptResult;
+                }
+                catch (final RuntimeException ex)
+                {
+                    LOGGER.debug("Error executing AMD-loadable script", ex);
+                    throw ex;
+                }
             }
-            finally
-            {
-                this.returnScriptContext(ctxt);
-            }
-        }
-        catch (final ScriptException se)
-        {
-            throw new org.alfresco.scripts.ScriptException("Error executing AMD-loadable script", se);
-        }
-    }
-
-    protected ScriptContext obtainScriptContext() throws ScriptException
-    {
-        ScriptContext context;
-
-        this.scriptContextLock.readLock().lock();
-        try
-        {
-            LOGGER.trace("Obtaining script context - {} reusable contexts available", Integer.valueOf(this.reusableScriptContexts.size()));
-            context = this.reusableScriptContexts.isEmpty() ? null : this.reusableScriptContexts.remove(0);
         }
         finally
         {
-            this.scriptContextLock.readLock().unlock();
+            this.initialisationStateLock.readLock().unlock();
         }
-
-        if (context == null)
-        {
-            context = this.initScriptContext();
-
-            final String uuid = String.valueOf(context.getAttribute(CONTEXT_UUID_FIELD));
-            this.scriptContextLock.writeLock().lock();
-            try
-            {
-                this.validScriptContexts.add(uuid);
-            }
-            finally
-            {
-                this.scriptContextLock.writeLock().unlock();
-            }
-        }
-
-        return context;
     }
 
-    protected void returnScriptContext(final ScriptContext ctxt)
+    protected void initScriptContext() throws ScriptException
     {
-        final String uuid = String.valueOf(ctxt.getAttribute(CONTEXT_UUID_FIELD));
-        boolean returnContext = true;
-
-        this.scriptContextLock.readLock().lock();
-        try
+        final Bindings oldEngineBindings = this.engine.getBindings(ScriptContext.ENGINE_SCOPE);
+        final AMDModulePreloader oldPreloader = this.amdPreloader;
+        final AMDScriptRunner oldAMDRunner = this.amdRunner;
+        try (NashornScriptModel model = NashornScriptModel.openModel())
         {
-            returnContext = this.validScriptContexts.contains(uuid);
-        }
-        finally
-        {
-            this.scriptContextLock.readLock().unlock();
-        }
+            // create new (unpolluted) engine bindings
+            final Bindings engineBindings = this.engine.createBindings();
+            this.engine.setBindings(engineBindings, ScriptContext.ENGINE_SCOPE);
 
-        if (returnContext)
-        {
-            LOGGER.trace("Clearing re-usable script context {}", uuid);
+            final Bindings globalBindings = new SimpleBindings();
+            this.engine.setBindings(globalBindings, ScriptContext.GLOBAL_SCOPE);
 
-            // clear all data left at this stage
-            ctxt.getBindings(ScriptContext.GLOBAL_SCOPE).clear();
+            // only available during initialisation
+            globalBindings.put("applicationContext", this.applicationContext);
 
-            // remove any potentially added non-default global property
-            final Bindings engineBindings = ctxt.getBindings(ScriptContext.ENGINE_SCOPE);
-            // decoupled to avoid co-modification
-            for (final String key : new HashSet<String>(engineBindings.keySet()))
+            LOGGER.trace("Executing bootstrap scripts");
+            URL resource;
+
+            // 1) simple logger facade for SLF4J
+            resource = NashornScriptProcessor.class.getResource(SCRIPT_SIMPLE_LOGGER);
+            this.executeScriptFromResource(resource);
+
+            // 2) AMD loader to be used for all scripts apart from bootstrap
+            resource = NashornScriptProcessor.class.getResource(SCRIPT_AMD);
+            this.executeScriptFromResource(resource);
+
+            final Object define = this.engine.get("define");
+            this.amdPreloader = ((Invocable) this.engine).getInterface(define, AMDModulePreloader.class);
+
+            // 3) the nashorn loader plugin so we can control access to globals
+            this.preloadAMDModule("loaderMetaLoader", "nashorn");
+
+            // 4) remove Nashorn globals
+            for (final String property : NASHORN_GLOBAL_PROPERTIES_TO_ALWAYS_REMOVE)
             {
-                // we define the UUID field so we keep it
-                if (!CONTEXT_UUID_FIELD.equals(key))
+                engineBindings.remove(property);
+            }
+
+            if (this.nashornGlobalPropertiesToRemove != null)
+            {
+                for (final String property : this.nashornGlobalPropertiesToRemove.split(","))
                 {
-                    engineBindings.remove(key);
+                    engineBindings.remove(property.trim());
                 }
             }
 
-            LOGGER.debug("Returning reusable script context {}", uuid);
-            this.scriptContextLock.writeLock().lock();
+            // 5) Java extensions (must be picked up by modules before #7)
+            globalBindings.put("processorExtensions", this.processorExtensions);
+
+            LOGGER.trace("Checking for extension scripts");
+
+            // 6) configured JavaScript extension modules
+            this.initScriptContextExtensions(this.amdPreloader);
+
+            LOGGER.trace("Finalizing script context");
+
+            // 7) AMD config
             try
             {
-                // double check
-                returnContext = this.validScriptContexts.contains(uuid);
-                if (returnContext)
-                {
-                    this.reusableScriptContexts.add(ctxt);
-                }
+                resource = this.amdConfig.getURL();
+                this.executeScriptFromResource(resource);
             }
-            finally
+            catch (final IOException ioex)
             {
-                this.scriptContextLock.writeLock().unlock();
+                throw new ScriptException(ioex);
             }
+
+            // 8) remove any init data that shouldn't be publicly available
+            globalBindings.clear();
+
+            // 9) obtain the runner interface
+            resource = NashornScriptProcessor.class.getResource(SCRIPE_AMD_SCRIPT_RUNNER);
+            final Object scriptRunnerObj = this.executeScriptFromResource(resource);
+            this.amdRunner = ((Invocable) this.engine).getInterface(scriptRunnerObj, AMDScriptRunner.class);
         }
-        else
+        catch (final Throwable t)
         {
-            LOGGER.debug("Discarding reusable script context {}", uuid);
+            // reset
+            this.engine.setBindings(oldEngineBindings, ScriptContext.ENGINE_SCOPE);
+            this.engine.getBindings(ScriptContext.GLOBAL_SCOPE).clear();
+            this.amdPreloader = oldPreloader;
+            this.amdRunner = oldAMDRunner;
+
+            if (t instanceof RuntimeException)
+            {
+                throw (RuntimeException) t;
+            }
+            else if (t instanceof ScriptException)
+            {
+                throw (ScriptException) t;
+            }
+            else
+            {
+                throw new org.alfresco.scripts.ScriptException("Unknown error initializing script context - reset to previous state", t);
+            }
         }
     }
 
-    protected ScriptContext initScriptContext() throws ScriptException
-    {
-        final String uuid = UUID.randomUUID().toString();
-        LOGGER.debug("Initialising new script context {}", uuid);
-        final ScriptContext ctxt = new SimpleScriptContext();
-
-        // if possible, we'd like to reuse this over many invocations
-        final Bindings engineBindings = this.engine.createBindings();
-        ctxt.setBindings(engineBindings, ScriptContext.ENGINE_SCOPE);
-
-        final Bindings globalBindings = new SimpleBindings();
-        ctxt.setBindings(globalBindings, ScriptContext.GLOBAL_SCOPE);
-
-        // only available during initialisation
-        globalBindings.put("applicationContext", this.applicationContext);
-
-        URL resource;
-
-        LOGGER.trace("Executing bootstrap scripts");
-
-        // 1) AMD loader to be used for all scripts apart from bootstrap
-        resource = NashornScriptProcessor.class.getResource(SCRIPT_AMD);
-        this.executeScriptFromResource(resource, ctxt);
-
-        // 2) the nashorn loader plugin so we can control access to globals
-        this.preloadAMDModule(ctxt, "loaderMetaLoader", "nashorn");
-
-        // 3) remove Nashorn globals
-        for (final String property : NASHORN_GLOBAL_PROPERTIES_TO_ALWAYS_REMOVE)
-        {
-            engineBindings.remove(property);
-        }
-
-        if (this.nashornGlobalPropertiesToRemove != null)
-        {
-            for (final String property : this.nashornGlobalPropertiesToRemove.split(","))
-            {
-                engineBindings.remove(property.trim());
-            }
-        }
-
-        // 4) Java extensions (must be picked up by modules before #7)
-        globalBindings.put("processorExtensions", this.processorExtensions);
-
-        LOGGER.trace("Checking for extension scripts");
-
-        // 5) configured JavaScript extension modules
-        this.initScriptContextExtensions(ctxt);
-
-        LOGGER.trace("Finalizing script context");
-
-        // 6) AMD config
-        try
-        {
-            resource = this.amdConfig.getURL();
-            this.executeScriptFromResource(resource, ctxt);
-        }
-        catch (final IOException ioex)
-        {
-            throw new ScriptException(ioex);
-        }
-
-        ctxt.setAttribute(CONTEXT_UUID_FIELD, uuid, ScriptContext.ENGINE_SCOPE);
-
-        // 7) remove any init data that shouldn't be publicly available
-        globalBindings.clear();
-
-        return ctxt;
-    }
-
-    protected void initScriptContextExtensions(final ScriptContext ctxt) throws ScriptException
+    protected void initScriptContextExtensions(final AMDModulePreloader amdPreloader) throws ScriptException
     {
         final Map<String, Pair<ModuleDetails, Boolean>> modules = new HashMap<String, Pair<ModuleDetails, Boolean>>();
 
@@ -570,14 +476,14 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
         for (final ModuleDetails module : this.moduleService.getAllModules())
         {
-            this.initScriptContextExtensions(ctxt, modules, module);
+            this.initScriptContextExtensions(modules, module);
         }
 
         // TODO Load custom extensions outside of module context (i.e. definitions by customer in alfresco-global.properties)
     }
 
-    protected void initScriptContextExtensions(final ScriptContext ctxt, final Map<String, Pair<ModuleDetails, Boolean>> modules,
-            final ModuleDetails module) throws ScriptException
+    protected void initScriptContextExtensions(final Map<String, Pair<ModuleDetails, Boolean>> modules, final ModuleDetails module)
+            throws ScriptException
     {
         final String moduleId = module.getId();
         final Pair<ModuleDetails, Boolean> moduleExecution = modules.get(moduleId);
@@ -590,7 +496,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
                 if (dependencyState != null)
                 {
                     // just recurse - will check execution state therein
-                    this.initScriptContextExtensions(ctxt, modules, dependencyState.getFirst());
+                    this.initScriptContextExtensions(modules, dependencyState.getFirst());
                 }
                 // else missing dependency - ModuleService should have failed startup
             }
@@ -618,7 +524,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
                     if (moduleIdValue instanceof String && loaderNameValue instanceof String)
                     {
-                        this.preloadAMDModule(ctxt, loaderNameValue, moduleIdValue);
+                        this.preloadAMDModule(loaderNameValue, moduleIdValue);
                     }
                 }
             }
@@ -628,47 +534,60 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         }
     }
 
-    protected void preloadAMDModule(final ScriptContext ctxt, final Object loaderNameValue, final Object moduleIdValue)
-            throws ScriptException
+    protected void preloadAMDModule(final Object loaderNameValue, final Object moduleIdValue) throws ScriptException
     {
-        final String fullModuleId = MessageFormat.format("{0}!{1}", loaderNameValue, moduleIdValue);
-
-        LOGGER.trace("Pre-loading module {}", fullModuleId);
-
-        ctxt.setAttribute(_PRELOAD_MODULE_FIELD, fullModuleId, ScriptContext.GLOBAL_SCOPE);
-        ctxt.setAttribute(ScriptEngine.FILENAME, "preload", ScriptContext.ENGINE_SCOPE);
+        this.initialisationStateLock.readLock().lock();
         try
         {
-            this.engine.eval("define.preload(_preloadModule);", ctxt);
-        }
-        catch (final ScriptException sex)
-        {
-            LOGGER.error("Error preloading module {}", fullModuleId);
-            throw sex;
+            final String fullModuleId = MessageFormat.format("{0}!{1}", loaderNameValue, moduleIdValue);
+
+            LOGGER.trace("Pre-loading module {}", fullModuleId);
+
+            try
+            {
+                // TODO Determine if it's possible to still use ScriptContext attributes in scripts called via extracted interfaces
+                // TODO Determine why we can't get AMDModulePreloader interface for define.preload()
+                // final ScriptObjectMirror define = (ScriptObjectMirror) this.engine.getContext().getAttribute("define");
+                // define.callMember("preload", fullModuleId);
+                // this.amdPreloader.preload(fullModuleId);
+                this.engine.eval("define.preload('" + fullModuleId + "');");
+            }
+            catch (final RuntimeException ex)
+            {
+                LOGGER.error("Error preloading module {}", fullModuleId);
+                throw ex;
+            }
         }
         finally
         {
-            ctxt.removeAttribute(_PRELOAD_MODULE_FIELD, ScriptContext.GLOBAL_SCOPE);
-            LOGGER.trace("Pre-loading of module {} completed", fullModuleId);
+            this.initialisationStateLock.readLock().unlock();
         }
     }
 
-    protected Object executeScriptFromResource(final URL resource, final ScriptContext ctxt) throws ScriptException
+    protected Object executeScriptFromResource(final URL resource) throws ScriptException
     {
-        LOGGER.trace("Executing script from resource {}", resource);
-        try (@SuppressWarnings("restriction")
-        Reader reader = new URLReader(resource))
+        this.initialisationStateLock.readLock().lock();
+        try
         {
-            ctxt.setAttribute(ScriptEngine.FILENAME, resource.toString(), ScriptContext.ENGINE_SCOPE);
-            return this.engine.eval(reader, ctxt);
-        }
-        catch (final IOException e)
-        {
-            throw new ScriptException(e);
+            LOGGER.trace("Executing script from resource {}", resource);
+            try (@SuppressWarnings("restriction")
+            Reader reader = new URLReader(resource))
+            {
+                this.engine.getContext().setAttribute(ScriptEngine.FILENAME, resource.toString(), ScriptContext.ENGINE_SCOPE);
+                return this.engine.eval(reader);
+            }
+            catch (final IOException e)
+            {
+                throw new ScriptException(e);
+            }
+            finally
+            {
+                LOGGER.trace("Execution of script from resource {} completed", resource);
+            }
         }
         finally
         {
-            LOGGER.trace("Execution of script from resource {} completed", resource);
+            this.initialisationStateLock.readLock().unlock();
         }
     }
 }

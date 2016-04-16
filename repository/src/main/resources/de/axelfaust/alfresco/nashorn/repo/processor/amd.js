@@ -1,34 +1,40 @@
 /* globals -require */
 /* globals -define */
 /* globals Java: false */
+/* globals SimpleLogger: false */
 /* globals load: false */
 (function amd()
 {
     'use strict';
 
-    // core AMD state and config
-    var modules = {}, moduleByUrl = {}, mappings = {}, moduleListenersByModule = {}, moduleListeners = [], packages = {},
-    // state backup
-    moduleBackup, moduleListenersBackup,
-    // dynamic static
-    taggedCallerScriptUrl,
+    // execution specific state
+    var modules, moduleByUrl, moduleListenersByModule, executionState,
+    // core AMD config and backup state
+    mappings = {}, packages = {}, moduleBackup = {}, moduleListenersByModuleBackup = {},
     // Nashorn script loading utils
     nashornLoad = load, defaultScope = this,
     // internal fns
-    isObject, getRestoreTaggedCallerFn, normalizeSimpleId, normalizeModuleId, mapModuleId, loadModule, getModule, checkAndFulfillModuleListeners, _load, SecureUseOnlyWrapper, clone,
+    isObject, clone, ensureExecutionStateInit, getRestoreTaggedCallerFn, normalizeSimpleId, normalizeModuleId, mapModuleId, loadModule, getModule, checkAndFulfillModuleListeners, _load, SecureUseOnlyWrapper,
     // internal error subtype
     UnavailableModuleError,
     // Java utils
-    NashornUtils, Throwable, URL, AlfrescoClasspathURLStreamHandler, streamHandler, logger,
+    NashornUtils, NashornScriptModel, Throwable, URL, AlfrescoClasspathURLStreamHandler, streamHandler, logger,
     // meta loader module
     loaderMetaLoader,
     // public fns
     require, define;
 
     NashornUtils = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils');
+    NashornScriptModel = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel');
     Throwable = Java.type('java.lang.Throwable');
     URL = Java.type('java.net.URL');
-    logger = Java.type('org.slf4j.LoggerFactory').getLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.amd');
+    logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.amd');
+
+    // setup script aware data containers
+    modules = NashornScriptModel.newAssociativeContainer();
+    moduleByUrl = NashornScriptModel.newAssociativeContainer();
+    moduleListenersByModule = NashornScriptModel.newAssociativeContainer();
+    executionState = NashornScriptModel.newAssociativeContainer();
 
     UnavailableModuleError = function amd__UnavailableModuleError()
     {
@@ -46,43 +52,6 @@
     {
         var result = o !== undefined && o !== null && Object.prototype.toString.call(o) === '[object Object]';
         return result;
-    };
-
-    getRestoreTaggedCallerFn = function amd__getRestoreTaggedCallerFn(scriptUrl, taggerUrl)
-    {
-        var originalScriptUrl = scriptUrl, taggerScriptUrl = taggerUrl;
-
-        return function amd__require_tagCallerScript_restoreFn()
-        {
-            taggedCallerScriptUrl = originalScriptUrl;
-
-            logger.debug('Script "{}" has reset the tagged script caller', taggerScriptUrl);
-        };
-    };
-
-    SecureUseOnlyWrapper = function amd__SecureUseOnlyWrapper_constructor(module, url)
-    {
-        Object.defineProperty(this, 'wrapped', {
-            value : module,
-            enumerable : true
-        });
-
-        if (typeof url === 'string')
-        {
-            Object.defineProperty(this, 'url', {
-                value : url,
-                enumerable : true
-            });
-        }
-
-        Object.defineProperty(this, 'secureUseOnly', {
-            value : true,
-            enumerable : true
-        });
-
-        Object.freeze(this);
-
-        return this;
     };
 
     clone = function amd__clone(obj, protectedKeys)
@@ -123,6 +92,74 @@
         }
 
         return result;
+    };
+
+    ensureExecutionStateInit = function amd__ensureExecutionStateInit()
+    {
+        var moduleId, module;
+        if (modules.length === 0 && Object.keys(moduleBackup).length > 0)
+        {
+            for (moduleId in moduleBackup)
+            {
+                if (moduleBackup.hasOwnProperty(moduleId) && isObject(moduleBackup[moduleId]))
+                {
+                    module = clone(moduleBackup[moduleId], {
+                        result : true
+                    });
+
+                    modules[moduleId] = module;
+                    moduleByUrl[module.url] = module;
+                }
+            }
+        }
+
+        if (moduleListenersByModule.length === 0 && Object.keys(moduleListenersByModuleBackup).length > 0)
+        {
+            for (moduleId in moduleListenersByModuleBackup)
+            {
+                if (moduleListenersByModuleBackup.hasOwnProperty(moduleId))
+                {
+                    moduleListenersByModule[moduleId] = clone(moduleListenersByModuleBackup[moduleId]);
+                }
+            }
+        }
+    };
+
+    getRestoreTaggedCallerFn = function amd__getRestoreTaggedCallerFn(scriptUrl, taggerUrl)
+    {
+        var originalScriptUrl = scriptUrl, taggerScriptUrl = taggerUrl;
+
+        return function amd__require_tagCallerScript_restoreFn()
+        {
+            executionState.taggedCallerScriptUrl = originalScriptUrl;
+
+            logger.debug('Script "{}" has reset the tagged script caller', taggerScriptUrl);
+        };
+    };
+
+    SecureUseOnlyWrapper = function amd__SecureUseOnlyWrapper_constructor(module, url)
+    {
+        Object.defineProperty(this, 'wrapped', {
+            value : module,
+            enumerable : true
+        });
+
+        if (typeof url === 'string')
+        {
+            Object.defineProperty(this, 'url', {
+                value : url,
+                enumerable : true
+            });
+        }
+
+        Object.defineProperty(this, 'secureUseOnly', {
+            value : true,
+            enumerable : true
+        });
+
+        Object.freeze(this);
+
+        return this;
     };
 
     // TODO Outsource / delegate to Java code for potential performance improvements
@@ -300,25 +337,26 @@
 
     _load = function amd__load(value, normalizedId, loaderName, isSecureSource, overrideUrl)
     {
-        var url, module, implicitResult, currentlyTaggedCallerScriptUrl, customScope;
+        var url, urlStr, module, implicitResult, currentlyTaggedCallerScriptUrl, customScope;
 
         if (value !== undefined && value !== null)
         {
             if (value instanceof URL)
             {
                 url = value;
-                if (moduleByUrl.hasOwnProperty(String(url)))
+                urlStr = String(url);
+                if (urlStr in moduleByUrl)
                 {
-                    if (moduleByUrl[String(url)].id === normalizedId)
+                    if (moduleByUrl[urlStr].id === normalizedId)
                     {
-                        throw new Error('Module \'' + normalizedId + '\' in script \'' + String(url)
+                        throw new Error('Module \'' + normalizedId + '\' in script \'' + urlStr
                                 + '\' has already been loaded once - it should not have been loaded again');
                     }
 
                     logger.trace('Remapping already loaded module "{}" from url "{}"', [ normalizedId, url ]);
 
                     // simply remap the existing module
-                    modules[normalizedId] = modules[moduleByUrl[String(url)].id];
+                    modules[normalizedId] = modules[moduleByUrl[urlStr].id];
                 }
                 else
                 {
@@ -341,25 +379,25 @@
                         enumerable : true
                     });
 
-                    moduleByUrl[String(url)] = module;
-                    
+                    moduleByUrl[urlStr] = module;
+
                     // we load with custom scope to prevent pollution of the potentially shared global
                     customScope = Object.create(defaultScope);
 
-                    currentlyTaggedCallerScriptUrl = taggedCallerScriptUrl;
-                    taggedCallerScriptUrl = null;
+                    currentlyTaggedCallerScriptUrl = executionState.taggedCallerScriptUrl;
+                    executionState.taggedCallerScriptUrl = null;
 
                     try
                     {
                         implicitResult = nashornLoad.call(customScope, url);
 
                         // reset
-                        taggedCallerScriptUrl = currentlyTaggedCallerScriptUrl;
+                        executionState.taggedCallerScriptUrl = currentlyTaggedCallerScriptUrl;
                     }
                     catch (e)
                     {
                         // reset
-                        taggedCallerScriptUrl = currentlyTaggedCallerScriptUrl;
+                        executionState.taggedCallerScriptUrl = currentlyTaggedCallerScriptUrl;
 
                         throw e;
                     }
@@ -375,7 +413,7 @@
 
                     // no module defined yet by requested module id
                     // may be a non-module script with implicit return value or define
-                    if (!modules.hasOwnProperty(normalizedId))
+                    if (!(normalizedId in modules))
                     {
                         if (!module.hasOwnProperty('dependencies'))
                         {
@@ -529,7 +567,7 @@
 
         logger.debug('Retrieving module "{}" (force load: {})', [ normalizedId, doLoad ]);
 
-        if (modules.hasOwnProperty(normalizedId))
+        if ((normalizedId in modules))
         {
             logger.trace('Module "{}" already defined', normalizedId);
             module = modules[normalizedId];
@@ -540,7 +578,7 @@
 
             loadModule(normalizedId, callerSecure, callerUrl);
 
-            if (modules.hasOwnProperty(normalizedId))
+            if ((normalizedId in modules))
             {
                 logger.trace('Module "{}" defined by load', normalizedId);
                 module = modules[normalizedId];
@@ -579,8 +617,8 @@
                     logger.debug('Module "{}" not initialised yet - forcing initialisation', normalizedId);
 
                     // reset tagged caller script for call to factory
-                    taggedCallerScriptUrl = null;
-                    currentlyTaggedCallerScriptUrl = taggedCallerScriptUrl;
+                    currentlyTaggedCallerScriptUrl = executionState.taggedCallerScriptUrl;
+                    executionState.taggedCallerScriptUrl = null;
 
                     module.constructing = true;
                     try
@@ -644,7 +682,7 @@
                         // reset
                         module.constructing = false;
 
-                        taggedCallerScriptUrl = currentlyTaggedCallerScriptUrl;
+                        executionState.taggedCallerScriptUrl = currentlyTaggedCallerScriptUrl;
                     }
                     catch (e)
                     {
@@ -660,7 +698,7 @@
                         // reset
                         module.constructing = false;
 
-                        taggedCallerScriptUrl = currentlyTaggedCallerScriptUrl;
+                        executionState.taggedCallerScriptUrl = currentlyTaggedCallerScriptUrl;
 
                         throw e;
                     }
@@ -705,6 +743,7 @@
         var listeners, idx, listener, dIdx, args, dependency;
 
         listeners = moduleListenersByModule[module.id];
+
         if (Array.isArray(listeners))
         {
             for (idx = 0; idx < listeners.length; idx += 1)
@@ -749,6 +788,8 @@
     require = function amd__require(dependencies, callback, errCallback)
     {
         var idx, args, implicitArgs, normalizedModuleId, module, contextScriptUrl, contextModule, isSecure, failOnMissingDependency, missingModule = false;
+
+        ensureExecutionStateInit();
 
         // skip this script to determine script URL of caller
         contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
@@ -867,6 +908,8 @@
             throw new Error('Callback is not a function');
         }
 
+        ensureExecutionStateInit();
+
         // skip this script to determine script URL of caller
         contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
         contextModule = moduleByUrl[contextScriptUrl];
@@ -916,7 +959,7 @@
         {
             for (idx = 0; idx < listener.dependencies.length; idx += 1)
             {
-                if (!moduleListenersByModule.hasOwnProperty(listener.dependencies[idx]))
+                if (!(listener.dependencies[idx] in moduleListenersByModule))
                 {
                     moduleListenersByModule[listener.dependencies[idx]] = [];
                 }
@@ -928,7 +971,7 @@
 
     require.config = function amd__require_config(config)
     {
-        var configKeyFn, packageFn, mapFn;
+        var configKeyFn, packageFn, mapFn, moduleId, moduleIds, module;
 
         if (!isObject(config))
         {
@@ -1054,85 +1097,36 @@
         logger.debug('Backing up AMD loader state');
         if (logger.traceEnabled)
         {
-            logger.trace('Backing up registered modules {}', JSON.stringify(Object.keys(modules)));
+            moduleIds = [];
+            for (moduleId in modules)
+            {
+                if (isObject(modules[moduleId]))
+                {
+                    moduleIds.push(moduleId);
+                }
+            }
+            logger.trace('Backing up registered modules {}', JSON.stringify(moduleIds));
         }
 
-        // backup current module state
-        moduleBackup = modules;
-        moduleListenersBackup = moduleListeners;
-
-        // clone
-        modules = clone(moduleBackup, {
-            result : true
-        });
-        moduleByUrl = {};
-        moduleListeners = clone(moduleListenersBackup);
-        moduleListenersByModule = {};
-
-        // prepare by-reference structures
-        Object.keys(modules).forEach(function amd__require_config_prepareModules(moduleId)
+        // backup current module state into shared state
+        for (moduleId in modules)
         {
-            if (isObject(modules[moduleId]) && modules[moduleId].url !== undefined && modules[moduleId].url !== null)
+            if (isObject(modules[moduleId]))
             {
-                moduleByUrl[String(modules[moduleId].url)] = modules[moduleId];
-            }
-        }, this);
+                module = clone(modules[moduleId], {
+                    result : true
+                });
 
-        moduleListeners.forEach(function amd__require_config_prepareListeners(moduleListener)
+                moduleBackup[moduleId] = module;
+            }
+        }
+
+        for (moduleId in moduleListenersByModuleBackup)
         {
-            var idx;
-            for (idx = 0; idx < moduleListener.dependencies; idx += 1)
+            if (Array.isArray(moduleListenersByModule[moduleId]))
             {
-                if (!moduleListenersByModule.hasOwnProperty(moduleListener.dependencies[idx]))
-                {
-                    moduleListenersByModule[moduleListener.dependencies[idx]] = [];
-                }
-
-                moduleListenersByModule[moduleListener.dependencies[idx]].push(moduleListener);
+                moduleListenersByModuleBackup[moduleId] = clone(moduleListenersByModule[moduleId]);
             }
-        }, this);
-    };
-
-    require.reset = function amd__require_reset()
-    {
-        logger.debug('Resetting AMD loader state to backup');
-
-        taggedCallerScriptUrl = undefined;
-
-        // clone
-        modules = isObject(moduleBackup) ? clone(moduleBackup, {
-            result : true
-        }) : {};
-        moduleByUrl = {};
-        moduleListeners = isObject(moduleListenersBackup) ? clone(moduleListenersBackup) : [];
-        moduleListenersByModule = {};
-
-        // prepare by-reference structures
-        Object.keys(modules).forEach(function amd__require_reset_modules(moduleId)
-        {
-            if (isObject(modules[moduleId]) && modules[moduleId].url !== undefined && modules[moduleId].url !== null)
-            {
-                moduleByUrl[String(modules[moduleId].url)] = modules[moduleId];
-            }
-        }, this);
-
-        moduleListeners.forEach(function amd__require_reset_listeners(moduleListener)
-        {
-            var idx = 0;
-            for (idx = 0; idx < moduleListener.dependencies; idx += 1)
-            {
-                if (!moduleListenersByModule.hasOwnProperty(moduleListener.dependencies[idx]))
-                {
-                    moduleListenersByModule[moduleListener.dependencies[idx]] = [];
-                }
-
-                moduleListenersByModule[moduleListener.dependencies[idx]].push(moduleListener);
-            }
-        }, this);
-
-        if (logger.traceEnabled)
-        {
-            logger.trace('Restored modules {} from backup', JSON.stringify(Object.keys(modules)));
         }
     };
 
@@ -1149,7 +1143,7 @@
         }
         else
         {
-            contextScriptUrl = taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
+            contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
         }
         contextModule = moduleByUrl[contextScriptUrl];
 
@@ -1180,7 +1174,7 @@
         }
         else
         {
-            contextScriptUrl = taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
+            contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
         }
 
         return contextScriptUrl;
@@ -1196,7 +1190,7 @@
         }
         else
         {
-            contextScriptUrl = taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
+            contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
         }
         contextModule = moduleByUrl[contextScriptUrl];
 
@@ -1223,7 +1217,7 @@
         }
         else
         {
-            contextScriptUrl = taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
+            contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
         }
         contextModule = moduleByUrl[contextScriptUrl];
 
@@ -1241,16 +1235,16 @@
 
         actualCaller = NashornUtils.getCallerScriptURL(true, true);
 
-        restoreFn = getRestoreTaggedCallerFn(taggedCallerScriptUrl, actualCaller);
+        restoreFn = getRestoreTaggedCallerFn(executionState.taggedCallerScriptUrl, actualCaller);
         if (untaggedOnly === true)
         {
-            contextScriptUrl = taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
+            contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
         }
         else
         {
             contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
         }
-        taggedCallerScriptUrl = contextScriptUrl;
+        executionState.taggedCallerScriptUrl = contextScriptUrl;
 
         logger.debug('Script "{}" has tagged script caller as "{}"', [ actualCaller, contextScriptUrl ]);
 
@@ -1266,16 +1260,16 @@
         if (typeof callback === 'function')
         {
 
-            restoreFn = getRestoreTaggedCallerFn(taggedCallerScriptUrl, actualCaller);
+            restoreFn = getRestoreTaggedCallerFn(executionState.taggedCallerScriptUrl, actualCaller);
             if (untaggedOnly === true)
             {
-                contextScriptUrl = taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
+                contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
             }
             else
             {
                 contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
             }
-            taggedCallerScriptUrl = contextScriptUrl;
+            executionState.taggedCallerScriptUrl = contextScriptUrl;
 
             logger.debug('Script "{}" is executing function with tagged script caller "{}"', [ actualCaller, contextScriptUrl ]);
 
@@ -1306,6 +1300,8 @@
     define = function amd__define()
     {
         var id, dependencies, factory, idx, contextScriptUrl, contextModule, module;
+
+        ensureExecutionStateInit();
 
         contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
         contextModule = moduleByUrl[contextScriptUrl];
@@ -1418,6 +1414,8 @@
     {
         var normalizedModuleId, contextScriptUrl;
 
+        ensureExecutionStateInit();
+
         if (moduleId === undefined || moduleId === null)
         {
             throw new Error('Module id was not provided');
@@ -1428,7 +1426,7 @@
             contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
             normalizedModuleId = normalizeModuleId(moduleId, null, contextScriptUrl, true);
 
-            if (!modules.hasOwnProperty(normalizedModuleId))
+            if (!(normalizedModuleId in modules))
             {
                 logger.debug('Pre-loading module "{}"', normalizedModuleId);
                 loadModule(normalizedModuleId, true, contextScriptUrl);
@@ -1451,7 +1449,6 @@
     Object.freeze(require.getCallerScriptModuleId);
     Object.freeze(require.getCallerScriptModuleLoader);
     Object.freeze(require.getCallerScriptURL);
-    Object.freeze(require.reset);
     Object.freeze(require.tagCallerScript);
     Object.freeze(require.withTaggedCallerScript);
     // require / require.config can't be frozen yet

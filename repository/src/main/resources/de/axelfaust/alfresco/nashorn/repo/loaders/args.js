@@ -1,13 +1,15 @@
 /* globals -require */
-/* globals _argumentModel: false */
+/* globals SimpleLogger: false */
 define('args', [ 'nashorn!Java' ], function args_loader(Java)
 {
     'use strict';
 
-    var loader, logger;
+    var loader, logger, NashornScriptModel, executionState;
 
-    logger = Java.type('org.slf4j.LoggerFactory').getLogger(
-            'de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.args');
+    logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.args');
+
+    NashornScriptModel = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel');
+    executionState = NashornScriptModel.newAssociativeContainer();
 
     /**
      * This loader module provides the capability to load entries from the script argument model as AMD modules.
@@ -34,7 +36,7 @@ define('args', [ 'nashorn!Java' ], function args_loader(Java)
 
             logger.debug('Trying to load {} from script argument model', normalizedId);
 
-            result = _argumentModel[normalizedId];
+            result = (executionState.argumentModel || {})[normalizedId];
 
             logger.debug('Resolved {} from script argument model', result);
 
@@ -42,10 +44,16 @@ define('args', [ 'nashorn!Java' ], function args_loader(Java)
             // TODO Use a converter registry to convert simple argument values into more intelligent script objects
             // e.g. NodeRef into an instanceof of a ScriptNode-like module
             load(result, false);
+        },
+
+        setArgumentModel : function args_loader__setArgumentModel(argumentModel)
+        {
+            executionState.argumentModel = argumentModel;
         }
     };
 
     Object.freeze(loader.load);
+    Object.freeze(loader.setArgumentModel);
     Object.freeze(loader);
 
     return loader;

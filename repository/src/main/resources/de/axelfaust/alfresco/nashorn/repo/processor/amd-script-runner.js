@@ -1,33 +1,22 @@
-/* globals _loadableModule: false */
 /* globals require: false */
 /* globals -define */
 (function amd_script_runner__root()
 {
     'use strict';
-    var moduleName = _loadableModule.scriptModuleId, globalResult;
-
-    if (_loadableModule.loaderName !== null)
-    {
-        moduleName = _loadableModule.loaderName + '!' + moduleName;
-    }
-
-    try
-    {
-        require([ 'executeAMDLoadableScript' ], function amd_script_runner__handleResult(executeAMDLoadableScript)
+    var runner = {
+        run : function amd_script_runner__run(moduleId, argumentModel)
         {
-            globalResult = executeAMDLoadableScript(moduleName);
-        });
+            var globalResult;
 
-        // reset to clean state after use
-        require.reset();
-    }
-    catch (e)
-    {
-        // reset to clean state after use
-        require.reset();
+            require([ 'args', 'executeAMDLoadableScript' ], function amd_script_runner__handleResult(args, executeAMDLoadableScript)
+            {
+                args.setArgumentModel(argumentModel);
+                globalResult = executeAMDLoadableScript(moduleId);
+            });
 
-        throw e;
-    }
+            return globalResult;
+        }
+    };
 
-    return globalResult;
+    return runner;
 }());

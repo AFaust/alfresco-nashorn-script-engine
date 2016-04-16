@@ -1,21 +1,12 @@
+/* globals SimpleLogger: false */
 /* globals -define */
 (function noSuchProperty()
 {
     'use strict';
 
-    var _this, defaultNoSuchPropertyImpl, noSuchPropertyImpl, logger, Java, protectedProperties;
+    var _this, defaultNoSuchPropertyImpl, noSuchPropertyImpl, logger;
 
-    Java = require('nashorn!Java');
-    logger = Java.type('org.slf4j.LoggerFactory').getLogger(
-            'de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.noSuchProperty');
-
-    protectedProperties = {
-        _preloadModule : true,
-        _loadableModule : true,
-        _scriptContextUUID : true,
-        _argumentModel : true,
-        _executionKey : true
-    };
+    logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.noSuchProperty');
 
     _this = this;
     defaultNoSuchPropertyImpl = this.__noSuchProperty__;
@@ -28,28 +19,25 @@
 
         result = defaultResult;
 
-        if (protectedProperties[propName] !== true)
+        logger.trace('Trying to load legacy root object {}', propName);
+
+        // tag our caller as the actual caller to require
+        restoreFn = require.tagCallerScript(true);
+        try
         {
-            logger.trace('Trying to load legacy root object {}', propName);
-
-            // tag our caller as the actual caller to require
-            restoreFn = require.tagCallerScript(true);
-            try
+            require([ 'legacyRootObjects!' + propName ], function __noSuchProperty__require_callback(value)
             {
-                require([ 'legacyRootObject!' + propName ], function __noSuchProperty__require_callback(value)
-                {
-                    logger.debug('Resolved {} for legacy root object {}', value, propName);
-                    result = value;
-                });
+                logger.debug('Resolved {} for legacy root object {}', value, propName);
+                result = value;
+            });
 
-                restoreFn();
-            }
-            catch (e)
-            {
-                restoreFn();
-                logger.debug('Failed to load legacy root object {}', propName);
-                result = defaultResult;
-            }
+            restoreFn();
+        }
+        catch (e)
+        {
+            restoreFn();
+            logger.debug('Failed to load legacy root object {}', propName);
+            result = defaultResult;
         }
 
         return result;

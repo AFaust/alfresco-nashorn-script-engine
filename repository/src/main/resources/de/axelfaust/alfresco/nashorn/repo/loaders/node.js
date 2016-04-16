@@ -1,5 +1,5 @@
 /* globals -require */
-/* globals _scriptContextUUID */
+/* globals SimpleLogger: false */
 // despite this file's name it has nothing to do with Node.js
 define('node', [ 'define', 'nashorn!Java', 'serviceRegistry!NamespaceService', 'serviceRegistry!DictionaryService',
         'serviceRegistry!NodeService', 'serviceRegistry!PermissionService', 'serviceRegistry!ContentService',
@@ -7,13 +7,16 @@ define('node', [ 'define', 'nashorn!Java', 'serviceRegistry!NamespaceService', '
         PermissionService, ContentService, SearchService)
 {
     'use strict';
-    var loader, logger, URL, NodeURLHandler, urlHandler, isObject;
+    var loader, logger, URL, NodeURLHandler, urlHandler, NashornScriptModel, executionState, UUID, isObject;
 
-    logger = Java.type('org.slf4j.LoggerFactory').getLogger(
-            'de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.node');
+    logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.node');
     URL = Java.type('java.net.URL');
     NodeURLHandler = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.NodeURLHandler');
     urlHandler = new NodeURLHandler(NamespaceService, DictionaryService, NodeService, PermissionService, ContentService, SearchService);
+
+    NashornScriptModel = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel');
+    executionState = NashornScriptModel.newAssociativeContainer();
+    UUID = Java.type('java.util.UUID');
 
     isObject = function node_loader__isObject(o)
     {
@@ -46,7 +49,7 @@ define('node', [ 'define', 'nashorn!Java', 'serviceRegistry!NamespaceService', '
          */
         normalize : function node_loader__normalize(moduleId, normalizeSimpleId, contextModule)
         {
-            var normalizedModuleId, baseModuleId;
+            var normalizedModuleId, baseModuleId, scriptContextUUID;
 
             normalizedModuleId = moduleId;
             if (isObject(contextModule))
@@ -67,7 +70,14 @@ define('node', [ 'define', 'nashorn!Java', 'serviceRegistry!NamespaceService', '
                 baseModuleId = moduleId;
             }
 
-            normalizedModuleId = urlHandler.normalizeModuleId(_scriptContextUUID, baseModuleId);
+            scriptContextUUID = executionState.scriptContextUUID;
+            if (scriptContextUUID === undefined || scriptContextUUID === null)
+            {
+                scriptContextUUID = String(UUID.randomUUID());
+                executionState.scriptContextUUID = scriptContextUUID;
+            }
+
+            normalizedModuleId = urlHandler.normalizeModuleId(scriptContextUUID, baseModuleId);
             logger.debug('Normalized module id "{}" to "{}"', moduleId, normalizedModuleId);
 
             return normalizedModuleId;
