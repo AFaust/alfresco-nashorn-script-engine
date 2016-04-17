@@ -412,12 +412,15 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
             LOGGER.trace("Checking for extension scripts");
 
-            // 6) configured JavaScript extension modules
+            // 6) configured JavaScript base modules
+            this.initScriptContextBaseModules(this.amdPreloader);
+
+            // 7) configured JavaScript extension modules
             this.initScriptContextExtensions(this.amdPreloader);
 
             LOGGER.trace("Finalizing script context");
 
-            // 7) AMD config
+            // 8) AMD config
             try
             {
                 resource = this.amdConfig.getURL();
@@ -428,10 +431,10 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
                 throw new ScriptException(ioex);
             }
 
-            // 8) remove any init data that shouldn't be publicly available
+            // 9) remove any init data that shouldn't be publicly available
             globalBindings.clear();
 
-            // 9) obtain the runner interface
+            // 10) obtain the runner interface
             resource = NashornScriptProcessor.class.getResource(SCRIPE_AMD_SCRIPT_RUNNER);
             final Object scriptRunnerObj = this.executeScriptFromResource(resource);
             this.amdRunner = ((Invocable) this.engine).getInterface(scriptRunnerObj, AMDScriptRunner.class);
@@ -455,6 +458,31 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
             else
             {
                 throw new org.alfresco.scripts.ScriptException("Unknown error initializing script context - reset to previous state", t);
+            }
+        }
+    }
+
+    protected void initScriptContextBaseModules(final AMDModulePreloader amdPreloader) throws ScriptException
+    {
+        final Object extensionScriptsValue = this.globalProperties.get("nashornJavaScriptProcessor.baseScripts");
+        if (extensionScriptsValue instanceof String && !((String) extensionScriptsValue).trim().isEmpty())
+        {
+            final String[] scriptNames = ((String) extensionScriptsValue).trim().split("\\s*,\\s*");
+
+            LOGGER.debug("Processing {} base scripts", Integer.valueOf(scriptNames.length));
+
+            for (final String scriptName : scriptNames)
+            {
+                final String moduleIdKey = MessageFormat.format("nashornJavaScriptProcessor.baseScript.{0}.moduleId", scriptName);
+                final String loaderNameKey = MessageFormat.format("nashornJavaScriptProcessor.baseScript.{0}.loaderName", scriptName);
+
+                final Object moduleIdValue = this.globalProperties.get(moduleIdKey);
+                final Object loaderNameValue = this.globalProperties.get(loaderNameKey);
+
+                if (moduleIdValue instanceof String && loaderNameValue instanceof String)
+                {
+                    this.preloadAMDModule(loaderNameValue, moduleIdValue);
+                }
             }
         }
     }
