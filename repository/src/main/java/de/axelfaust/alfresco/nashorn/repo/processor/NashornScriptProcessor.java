@@ -34,6 +34,7 @@ import javax.script.ScriptException;
 import javax.script.SimpleBindings;
 
 import jdk.nashorn.api.scripting.URLReader;
+
 import org.alfresco.repo.jscript.ClasspathScriptLocation;
 import org.alfresco.repo.processor.BaseProcessor;
 import org.alfresco.service.cmr.module.ModuleDependency;
@@ -57,6 +58,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.core.io.Resource;
 
+import de.axelfaust.alfresco.nashorn.repo.loaders.CacheableResolutionURLConnection;
 import de.axelfaust.alfresco.nashorn.repo.loaders.CallerProvidedURLConnection;
 
 /**
@@ -318,6 +320,8 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         {
             this.initialisationStateLock.writeLock().unlock();
         }
+
+        CacheableResolutionURLConnection.clearCachedResolutions();
     }
 
     protected Object executeAMDLoadableScript(final AMDLoadableScript script, final Map<String, Object> model)

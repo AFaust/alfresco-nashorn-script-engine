@@ -13,27 +13,58 @@
  */
 package de.axelfaust.alfresco.nashorn.repo.loaders;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLConnection;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
-import org.alfresco.error.AlfrescoRuntimeException;
+import org.alfresco.util.Pair;
+import org.alfresco.util.TempFileProvider;
+import org.apache.commons.io.FileUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.util.ResourceUtils;
 
 /**
  *
  * @author Axel Faust
  */
-public class AlfrescoClasspathURLConnection extends URLConnection
+public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnection
 {
 
-    protected transient URL resource;
+    private static final String TMP_DIRECTORY = "Alfresco-Nashorn-ScriptsFromJARs";
 
-    // sun.net.www.protocol.file.FileURLConnection may hold some unclosed FileInputStream(s) open that we want to see GCed (implicitly
-    // closed) as soon as possible but aggressively clearing realConnection does not help either
-    // TODO Implement optimisations to avoid FileURLConnection when possible (e.g. exploded source files via regular File)
-    protected transient URLConnection realConnection;
+    private static final Logger LOGGER = LoggerFactory.getLogger(AlfrescoClasspathURLConnection.class);
+
+    private static final URL SENTINEL;
+    static
+    {
+        URL sentinel;
+        try
+        {
+            sentinel = new URL("file://sentinel");
+        }
+        catch (final MalformedURLException ignore)
+        {
+            sentinel = null;
+        }
+        SENTINEL = sentinel;
+    }
+
+    protected static final Map<URL, File> EXTRACTED_JAR_SCRIPTS = new HashMap<URL, File>();
+
+    protected static final Map<URL, File> RESOLVED_SCRIPT_FILES = new HashMap<URL, File>();
+
+    protected transient ClassPathResource resource;
+
+    protected transient File file;
 
     protected String basePath = "alfresco";
 
@@ -111,7 +142,21 @@ public class AlfrescoClasspathURLConnection extends URLConnection
         if (this.contentLength == -1)
         {
             this.ensureRealConnection();
-            this.contentLength = this.realConnection.getContentLengthLong();
+            if (this.file != null)
+            {
+                this.contentLength = this.file.length();
+            }
+            else
+            {
+                try
+                {
+                    this.contentLength = this.resource.contentLength();
+                }
+                catch (final IOException ioex)
+                {
+                    LOGGER.debug("Error getting contentLength from classpath resource", ioex);
+                }
+            }
         }
 
         return this.contentLength;
@@ -126,7 +171,22 @@ public class AlfrescoClasspathURLConnection extends URLConnection
         if (this.lastModified == -1)
         {
             this.ensureRealConnection();
-            this.lastModified = this.realConnection.getLastModified();
+            if (this.file != null)
+            {
+                this.contentLength = this.file.lastModified();
+            }
+            else
+            {
+                try
+                {
+                    this.contentLength = this.resource.lastModified();
+                }
+                catch (final IOException ioex)
+                {
+                    LOGGER.debug("Error getting lastModified from classpath resource", ioex);
+                    this.contentLength = Long.MAX_VALUE;
+                }
+            }
         }
         return this.lastModified;
     }
@@ -141,88 +201,174 @@ public class AlfrescoClasspathURLConnection extends URLConnection
         this.ensureRealConnection();
 
         // this assumes UTF-8
-        final InputStream result = new StrictScriptEnforcingSourceInputStream(this.realConnection.getInputStream());
+        final InputStream result;
+        if (this.file != null)
+        {
+            result = new StrictScriptEnforcingSourceInputStream(new FileInputStream(this.file));
+        }
+        else
+        {
+            result = new StrictScriptEnforcingSourceInputStream(this.resource.getInputStream());
+        }
         return result;
     }
 
     protected void ensureRealConnection()
     {
-        if (this.realConnection == null)
+        if (this.resource == null)
         {
-            if (this.resource == null)
+            final StringBuilder pathBuilder = new StringBuilder();
+
+            if (this.basePathLength > 0)
             {
-                final StringBuilder pathBuilder = new StringBuilder();
+                pathBuilder.append(this.basePath);
+                pathBuilder.append('/');
+            }
+            pathBuilder.append(this.url.getPath());
 
-                if (this.basePathLength > 0)
+            final ClassLoader classLoader = this.getClass().getClassLoader();
+
+            for (final String suffix : Arrays.asList(null, ".nashornjs", ".js"))
+            {
+                Pair<ClassPathResource, File> resolved = null;
+
+                if (suffix != null)
                 {
-                    pathBuilder.append(this.basePath);
-                    pathBuilder.append('/');
+                    pathBuilder.append(suffix);
                 }
-                pathBuilder.append(this.url.getPath());
 
-                final ClassLoader classLoader = this.getClass().getClassLoader();
-
-                for (final String suffix : Arrays.asList(null, ".nashornjs", ".js"))
+                if (this.allowExtension && this.extensionPathLength > 0)
                 {
-                    if (this.resource == null)
+                    if (this.basePathLength > 0)
                     {
-                        if (suffix != null)
-                        {
-                            pathBuilder.append(suffix);
-                        }
+                        pathBuilder.insert(this.basePathLength, '/');
+                        pathBuilder.insert(this.basePathLength + 1, this.extensionPath);
+                    }
+                    else
+                    {
+                        pathBuilder.insert(0, this.extensionPath);
+                        pathBuilder.insert(this.extensionPathLength, '/');
+                    }
 
-                        if (this.allowExtension && this.extensionPathLength > 0)
-                        {
-                            if (this.basePathLength > 0)
-                            {
-                                pathBuilder.insert(this.basePathLength, '/');
-                                pathBuilder.insert(this.basePathLength + 1, this.extensionPath);
-                            }
-                            else
-                            {
-                                pathBuilder.insert(0, this.extensionPath);
-                                pathBuilder.insert(this.extensionPathLength, '/');
-                            }
+                    resolved = checkAndResolvePath(pathBuilder, classLoader);
 
-                            this.resource = classLoader.getResource(pathBuilder.toString());
-
-                            if (this.basePathLength > 0)
-                            {
-
-                                pathBuilder.delete(this.basePathLength, this.basePathLength + this.extensionPathLength + 1);
-                            }
-                            else
-                            {
-                                pathBuilder.delete(0, this.extensionPathLength + 1);
-                            }
-                        }
-
-                        if (this.resource == null)
-                        {
-                            this.resource = classLoader.getResource(pathBuilder.toString());
-                        }
-
-                        if (suffix != null)
-                        {
-                            pathBuilder.delete(pathBuilder.length() - suffix.length(), pathBuilder.length());
-                        }
+                    if (this.basePathLength > 0)
+                    {
+                        pathBuilder.delete(this.basePathLength, this.basePathLength + this.extensionPathLength + 1);
+                    }
+                    else
+                    {
+                        pathBuilder.delete(0, this.extensionPathLength + 1);
                     }
                 }
 
-                if (this.resource == null)
+                if (resolved == null)
                 {
-                    throw new IllegalStateException("No resource found for classpath: " + pathBuilder);
+                    resolved = checkAndResolvePath(pathBuilder, classLoader);
+                }
+
+                if (suffix != null)
+                {
+                    pathBuilder.delete(pathBuilder.length() - suffix.length(), pathBuilder.length());
+                }
+
+                if (resolved != null)
+                {
+                    this.resource = resolved.getFirst();
+                    this.file = resolved.getSecond();
+                    break;
                 }
             }
 
-            try
+            if (this.resource == null)
             {
-                this.realConnection = this.resource.openConnection();
-            }
-            catch (final IOException ioex)
-            {
-                throw new AlfrescoRuntimeException("Error handling classpath script URL", ioex);
+                LOGGER.debug("No resource found for {}", this.url);
+                throw new IllegalStateException("No resource found for classpath: " + pathBuilder);
             }
         }
+    }
+
+    protected static Pair<ClassPathResource, File> checkAndResolvePath(final StringBuilder pathBuilder, final ClassLoader classLoader)
+    {
+        Pair<ClassPathResource, File> resolved = null;
+
+        final String path = pathBuilder.toString();
+
+        LOGGER.debug("Resolving {}", path);
+        final ClassPathResource testResource = new ClassPathResource(path, classLoader);
+        try
+        {
+            URL testURL;
+
+            // we save some of the getURL cost by caching resolution (reset via script processor)
+            testURL = getCachedResolution("classpath", path);
+            if (testURL == null)
+            {
+                testURL = testResource.getURL();
+                // equivalent to exists()
+                if (testURL != null)
+                {
+                    registerCachedResolution("classpath", path, testURL);
+                }
+                else
+                {
+                    registerCachedResolution("classpath", path, SENTINEL);
+                }
+            }
+
+            if (testURL != null && testURL != SENTINEL)
+            {
+                if (ResourceUtils.isJarURL(testURL))
+                {
+                    File extractedJARScript = EXTRACTED_JAR_SCRIPTS.get(testURL);
+                    if (extractedJARScript == null || !extractedJARScript.exists())
+                    {
+                        // we extract JAR-contained scripts once to avoid unpack overhead
+                        // as well as cost for lastModified/contentLength access via ClassPathResource
+                        final File tmpDir = TempFileProvider.getTempDir(TMP_DIRECTORY);
+                        extractedJARScript = new File(tmpDir, UUID.randomUUID().toString());
+
+                        FileUtils.copyInputStreamToFile(testResource.getInputStream(), extractedJARScript);
+                        EXTRACTED_JAR_SCRIPTS.put(testURL, extractedJARScript);
+
+                        extractedJARScript.setLastModified(testResource.lastModified());
+                    }
+
+                    resolved = new Pair<ClassPathResource, File>(testResource, extractedJARScript);
+                }
+                else
+                {
+                    resolved = new Pair<ClassPathResource, File>(testResource, null);
+                    // avoid repeated resolution costs
+                    // again we want file to avoid cost for lastModified/contentLength via ClassPathResource
+                    File file = RESOLVED_SCRIPT_FILES.get(testURL);
+                    if (ResourceUtils.isFileURL(testURL))
+                    {
+                        try
+                        {
+                            file = ResourceUtils.getFile(testURL);
+                            RESOLVED_SCRIPT_FILES.put(testURL, file);
+                        }
+                        catch (final IOException getFileIO)
+                        {
+                            // expected possibility
+                            LOGGER.trace("Failed to resolve classpath resource to a file", getFileIO);
+                        }
+                    }
+                    resolved.setSecond(file);
+                }
+
+                LOGGER.debug("Resolved {} to {}", path, resolved);
+            }
+        }
+        catch (final IOException ioEx)
+        {
+            // expected possibility
+            LOGGER.trace("IOException during getURL", ioEx);
+
+            registerCachedResolution("classpath", path, SENTINEL);
+        }
+
+        return resolved;
     }
 }
