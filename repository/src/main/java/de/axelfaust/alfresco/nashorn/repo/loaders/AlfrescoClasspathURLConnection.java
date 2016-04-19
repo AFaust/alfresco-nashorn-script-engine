@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -33,6 +34,9 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.util.ResourceUtils;
 
 /**
+ * Instances of this class provide an URL connection abstraction over classpath loaded scripts, optionally able to provide override
+ * semantics using a special extension path. The resolution of scripts will be cached to improve overall performance when used to load many
+ * small scripts, such as would be the case in an AMD module system scenario.
  *
  * @author Axel Faust
  */
@@ -42,21 +46,6 @@ public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnec
     private static final String TMP_DIRECTORY = "Alfresco-Nashorn-ScriptsFromJARs";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AlfrescoClasspathURLConnection.class);
-
-    private static final URL SENTINEL;
-    static
-    {
-        URL sentinel;
-        try
-        {
-            sentinel = new URL("file://sentinel");
-        }
-        catch (final MalformedURLException ignore)
-        {
-            sentinel = null;
-        }
-        SENTINEL = sentinel;
-    }
 
     protected static final Map<URL, File> EXTRACTED_JAR_SCRIPTS = new HashMap<URL, File>();
 
@@ -127,7 +116,7 @@ public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnec
         if (!this.connected)
         {
             // this is primarily a validation step
-            this.ensureRealConnection();
+            this.ensureScriptExists();
 
             this.connected = true;
         }
@@ -141,7 +130,7 @@ public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnec
     {
         if (this.contentLength == -1)
         {
-            this.ensureRealConnection();
+            this.ensureScriptExists();
             if (this.file != null)
             {
                 this.contentLength = this.file.length();
@@ -170,7 +159,7 @@ public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnec
     {
         if (this.lastModified == -1)
         {
-            this.ensureRealConnection();
+            this.ensureScriptExists();
             if (this.file != null)
             {
                 this.contentLength = this.file.lastModified();
@@ -194,11 +183,12 @@ public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnec
     /**
      * {@inheritDoc}
      */
+    @SuppressWarnings("resource")
     @Override
     public InputStream getInputStream() throws IOException
     {
         this.connect();
-        this.ensureRealConnection();
+        this.ensureScriptExists();
 
         // this assumes UTF-8
         final InputStream result;
@@ -210,10 +200,15 @@ public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnec
         {
             result = new StrictScriptEnforcingSourceInputStream(this.resource.getInputStream());
         }
+
         return result;
     }
 
-    protected void ensureRealConnection()
+    /**
+     * Ensures that the script referenced by the abstract classpath URL of this instance actually exists and prepares internal state for all
+     * operations that {@link URLConnection} needs to provide.
+     */
+    protected void ensureScriptExists()
     {
         if (this.resource == null)
         {
@@ -250,7 +245,7 @@ public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnec
                         pathBuilder.insert(this.extensionPathLength, '/');
                     }
 
-                    resolved = checkAndResolvePath(pathBuilder, classLoader);
+                    resolved = checkAndResolvePath(pathBuilder.toString(), classLoader);
 
                     if (this.basePathLength > 0)
                     {
@@ -264,7 +259,7 @@ public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnec
 
                 if (resolved == null)
                 {
-                    resolved = checkAndResolvePath(pathBuilder, classLoader);
+                    resolved = checkAndResolvePath(pathBuilder.toString(), classLoader);
                 }
 
                 if (suffix != null)
@@ -288,11 +283,19 @@ public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnec
         }
     }
 
-    protected static Pair<ClassPathResource, File> checkAndResolvePath(final StringBuilder pathBuilder, final ClassLoader classLoader)
+    /**
+     * Checks if a script exists at a specific path and resolves it to the according classpath resource and/or file handle for further
+     * processing.
+     *
+     * @param path
+     *            the path to check and resolve
+     * @param classLoader
+     *            the context class loader to use for resolution
+     * @return the resolved classpath resource and/or file handle, or {@code null} if no resource/file could be resolved for the given path
+     */
+    protected static Pair<ClassPathResource, File> checkAndResolvePath(final String path, final ClassLoader classLoader)
     {
         Pair<ClassPathResource, File> resolved = null;
-
-        final String path = pathBuilder.toString();
 
         LOGGER.debug("Resolving {}", path);
         final ClassPathResource testResource = new ClassPathResource(path, classLoader);
@@ -326,7 +329,7 @@ public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnec
                         // we extract JAR-contained scripts once to avoid unpack overhead
                         // as well as cost for lastModified/contentLength access via ClassPathResource
                         final File tmpDir = TempFileProvider.getTempDir(TMP_DIRECTORY);
-                        extractedJARScript = new File(tmpDir, UUID.randomUUID().toString());
+                        extractedJARScript = new File(tmpDir, UUID.randomUUID() + ".js");
 
                         FileUtils.copyInputStreamToFile(testResource.getInputStream(), extractedJARScript);
                         EXTRACTED_JAR_SCRIPTS.put(testURL, extractedJARScript);
