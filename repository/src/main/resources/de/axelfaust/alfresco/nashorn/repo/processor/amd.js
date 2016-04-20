@@ -18,7 +18,7 @@
     // internal error subtype
     UnavailableModuleError,
     // Java utils
-    NashornUtils, NashornScriptModel, Throwable, URL, AlfrescoClasspathURLStreamHandler, streamHandler, logger,
+    NashornUtils, NashornScriptModel, NashornScriptProcessor, Throwable, URL, AlfrescoClasspathURLStreamHandler, streamHandler, logger,
     // meta loader module
     loaderMetaLoader,
     // public fns
@@ -26,6 +26,7 @@
 
     NashornUtils = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils');
     NashornScriptModel = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel');
+    NashornScriptProcessor = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor');
     Throwable = Java.type('java.lang.Throwable');
     URL = Java.type('java.net.URL');
     logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.amd');
@@ -357,6 +358,12 @@
 
                     // simply remap the existing module
                     modules[normalizedId] = modules[moduleByUrl[urlStr].id];
+
+                    // if still in initialisation add to backup
+                    if (NashornScriptProcessor.isInEngineContextInitialization() && Object.keys(moduleBackup).length > 0)
+                    {
+                        moduleBackup[normalizedId] = modules[normalizedId];
+                    }
                 }
                 else
                 {
@@ -423,6 +430,12 @@
                             });
                         }
                         modules[normalizedId] = module;
+
+                        // if still in initialisation add to backup
+                        if (NashornScriptProcessor.isInEngineContextInitialization() && Object.keys(moduleBackup).length > 0)
+                        {
+                            moduleBackup[normalizedId] = module;
+                        }
                     }
                 }
             }
@@ -464,6 +477,12 @@
                 if (typeof overrideUrl === 'string')
                 {
                     moduleByUrl[overrideUrl] = module;
+                }
+
+                // if still in initialisation add to backup
+                if (NashornScriptProcessor.isInEngineContextInitialization() && Object.keys(moduleBackup).length > 0)
+                {
+                    moduleBackup[normalizedId] = module;
                 }
             }
         }
@@ -1402,6 +1421,12 @@
 
         modules[id] = module;
         moduleByUrl[contextScriptUrl] = module;
+
+        // if still in initialisation add to backup
+        if (NashornScriptProcessor.isInEngineContextInitialization() && Object.keys(moduleBackup).length > 0)
+        {
+            moduleBackup[id] = modules[id];
+        }
     };
 
     // TODO Expand into a generic "asModule" supporting modifiers such as "secureUse", "clientModuleAware"...

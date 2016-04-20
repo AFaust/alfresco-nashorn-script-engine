@@ -2,10 +2,11 @@
 define('_base/ConversionService', [ 'nashorn!Java', './JavaConvertableMixin' ], function _base_ConversionService_root(Java,
         JavaConvertableMixin)
 {
+    'use strict';
     // actually exported elements
     var service, convertToJava, convertToScript, registerJavaToScriptConverter,
     // internal Java types
-    ISO8601DateFormat, Pattern, NashornScriptModel, NashornScriptProcessor, JavaClass,
+    ISO8601DateFormat, Pattern, NashornScriptModel, NashornScriptProcessor, JavaClass, JavaSystem,
     // internal data structures
     javaConversionCache, javaTypeConversionRegistry, globalJavaTypeConversionRegistry;
 
@@ -14,6 +15,7 @@ define('_base/ConversionService', [ 'nashorn!Java', './JavaConvertableMixin' ], 
     NashornScriptModel = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel');
     NashornScriptProcessor = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor');
     JavaClass = Java.type('java.lang.Class');
+    JavaSystem = Java.type('java.lang.System');
 
     javaConversionCache = NashornScriptModel.newAssociativeContainer();
     javaTypeConversionRegistry = NashornScriptModel.newAssociativeContainer();
@@ -55,21 +57,21 @@ define('_base/ConversionService', [ 'nashorn!Java', './JavaConvertableMixin' ], 
                 }
                 else if (scriptObject instanceof Date)
                 {
-                    result = ISO8601DateFormat.parse(scriptObject.toISOString())
+                    result = ISO8601DateFormat.parse(scriptObject.toISOString());
                 }
                 else if (scriptObject instanceof RegExp)
                 {
                     flags = 0;
                     if (scriptObject.multiline())
                     {
-                        flags |= Pattern.MULTILINE;
+                        flags += Pattern.MULTILINE;
                     }
                     if (scriptObject.ignoreCase())
                     {
-                        flags |= Pattern.CASE_INSENSITIVE;
+                        flags += Pattern.CASE_INSENSITIVE;
                     }
                     // no special flag for global()
-                    result = Pattern.compile(scriptObject.source(), flags)
+                    result = Pattern.compile(scriptObject.source(), flags);
                 }
                 else if (Array.isArray(scriptObject))
                 {
@@ -94,32 +96,42 @@ define('_base/ConversionService', [ 'nashorn!Java', './JavaConvertableMixin' ], 
 
     convertToScript = function _base_ConversionService__convertToScript(javaObject)
     {
-        var result, converted, cls, clsName, converter;
+        var result, identityHashCode, converted, cls, clsName, converter;
 
         // default fallback
         result = javaObject;
 
         if (Java.isJavaObject(javaObject))
         {
-            cls = javaObject.class;
-            clsName = cls.name;
-            // TODO Consider inclusion of interfaces in converter resolution (e.g. as a catch-all for Map / List)
-            while (clsName !== 'java.lang.Object')
+            identityHashCode = String(JavaSystem.identityHashCode(javaObject));
+
+            if (identityHashCode in javaConversionCache)
             {
-                converter = javaTypeConversionRegistry[clsName] || globalJavaTypeConversionRegistry[clsName];
-
-                if (typeof converter === 'function')
-                {
-                    converted = converter(javaObject);
-                    if (converted !== undefined && converted !== null && converted !== javaObject)
-                    {
-                        result = converted;
-                        break;
-                    }
-                }
-
-                cls = cls.superclass;
+                result = javaConversionCache[identityHashCode];
+            }
+            else
+            {
+                cls = javaObject.class;
                 clsName = cls.name;
+                // TODO Consider inclusion of interfaces in converter resolution (e.g. as a catch-all for Map / List)
+                while (clsName !== 'java.lang.Object')
+                {
+                    converter = javaTypeConversionRegistry[clsName] || globalJavaTypeConversionRegistry[clsName];
+
+                    if (typeof converter === 'function')
+                    {
+                        converted = converter(javaObject);
+                        if (converted !== undefined && converted !== null && converted !== javaObject)
+                        {
+                            result = converted;
+                            javaConversionCache[identityHashCode] = result;
+                            break;
+                        }
+                    }
+
+                    cls = cls.superclass;
+                    clsName = cls.name;
+                }
             }
         }
 

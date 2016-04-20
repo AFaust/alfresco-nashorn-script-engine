@@ -1,6 +1,6 @@
 /* globals -require */
 /* globals SimpleLogger: false */
-define('args', [ 'nashorn!Java' ], function args_loader(Java)
+define('args', [ 'nashorn!Java', '_base/ConversionService' ], function args_loader(Java, ConversionService)
 {
     'use strict';
 
@@ -40,9 +40,10 @@ define('args', [ 'nashorn!Java' ], function args_loader(Java)
 
             logger.debug('Resolved {} from script argument model', result);
 
+            // convert potential Java object into script representation e.g. NodeRef into an instanceof of a ScriptNode-like module
+            result = ConversionService.convertToScript(result);
+
             // arguments are never considered secure
-            // TODO Use a converter registry to convert simple argument values into more intelligent script objects
-            // e.g. NodeRef into an instanceof of a ScriptNode-like module
             load(result, false);
         },
 

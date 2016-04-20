@@ -79,6 +79,19 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
     private static final String SCRIPE_AMD_SCRIPT_RUNNER = "amd-script-runner.js";
 
+    private static final ThreadLocal<Boolean> inEngineContextInitialization = new ThreadLocal<Boolean>();
+
+    /**
+     * Checks if the current thread is currently involved in script engine context initialization.
+     *
+     * @return {@code true} if the current thread is initializing a new script engine context
+     */
+    public static boolean isInEngineContextInitialization()
+    {
+        final boolean result = Boolean.TRUE.equals(inEngineContextInitialization.get());
+        return result;
+    }
+
     protected ScriptEngine engine;
 
     protected NamespaceService namespaceService;
@@ -368,6 +381,8 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         final Bindings oldEngineBindings = this.engine.getBindings(ScriptContext.ENGINE_SCOPE);
         final AMDModulePreloader oldPreloader = this.amdPreloader;
         final AMDScriptRunner oldAMDRunner = this.amdRunner;
+
+        inEngineContextInitialization.set(Boolean.TRUE);
         try (NashornScriptModel model = NashornScriptModel.openModel())
         {
             // create new (unpolluted) engine bindings
@@ -416,15 +431,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
             LOGGER.trace("Checking for extension scripts");
 
-            // 6) configured JavaScript base modules
-            this.initScriptContextBaseModules(this.amdPreloader);
-
-            // 7) configured JavaScript extension modules
-            this.initScriptContextExtensions(this.amdPreloader);
-
-            LOGGER.trace("Finalizing script context");
-
-            // 8) AMD config
+            // 6) AMD config
             try
             {
                 resource = this.amdConfig.getURL();
@@ -434,6 +441,14 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
             {
                 throw new ScriptException(ioex);
             }
+
+            // 7) configured JavaScript base modules
+            this.initScriptContextBaseModules(this.amdPreloader);
+
+            // 8) configured JavaScript extension modules
+            this.initScriptContextExtensions(this.amdPreloader);
+
+            LOGGER.trace("Finalizing script context");
 
             // 9) remove any init data that shouldn't be publicly available
             globalBindings.clear();
@@ -463,6 +478,10 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
             {
                 throw new org.alfresco.scripts.ScriptException("Unknown error initializing script context - reset to previous state", t);
             }
+        }
+        finally
+        {
+            inEngineContextInitialization.remove();
         }
     }
 
