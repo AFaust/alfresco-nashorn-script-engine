@@ -515,6 +515,7 @@ define(
 
                 // MAYBE Add special functions (extend / createSubclass) to ctor (if we need to support them)
 
+                // TODO instead of mixing in these fns, create a transparent base class to inherit them from
                 proto.isInstanceOf = isInstanceOf;
                 proto.inherited = inherited;
                 // TODO Add 'standard' methods to proto

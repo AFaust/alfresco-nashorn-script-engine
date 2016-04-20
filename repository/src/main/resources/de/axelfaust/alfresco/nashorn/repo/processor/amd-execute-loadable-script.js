@@ -1,7 +1,7 @@
 /* globals -require */
 // wrapped as a module so any other modules behave properly (i.e. logger)
-define('executeAMDLoadableScript', [ 'require', '_base/logger', '_base/JavaConvertableMixin' ], function amd_execute_loadable_script(
-        require, logger, JavaConvertableMixin)
+define('executeAMDLoadableScript', [ 'require', '_base/logger', '_base/ConversionService' ], function amd_execute_loadable_script(
+        require, logger, ConversionService)
 {
     'use strict';
     var executeFn;
@@ -61,20 +61,7 @@ define('executeAMDLoadableScript', [ 'require', '_base/logger', '_base/JavaConve
         };
 
         require([ moduleName ], fnResolved, fnResolveFailed);
-
-        if (result !== undefined && result !== null)
-        {
-            if (result instanceof JavaConvertableMixin
-                    || (typeof result.isInstanceOf === 'function' && result.isInstanceOf(JavaConvertableMixin)))
-            {
-                result = result.getJavaValue();
-            }
-            else if (result.javaValue !== undefined && result.javaValue !== null)
-            {
-                result = result.javaValue;
-            }
-        }
-
+        result = ConversionService.convertToJava(result);
         return result;
     };
 
