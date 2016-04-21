@@ -34,14 +34,16 @@ define('args', [ 'nashorn!Java', '_base/ConversionService' ], function args_load
         {
             var result;
 
-            logger.debug('Trying to load {} from script argument model', normalizedId);
+            logger.trace('Trying to load {} from script argument model', normalizedId);
 
             result = (executionState.argumentModel || {})[normalizedId];
 
-            logger.debug('Resolved {} from script argument model', result);
+            logger.trace('Resolved {} from script argument model', result);
 
             // convert potential Java object into script representation e.g. NodeRef into an instanceof of a ScriptNode-like module
             result = ConversionService.convertToScript(result);
+            
+            logger.debug('Resolved {} from script argument model (including conversion)', result);
 
             // arguments are never considered secure
             load(result, false);

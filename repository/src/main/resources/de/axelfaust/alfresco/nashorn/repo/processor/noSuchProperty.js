@@ -27,7 +27,7 @@
         {
             require([ 'legacyRootObjects!' + propName ], function __noSuchProperty__require_callback(value)
             {
-                logger.debug('Resolved {} for legacy root object {}', value, propName);
+                logger.debug('Resolved "{}" for legacy root object {}', value, propName);
                 result = value;
             });
 

@@ -14,304 +14,226 @@
  */
 /* globals -require */
 /* globals SimpleLogger: false */
-define(
-        [ 'require', 'nashorn!Java' ],
-        function logger(require, Java)
+define([ 'require', 'nashorn!Java' ], function logger(require, Java)
+{
+    'use strict';
+    var loggerModule, getSimpleLogger, isEnabledImpl, logImpl, loggerByScriptUrl = {}, Throwable;
+
+    Throwable = Java.type('java.lang.Throwable');
+
+    getSimpleLogger = function logger__getSimpleLogger()
+    {
+        var callerScriptURL, callerScriptModuleId, callerScriptModuleLoader, logger;
+
+        callerScriptURL = require.getCallerScriptURL(true);
+
+        if (loggerByScriptUrl.hasOwnProperty(callerScriptURL))
         {
-            'use strict';
-            var loggerModule, getSimpleLogger, isEnabledImpl, logImpl, loggerByScriptUrl = {}, Throwable, NativeLogMessageArgumentWrapper;
+            logger = loggerByScriptUrl[callerScriptURL];
+        }
+        else
+        {
+            callerScriptModuleId = require.getCallerScriptModuleId(true);
+            callerScriptModuleLoader = require.getCallerScriptModuleLoader(true);
 
-            Throwable = Java.type('java.lang.Throwable');
-            NativeLogMessageArgumentWrapper = Java.type('de.axelfaust.alfresco.nashorn.repo.utils.NativeLogMessageArgumentWrapper');
-
-            getSimpleLogger = function logger__getSimpleLogger()
+            if (typeof callerScriptModuleId === 'string')
             {
-                var callerScriptURL, callerScriptModuleId, callerScriptModuleLoader, logger;
-
-                callerScriptURL = require.getCallerScriptURL(true);
-
-                if (loggerByScriptUrl.hasOwnProperty(callerScriptURL))
-                {
-                    logger = loggerByScriptUrl[callerScriptURL];
-                }
-                else
-                {
-                    callerScriptModuleId = require.getCallerScriptModuleId(true);
-                    callerScriptModuleLoader = require.getCallerScriptModuleLoader(true);
-
-                    if (typeof callerScriptModuleId === 'string')
-                    {
-                        logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
-                                + callerScriptModuleLoader + '.' + callerScriptModuleId.replace(/\//, '.'));
-                    }
-                    else
-                    {
-                        // TODO Try to simplify (common) script URLs for shorter, easier-to-handle logger names
-                        logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
-                                + callerScriptURL);
-                    }
-                    loggerByScriptUrl[callerScriptURL] = logger;
-                }
-
-                return logger;
-            };
-
-            isEnabledImpl = function logger__isEnabledImpl(level)
+                logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
+                        + callerScriptModuleLoader + '.' + callerScriptModuleId.replace(/\//g, '.'));
+            }
+            else
             {
-                var logger = getSimpleLogger(), prop, isEnabled = false;
+                // TODO Try to simplify (common) script URLs for shorter, easier-to-handle logger names
+                logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.' + callerScriptURL);
+            }
+            loggerByScriptUrl[callerScriptURL] = logger;
+        }
 
-                prop = (level || 'debug') + 'Enabled';
-                isEnabled = logger[prop];
+        return logger;
+    };
 
-                return isEnabled;
-            };
+    isEnabledImpl = function logger__isEnabledImpl(level)
+    {
+        var logger = getSimpleLogger(), prop, isEnabled = false;
 
-            logImpl = function logger__logImpl(level, args)
-            {
-                var message, ex, values, idx, logger, enabledProp, meth;
+        prop = (level || 'debug') + 'Enabled';
+        isEnabled = logger[prop];
 
-                // we could delegate to isEnabledImpl but that would mean retrieving logger potentially twice
-                logger = getSimpleLogger();
-                enabledProp = (level || 'debug') + 'Enabled';
+        return isEnabled;
+    };
 
-                // to avoid interop performance overhead we should drop out as soon as possible
-                if (logger[enabledProp])
-                {
-                    // TODO Determine caller fn + line and expose via MDC
+    logImpl = function logger__logImpl(level, args)
+    {
+        var logger, enabledProp, meth;
 
-                    for (idx = 0; idx < args.length; idx++)
-                    {
-                        if (idx === 0 && typeof args[idx] === 'string')
-                        {
-                            message = args[idx];
-                        }
+        // we could delegate to isEnabledImpl but that would mean retrieving logger potentially twice
+        logger = getSimpleLogger();
+        enabledProp = String((level || 'debug') + 'Enabled');
 
-                        if (idx > 0 && message !== undefined)
-                        {
-                            if (idx === 1
-                                    && args.length === 2
-                                    && (args[idx] instanceof Throwable || (args[idx] instanceof Error && args[idx].nashornException instanceof Throwable)))
-                            {
-                                // best-effort attempt - requires correct inheritance
-                                if (args[idx] instanceof Error && args[idx].nashornException instanceof Throwable)
-                                {
-                                    ex = args[idx].nashornException;
-                                }
-                                else
-                                {
-                                    ex = args[idx];
-                                }
-                            }
-                            else if (ex === undefined)
-                            {
-                                if (values === undefined)
-                                {
-                                    values = [];
-                                }
+        // to avoid interop performance overhead we should drop out as soon as possible
+        if (logger[enabledProp])
+        {
+            // TODO Determine caller fn + line and expose via MDC
+            meth = level || 'debug';
+            logger[meth].apply(logger, args);
+        }
+    };
 
-                                switch (typeof args[idx])
-                                {
-                                    case 'object':
-                                    case 'function':
-                                        // typeof null === 'object' so exclude here
-                                        // also: typeof javaObj === 'object' so add instanceof check against native prototype too
-                                        if (args[idx] !== null && (args[idx] instanceof Object || args[idx] instanceof Function))
-                                        {
-                                            if (!(args[idx] instanceof Function) || args[idx].name === 'toString')
-                                            {
-                                                // script objects passed to logger would not have their JS toString called
-                                                values.push(new NativeLogMessageArgumentWrapper(args[idx]));
-                                            }
-                                            else
-                                            {
-                                                // ToStringFunction functional interface captures any function, even constructors
-                                                values.push(new NativeLogMessageArgumentWrapper(Function.prototype.bind.call(
-                                                        args[idx].toString, args[idx])));
-                                            }
-                                        }
-                                        else
-                                        {
-                                            values.push(args[idx]);
-                                        }
-                                        break;
-                                    default:
-                                        values.push(args[idx]);
-                                }
-                            }
-                        }
-                    }
+    // TODO Provide option to hook in dynamic log delegates (i.e. for JavaScript Console)
+    /**
+     * This module provides basic logging capabilities and delegates to SLF4J (which in turn will most likely be backed by Log4J). The
+     * logging functionality of this module is caller-aware, meaning that each script will log into a distinct logger depending on its
+     * module ID or - when no module ID can be determined for a caller - the URL it was loaded from.
+     * 
+     * @exports _base/logger
+     * @author Axel Faust
+     */
+    // @exports is an alias for @module in this specific constellation (using object literal)
+    loggerModule = {
 
-                    meth = level || 'debug';
-                    if (ex !== undefined)
-                    {
-                        logger[meth](message, ex);
-                    }
-                    else if (values !== undefined)
-                    {
-                        logger[meth](message, values);
-                    }
-                    else
-                    {
-                        logger[meth](message);
-                    }
-                }
-            };
+        /**
+         * Log a message at "trace" level
+         * 
+         * @instance
+         * @param {string}
+         *            message - the message / pattern for the log message
+         * @param {Error|Throwable}
+         *            [error] - the error / exception that needs to be logged
+         * @param {string}
+         *            [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if the log
+         *            level is enabled (mutually exclusive with error)
+         */
+        trace : function logger__trace()
+        {
+            logImpl('trace', arguments);
+        },
 
-            // TODO Provide option to hook in dynamic log delegates (i.e. for JavaScript Console)
-            /**
-             * This module provides basic logging capabilities and delegates to SLF4J (which in turn will most likely be backed by Log4J).
-             * The logging functionality of this module is caller-aware, meaning that each script will log into a distinct logger depending
-             * on its module ID or - when no module ID can be determined for a caller - the URL it was loaded from.
-             * 
-             * @exports _base/logger
-             * @author Axel Faust
-             */
-            // @exports is an alias for @module in this specific constellation (using object literal)
-            loggerModule = {
+        /**
+         * Checks if the "trace" log level is enabled for the caller script's logger
+         * 
+         * @instance
+         * @returns {boolean} true if the log level is enabled
+         */
+        isTraceEnabled : function logger__isTraceEnabled()
+        {
+            return isEnabledImpl('trace');
+        },
 
-                /**
-                 * Log a message at "trace" level
-                 * 
-                 * @instance
-                 * @param {string}
-                 *            message - the message / pattern for the log message
-                 * @param {Error|Throwable}
-                 *            [error] - the error / exception that needs to be logged
-                 * @param {string}
-                 *            [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if
-                 *            the log level is enabled (mutually exclusive with error)
-                 */
-                trace : function logger__trace()
-                {
-                    logImpl('trace', arguments);
-                },
+        /**
+         * Log a message at "debug" level
+         * 
+         * @instance
+         * @param {string}
+         *            message - the message / pattern for the log message
+         * @param {Error|Throwable}
+         *            [error] - the error / exception that needs to be logged
+         * @param {string}
+         *            [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if the log
+         *            level is enabled (mutually exclusive with error)
+         */
+        debug : function logger__debug()
+        {
+            logImpl('debug', arguments);
+        },
 
-                /**
-                 * Checks if the "trace" log level is enabled for the caller script's logger
-                 * 
-                 * @instance
-                 * @returns {boolean} true if the log level is enabled
-                 */
-                isTraceEnabled : function logger__isTraceEnabled()
-                {
-                    return isEnabledImpl('trace');
-                },
+        /**
+         * Checks if the "debug" log level is enabled for the caller script's logger
+         * 
+         * @method
+         * @instance
+         * @returns {boolean} true if the log level is enabled
+         */
+        isDebugEnabled : function logger__isDebugEnabled()
+        {
+            return isEnabledImpl('debug');
+        },
 
-                /**
-                 * Log a message at "debug" level
-                 * 
-                 * @instance
-                 * @param {string}
-                 *            message - the message / pattern for the log message
-                 * @param {Error|Throwable}
-                 *            [error] - the error / exception that needs to be logged
-                 * @param {string}
-                 *            [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if
-                 *            the log level is enabled (mutually exclusive with error)
-                 */
-                debug : function logger__debug()
-                {
-                    logImpl('debug', arguments);
-                },
+        /**
+         * Log a message at "info" level
+         * 
+         * @instance
+         * @param {string}
+         *            message - the message / pattern for the log message
+         * @param {Error|Throwable}
+         *            [error] - the error / exception that needs to be logged
+         * @param {string}
+         *            [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if the log
+         *            level is enabled (mutually exclusive with error)
+         */
+        info : function logger__info()
+        {
+            logImpl('info', arguments);
+        },
 
-                /**
-                 * Checks if the "debug" log level is enabled for the caller script's logger
-                 * 
-                 * @method
-                 * @instance
-                 * @returns {boolean} true if the log level is enabled
-                 */
-                isDebugEnabled : function logger__isDebugEnabled()
-                {
-                    return isEnabledImpl('debug');
-                },
+        /**
+         * Checks if the "info" log level is enabled for the caller script's logger
+         * 
+         * @instance
+         * @returns {boolean} true if the log level is enabled
+         */
+        isInfoEnabled : function logger__isInfoEnabled()
+        {
+            return isEnabledImpl('info');
+        },
 
-                /**
-                 * Log a message at "info" level
-                 * 
-                 * @instance
-                 * @param {string}
-                 *            message - the message / pattern for the log message
-                 * @param {Error|Throwable}
-                 *            [error] - the error / exception that needs to be logged
-                 * @param {string}
-                 *            [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if
-                 *            the log level is enabled (mutually exclusive with error)
-                 */
-                info : function logger__info()
-                {
-                    logImpl('info', arguments);
-                },
+        /**
+         * Log a message at "warn" level
+         * 
+         * @instance
+         * @param {string}
+         *            message - the message / pattern for the log message
+         * @param {Error|Throwable}
+         *            [error] - the error / exception that needs to be logged
+         * @param {string}
+         *            [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if the log
+         *            level is enabled (mutually exclusive with error)
+         */
+        warn : function logger__warn()
+        {
+            logImpl('warn', arguments);
+        },
 
-                /**
-                 * Checks if the "info" log level is enabled for the caller script's logger
-                 * 
-                 * @instance
-                 * @returns {boolean} true if the log level is enabled
-                 */
-                isInfoEnabled : function logger__isInfoEnabled()
-                {
-                    return isEnabledImpl('info');
-                },
+        /**
+         * Checks if the "warn" log level is enabled for the caller script's logger
+         * 
+         * @instance
+         * @returns {boolean} true if the log level is enabled
+         */
+        isWarnEnabled : function logger__isWarnEnabled()
+        {
+            return isEnabledImpl('warn');
+        },
 
-                /**
-                 * Log a message at "warn" level
-                 * 
-                 * @instance
-                 * @param {string}
-                 *            message - the message / pattern for the log message
-                 * @param {Error|Throwable}
-                 *            [error] - the error / exception that needs to be logged
-                 * @param {string}
-                 *            [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if
-                 *            the log level is enabled (mutually exclusive with error)
-                 */
-                warn : function logger__warn()
-                {
-                    logImpl('warn', arguments);
-                },
+        /**
+         * Log a message at "error" level
+         * 
+         * @instance
+         * @param {string}
+         *            message - the message / pattern for the log message
+         * @param {Error|Throwable}
+         *            [error] - the error / exception that needs to be logged
+         * @param {string}
+         *            [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if the log
+         *            level is enabled (mutually exclusive with error)
+         */
+        error : function logger__error()
+        {
+            logImpl('error', arguments);
+        },
 
-                /**
-                 * Checks if the "warn" log level is enabled for the caller script's logger
-                 * 
-                 * @instance
-                 * @returns {boolean} true if the log level is enabled
-                 */
-                isWarnEnabled : function logger__isWarnEnabled()
-                {
-                    return isEnabledImpl('warn');
-                },
+        /**
+         * Checks if the "error" log level is enabled for the caller script's logger
+         * 
+         * @instance
+         * @returns {boolean} true if the log level is enabled
+         */
+        isErrorEnabled : function logger__isErrorEnabled()
+        {
+            return isEnabledImpl('error');
+        }
+    };
 
-                /**
-                 * Log a message at "error" level
-                 * 
-                 * @instance
-                 * @param {string}
-                 *            message - the message / pattern for the log message
-                 * @param {Error|Throwable}
-                 *            [error] - the error / exception that needs to be logged
-                 * @param {string}
-                 *            [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if
-                 *            the log level is enabled (mutually exclusive with error)
-                 */
-                error : function logger__error()
-                {
-                    logImpl('error', arguments);
-                },
+    Object.freeze(loggerModule);
 
-                /**
-                 * Checks if the "error" log level is enabled for the caller script's logger
-                 * 
-                 * @instance
-                 * @returns {boolean} true if the log level is enabled
-                 */
-                isErrorEnabled : function logger__isErrorEnabled()
-                {
-                    return isEnabledImpl('error');
-                }
-            };
-
-            Object.freeze(loggerModule);
-
-            return loggerModule;
-        });
+    return loggerModule;
+});
