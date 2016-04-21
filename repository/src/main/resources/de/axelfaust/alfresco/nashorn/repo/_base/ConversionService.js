@@ -1,6 +1,5 @@
 /* globals -require */
-define('_base/ConversionService', [ 'nashorn!Java', './JavaConvertableMixin' ], function _base_ConversionService_root(Java,
-        JavaConvertableMixin)
+define([ 'nashorn!Java', './JavaConvertableMixin', './logger' ], function _base_ConversionService_root(Java, JavaConvertableMixin, logger)
 {
     'use strict';
     // actually exported elements
@@ -39,6 +38,8 @@ define('_base/ConversionService', [ 'nashorn!Java', './JavaConvertableMixin' ], 
 
         if (scriptObject !== undefined && scriptObject !== null)
         {
+            logger.debug('convertToJava called for "{}"', scriptObject);
+
             if (typeof scriptObject.isInstanceOf === 'function' && scriptObject.isInstanceOf(JavaConvertableMixin))
             {
                 result = scriptObject.getJavaValue();
@@ -54,6 +55,7 @@ define('_base/ConversionService', [ 'nashorn!Java', './JavaConvertableMixin' ], 
                 {
                     // ensure we don't leak ConsString
                     result = String(scriptObject);
+                    logger.debug('Ensured potential JS ConsString will not be accidentally exposed');
                 }
                 else if (scriptObject instanceof Date)
                 {
@@ -75,6 +77,7 @@ define('_base/ConversionService', [ 'nashorn!Java', './JavaConvertableMixin' ], 
                 }
                 else if (Array.isArray(scriptObject))
                 {
+                    logger.debug('Recursively converting JS array with {} elements', scriptObject.length);
                     convertedArray = [];
                     // TODO Can we use Array.prototype.forEach on JSObject reliably? (Array.isArray works)
                     for (idx = 0, max = scriptObject.length; idx < max; idx++)
@@ -89,6 +92,15 @@ define('_base/ConversionService', [ 'nashorn!Java', './JavaConvertableMixin' ], 
                 }
                 // TODO Define conversion strategy for else case (object into Map)
             }
+
+            if (result !== scriptObject)
+            {
+                logger.debug('convertToJava yielded "{}" for "{}"', result, scriptObject);
+            }
+            else
+            {
+                logger.debug('convertToJava yielded original object');
+            }
         }
 
         return result;
@@ -101,37 +113,56 @@ define('_base/ConversionService', [ 'nashorn!Java', './JavaConvertableMixin' ], 
         // default fallback
         result = javaObject;
 
-        if (Java.isJavaObject(javaObject))
+        if (javaObject !== undefined && javaObject !== null)
         {
-            identityHashCode = String(JavaSystem.identityHashCode(javaObject));
+            logger.debug('convertToScript called for "{}"', javaObject);
 
-            if (identityHashCode in javaConversionCache)
+            if (Java.isJavaObject(javaObject))
             {
-                result = javaConversionCache[identityHashCode];
+                identityHashCode = String(JavaSystem.identityHashCode(javaObject));
+
+                if (identityHashCode in javaConversionCache)
+                {
+                    result = javaConversionCache[identityHashCode];
+                    logger.debug('Using cached conversion result "{}" for "{}"', result, javaObject);
+                }
+                else
+                {
+                    cls = javaObject.getClass();
+                    logger.debug('Retrieved Java type "{}" from "{}"', cls, javaObject);
+                    clsName = cls.name;
+                    // TODO Consider inclusion of interfaces in converter resolution (e.g. as a catch-all for Map / List)
+                    while (clsName !== 'java.lang.Object')
+                    {
+                        logger.trace('Looking up converter for "{}"', clsName);
+                        converter = javaTypeConversionRegistry[clsName] || globalJavaTypeConversionRegistry[clsName];
+
+                        if (typeof converter === 'function')
+                        {
+                            logger.trace('Found converter for "{}"', clsName);
+                            converted = converter(javaObject);
+                            if (converted !== undefined && converted !== null && converted !== javaObject)
+                            {
+                                result = converted;
+                                javaConversionCache[identityHashCode] = result;
+                                break;
+                            }
+                        }
+
+                        logger.trace('Continuing to parent class conversion lookup');
+                        cls = cls.superclass;
+                        clsName = cls.name;
+                    }
+                }
+            }
+
+            if (result !== javaObject)
+            {
+                logger.debug('convertToScript yielded "{}" for "{}"', result, javaObject);
             }
             else
             {
-                cls = javaObject.class;
-                clsName = cls.name;
-                // TODO Consider inclusion of interfaces in converter resolution (e.g. as a catch-all for Map / List)
-                while (clsName !== 'java.lang.Object')
-                {
-                    converter = javaTypeConversionRegistry[clsName] || globalJavaTypeConversionRegistry[clsName];
-
-                    if (typeof converter === 'function')
-                    {
-                        converted = converter(javaObject);
-                        if (converted !== undefined && converted !== null && converted !== javaObject)
-                        {
-                            result = converted;
-                            javaConversionCache[identityHashCode] = result;
-                            break;
-                        }
-                    }
-
-                    cls = cls.superclass;
-                    clsName = cls.name;
-                }
+                logger.debug('convertToScript yielded original object');
             }
         }
 
@@ -157,10 +188,12 @@ define('_base/ConversionService', [ 'nashorn!Java', './JavaConvertableMixin' ], 
         if (NashornScriptProcessor.isInEngineContextInitialization())
         {
             globalJavaTypeConversionRegistry[javaType] = converter;
+            logger.debug('Registered global Java type converter for "{}"', javaType);
         }
         else
         {
             javaTypeConversionRegistry[javaType] = converter;
+            logger.debug('Registered Java type converter for "{}"', javaType);
         }
     };
 

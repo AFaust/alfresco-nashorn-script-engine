@@ -27,7 +27,7 @@
         </constructor-arg>
     </bean>
 
-    <bean id="${project.artifactId}-nashornJavaScriptProcessor" class="de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor">
+    <bean id="${project.artifactId}-nashornJavaScriptProcessor" class="${project.artifactId}.processor.NashornScriptProcessor">
         <property name="engine" ref="${project.artifactId}-nashornScriptEngine" />
 
         <property name="scriptService" ref="scriptService" />

@@ -367,7 +367,7 @@
                 }
                 else
                 {
-                    logger.debug('Loading module "{}" from url "{}" (secure: {})', [ normalizedId, url, isSecureSource === true ]);
+                    logger.debug('Loading module "{}" from url "{}" (secureSource: {})', [ normalizedId, url, isSecureSource === true ]);
 
                     module = {};
 
@@ -964,12 +964,12 @@
 
         if (logger.traceEnabled)
         {
-            logger.trace('Registered listener from url "{}" (secure: {}) for modules {}', [ contextScriptUrl, isSecure,
+            logger.trace('Registered listener from url "{}" (secureSource: {}) for modules {}', [ contextScriptUrl, isSecure,
                     JSON.stringify(listener.dependencies) ]);
         }
         else
         {
-            logger.trace('Registered listener from url "{}" (secure: {})', [ contextScriptUrl, isSecure ]);
+            logger.trace('Registered listener from url "{}" (secureSource: {})', [ contextScriptUrl, isSecure ]);
         }
 
         // TODO check current resolution and trigger if all dependencies already resolved
@@ -1437,7 +1437,7 @@
 
     define.preload = function amd__define_preload(moduleId)
     {
-        var normalizedModuleId, contextScriptUrl;
+        var normalizedModuleId, contextScriptUrl, simpleModuleId;
 
         ensureExecutionStateInit();
 
@@ -1455,6 +1455,19 @@
             {
                 logger.debug('Pre-loading module "{}"', normalizedModuleId);
                 loadModule(normalizedModuleId, true, contextScriptUrl);
+
+                if (normalizedModuleId in modules && typeof modules[normalizedModuleId].factory === 'function')
+                {
+                    getModule(normalizedModuleId, true, true, contextScriptUrl);
+                }
+                else if (normalizedModuleId.indexOf('!') !== -1)
+                {
+                    simpleModuleId = normalizedModuleId.substring(normalizedModuleId.indexOf('!') + 1);
+                    if (simpleModuleId in modules && typeof modules[simpleModuleId].factory === 'function')
+                    {
+                        getModule(simpleModuleId, true, true, contextScriptUrl);
+                    }
+                }
             }
         }
         else

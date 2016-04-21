@@ -382,6 +382,8 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         final AMDModulePreloader oldPreloader = this.amdPreloader;
         final AMDScriptRunner oldAMDRunner = this.amdRunner;
 
+        LOGGER.debug("Initializing new script context");
+
         inEngineContextInitialization.set(Boolean.TRUE);
         try (NashornScriptModel model = NashornScriptModel.openModel())
         {
@@ -395,14 +397,16 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
             // only available during initialisation
             globalBindings.put("applicationContext", this.applicationContext);
 
-            LOGGER.trace("Executing bootstrap scripts");
+            LOGGER.debug("Executing bootstrap scripts");
             URL resource;
 
             // 1) simple logger facade for SLF4J
+            LOGGER.debug("Bootstrapping simple logger");
             resource = NashornScriptProcessor.class.getResource(SCRIPT_SIMPLE_LOGGER);
             this.executeScriptFromResource(resource);
 
             // 2) AMD loader to be used for all scripts apart from bootstrap
+            LOGGER.debug("Setting up AMD");
             resource = NashornScriptProcessor.class.getResource(SCRIPT_AMD);
             this.executeScriptFromResource(resource);
 
@@ -410,9 +414,12 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
             this.amdPreloader = ((Invocable) this.engine).getInterface(define, AMDModulePreloader.class);
 
             // 3) the nashorn loader plugin so we can control access to globals
+            LOGGER.debug("Setting up nashorn AMD loader");
             this.preloadAMDModule("loaderMetaLoader", "nashorn");
 
             // 4) remove Nashorn globals
+            LOGGER.debug("Removing disallowed Nashorn globals \"{}\" and \"{}\"", NASHORN_GLOBAL_PROPERTIES_TO_ALWAYS_REMOVE,
+                    this.nashornGlobalPropertiesToRemove);
             for (final String property : NASHORN_GLOBAL_PROPERTIES_TO_ALWAYS_REMOVE)
             {
                 engineBindings.remove(property);
@@ -429,37 +436,34 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
             // 5) Java extensions (must be picked up by modules before #7)
             globalBindings.put("processorExtensions", this.processorExtensions);
 
-            LOGGER.trace("Checking for extension scripts");
-
             // 6) AMD config
-            try
-            {
-                resource = this.amdConfig.getURL();
-                this.executeScriptFromResource(resource);
-            }
-            catch (final IOException ioex)
-            {
-                throw new ScriptException(ioex);
-            }
+            LOGGER.debug("Applying AMD config \"{}\"", this.amdConfig);
+            resource = this.amdConfig.getURL();
+            this.executeScriptFromResource(resource);
 
             // 7) configured JavaScript base modules
+            LOGGER.debug("Bootstrapping base modules");
             this.initScriptContextBaseModules(this.amdPreloader);
 
             // 8) configured JavaScript extension modules
+            LOGGER.debug("Bootstrapping extension modules");
             this.initScriptContextExtensions(this.amdPreloader);
-
-            LOGGER.trace("Finalizing script context");
 
             // 9) remove any init data that shouldn't be publicly available
             globalBindings.clear();
 
             // 10) obtain the runner interface
+            LOGGER.debug("Preparing AMD script runner");
             resource = NashornScriptProcessor.class.getResource(SCRIPE_AMD_SCRIPT_RUNNER);
             final Object scriptRunnerObj = this.executeScriptFromResource(resource);
             this.amdRunner = ((Invocable) this.engine).getInterface(scriptRunnerObj, AMDScriptRunner.class);
+
+            LOGGER.info("New script context initialized");
         }
         catch (final Throwable t)
         {
+            LOGGER.warn("Initialization of script context failed", t);
+
             // reset
             this.engine.setBindings(oldEngineBindings, ScriptContext.ENGINE_SCOPE);
             this.engine.getBindings(ScriptContext.GLOBAL_SCOPE).clear();
@@ -592,7 +596,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         {
             final String fullModuleId = MessageFormat.format("{0}!{1}", loaderNameValue, moduleIdValue);
 
-            LOGGER.trace("Pre-loading module {}", fullModuleId);
+            LOGGER.debug("Pre-loading module {}", fullModuleId);
 
             try
             {
@@ -620,9 +624,8 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         this.initialisationStateLock.readLock().lock();
         try
         {
-            LOGGER.trace("Executing script from resource {}", resource);
-            try (@SuppressWarnings("restriction")
-            Reader reader = new URLReader(resource))
+            LOGGER.debug("Executing script from resource {}", resource);
+            try (Reader reader = new URLReader(resource))
             {
                 this.engine.getContext().setAttribute(ScriptEngine.FILENAME, resource.toString(), ScriptContext.ENGINE_SCOPE);
                 return this.engine.eval(reader);

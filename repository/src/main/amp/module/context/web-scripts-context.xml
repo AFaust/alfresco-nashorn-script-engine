@@ -9,7 +9,7 @@
       <property name="scriptProcessor" ref="${project.artifactId}-webscripts.nashorn.processor"/>
    </bean>
 
-    <bean id="${project.artifactId}-webscripts.nashorn.processor" class="de.axelfaust.alfresco.nashorn.repo.web.scripts.RepositoryNashornScriptProcessor">
+    <bean id="${project.artifactId}-webscripts.nashorn.processor" class="${project.artifactId}.web.scripts.RepositoryNashornScriptProcessor">
         <property name="scriptService" ref="scriptService" />
         <property name="searchPath" ref="webscripts.searchpath" />
     </bean>
