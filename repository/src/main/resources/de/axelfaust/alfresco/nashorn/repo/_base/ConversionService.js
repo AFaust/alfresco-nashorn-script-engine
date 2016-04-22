@@ -5,9 +5,11 @@ define([ 'nashorn!Java', './JavaConvertableMixin', './logger' ], function _base_
     // actually exported elements
     var service, convertToJava, convertToScript, registerJavaToScriptConverter,
     // internal Java types
-    ISO8601DateFormat, Pattern, NashornScriptModel, NashornScriptProcessor, JavaClass, JavaSystem,
+    ISO8601DateFormat, Pattern, NashornScriptModel, NashornScriptProcessor, JavaClass, JavaSystem, HashMap,
     // internal data structures
-    javaConversionCache, javaTypeConversionRegistry, globalJavaTypeConversionRegistry;
+    javaConversionCache, javaTypeConversionRegistry, globalJavaTypeConversionRegistry,
+    // internal fns
+    isObject;
 
     ISO8601DateFormat = Java.type('org.alfresco.util.ISO8601DateFormat');
     Pattern = Java.type('java.util.regex.Pattern');
@@ -15,10 +17,17 @@ define([ 'nashorn!Java', './JavaConvertableMixin', './logger' ], function _base_
     NashornScriptProcessor = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor');
     JavaClass = Java.type('java.lang.Class');
     JavaSystem = Java.type('java.lang.System');
+    HashMap = Java.type('java.util.HashMap');
 
     javaConversionCache = NashornScriptModel.newAssociativeContainer();
     javaTypeConversionRegistry = NashornScriptModel.newAssociativeContainer();
     globalJavaTypeConversionRegistry = {};
+
+    isObject = function _base_ConversionService__isObject(o)
+    {
+        var result = o !== undefined && o !== null && Object.prototype.toString.call(o) === '[object Object]';
+        return result;
+    };
 
     globalJavaTypeConversionRegistry['java.util.Date'] = function _base_ConversionService__convertDateToScript(date)
     {
@@ -90,7 +99,14 @@ define([ 'nashorn!Java', './JavaConvertableMixin', './logger' ], function _base_
                     }
                     result = Java.to(convertedArray, 'java.util.List');
                 }
-                // TODO Define conversion strategy for else case (object into Map)
+                else if (isObject(scriptObject))
+                {
+                    result = new HashMap();
+                    Object.keys(scriptObject).forEach(function _base_ConversionService__convertToJava_forEachKey(key)
+                    {
+                        result[key] = convertToJava(scriptObject[key]);
+                    });
+                }
             }
 
             if (result !== scriptObject)
@@ -203,6 +219,9 @@ define([ 'nashorn!Java', './JavaConvertableMixin', './logger' ], function _base_
      * {@link module:_base/JavaConvertableMixin} to a Java representation.
      * 
      * @exports _base/ConversionService
+     * @requires module:nashorn!Java
+     * @requires module:_base/JavaConvertableMixin
+     * @requires module:_base/logger
      * @author Axel Faust
      */
     service = {

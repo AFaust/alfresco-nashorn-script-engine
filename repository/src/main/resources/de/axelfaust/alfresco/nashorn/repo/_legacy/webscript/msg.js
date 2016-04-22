@@ -1,14 +1,13 @@
 /* globals -require */
-define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter' ], function msg(rhinoMsg, Java, JSAdapter)
+define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter', '_base/ConversionService' ], function msg(rhinoMsg, Java, JSAdapter,
+        ConversionService)
 {
     'use strict';
 
-    var Map, List, HashMap, JavaDate, ScriptMessage, ScriptableObject, RhinoUtils, isObject, toJava, result;
+    var Map, List, ScriptMessage, ScriptableObject, RhinoUtils, isObject, result;
 
     Map = Java.type('java.util.Map');
     List = Java.type('java.util.List');
-    HashMap = Java.type('java.util.HashMap');
-    JavaDate = Java.type('java.util.Date');
     ScriptMessage = Java.type('org.springframework.extensions.webscripts.ScriptMessage');
     ScriptableObject = Java.type('org.mozilla.javascript.ScriptableObject');
     RhinoUtils = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.RhinoUtils');
@@ -16,39 +15,6 @@ define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter' ], function msg(rhinoMs
     isObject = function msg__isObject(o)
     {
         var result = o !== undefined && o !== null && Object.prototype.toString.call(o) === '[object Object]';
-        return result;
-    };
-
-    // TODO Externalize into a common conversion module
-    toJava = function msg__toJava(o)
-    {
-        var result;
-        if (isObject(o))
-        {
-            result = new HashMap();
-            Object.keys(o).forEach(function msg__toJava_forEachKey(key)
-            {
-                result[key] = toJava(o[key]);
-            });
-        }
-        else if (Array.isArray(o))
-        {
-            result = [];
-            o.forEach(function msg__toJava_forEachElement(element)
-            {
-                result.push(toJava(element));
-            });
-            result = Java.to(result, List);
-        }
-        else if (o instanceof Date)
-        {
-            result = new JavaDate(o.getTime());
-        }
-        else
-        {
-            result = o;
-        }
-
         return result;
     };
 
@@ -85,7 +51,7 @@ define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter' ], function msg(rhinoMs
                             // either JS Array.forEach or Iterable.forEach
                             arr.forEach(function msg__get_forEachKey(key)
                             {
-                                var javaValue = toJava(args[key]);
+                                var javaValue = ConversionService.convertToJava(args[key]);
                                 ScriptableObject.putProperty(scriptable, key, javaValue);
                             });
                         }
@@ -95,7 +61,7 @@ define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter' ], function msg(rhinoMs
                             // either JS Array.forEach or Iterable.forEach
                             args.forEach(function msg__get_forEachElement(element)
                             {
-                                arr.push(toJava(element));
+                                arr.push(ConversionService.convertToJava(element));
                             });
                             arr = Java.to(arr, 'java.lang.Object[]');
                             scriptable = cx.newArray(scope, arr);
