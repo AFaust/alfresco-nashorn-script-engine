@@ -1,5 +1,9 @@
 /**
  * @module _base/ProxySupport
+ * @requires module:_base/declare
+ * @requires module:nashorn!JSAdapter
+ * @requires module:nashorn!Java
+ * @requires module:_base/logger
  * @author Axel Faust
  */
 /* globals -require */
@@ -189,6 +193,7 @@ define(
                  * implemented getter or the {@link module:_base/ProxySupport~__get__} function.
                  * 
                  * @instance
+                 * @protected
                  * @param {string}
                  *            name - the name of the property
                  * @returns {object} the value of the property
@@ -209,9 +214,7 @@ define(
                     // don't handle our special properties
                     if (prop.startsWith('--proxy'))
                     {
-                        // TODO File improvement: need to be caller-'use strict' aware
-                        // TODO File improvement: simple way to raise ReferenceError identical to default __noSuchProperty__
-                        result = undefined;
+                        throw new ReferenceError('"' + name + '" is not defined');
                     }
                     else if (this[proxyEnabledKey] === true)
                     {
@@ -255,10 +258,7 @@ define(
                                         else
                                         {
                                             logger.trace('Found no getter for {}', prop);
-                                            // TODO File improvement: need to be caller-'use strict' aware
-                                            // TODO File improvement: simple way to raise ReferenceError identical to default
-                                            // __noSuchProperty__
-                                            result = undefined;
+                                            throw new ReferenceError('"' + name + '" is not defined');
                                         }
                                     }
                                     this[noSuchPropertyStackKey].pop();
@@ -275,9 +275,7 @@ define(
                                 logger.trace('Already in a __noSuchProperty__ call for property {} in class {}', prop,
                                         this.constructor._declare_meta !== undefined ? this.constructor._declare_meta.className
                                                 : '<unknown>');
-                                // TODO File improvement: need to be caller-'use strict' aware
-                                // TODO File improvement: simple way to raise ReferenceError identical to default __noSuchProperty__
-                                result = undefined;
+                                throw new ReferenceError('"' + name + '" is not defined');
                             }
                         }
                         else if (this['--proxy-no-such-property-fallback-to-__get__'] === true)
@@ -302,27 +300,21 @@ define(
                                 logger.trace('Already in a __noSuchProperty__ call for property {} in class {}', prop,
                                         this.constructor._declare_meta !== undefined ? this.constructor._declare_meta.className
                                                 : '<unknown>');
-                                // TODO File improvement: need to be caller-'use strict' aware
-                                // TODO File improvement: simple way to raise ReferenceError identical to default __noSuchProperty__
-                                result = undefined;
+                                throw new ReferenceError('"' + name + '" is not defined');
                             }
                         }
                         else
                         {
                             logger.trace('Not configured to simulate property {} via getter in class {}', prop,
                                     this.constructor._declare_meta !== undefined ? this.constructor._declare_meta.className : '<unknown>');
-                            // TODO File improvement: need to be caller-'use strict' aware
-                            // TODO File improvement: simple way to raise ReferenceError identical to default __noSuchProperty__
-                            result = undefined;
+                            throw new ReferenceError('"' + name + '" is not defined');
                         }
                     }
                     else
                     {
                         logger.trace('Not configured to simulate property {} via getter in class {}', prop,
                                 this.constructor._declare_meta !== undefined ? this.constructor._declare_meta.className : '<unknown>');
-                        // TODO File improvement: need to be caller-'use strict' aware
-                        // TODO File improvement: simple way to raise ReferenceError identical to default __noSuchProperty__
-                        result = undefined;
+                        throw new ReferenceError('"' + name + '" is not defined');
                     }
 
                     if (result === this)
@@ -337,6 +329,7 @@ define(
                  * Retrieves the value of a specific property on this instance.
                  * 
                  * @instance
+                 * @protected
                  * @param {string}
                  *            name - the name of the property
                  * @returns {object} the value of the property
@@ -348,9 +341,6 @@ define(
                     if (this['--proxy-use-getter-only'] !== true && __noSuchProperty__call !== true)
                     {
                         // either exists or handled by __noSuchProperty__
-                        // TODO File improvement: need to suppress our 'use strict' for __noSuchProperty__ (catch ReferenceError)
-                        // TODO File improvement: need to be caller-'use strict' aware
-                        // TODO File improvement: simple way to raise ReferenceError identical to default __noSuchProperty__
                         result = this[name];
                     }
                     else if (this['--proxy-getter-redirection-enabled'] === true)
@@ -398,9 +388,7 @@ define(
                                 logger.trace('Found no getter for property {} in class {}', prop,
                                         this.constructor._declare_meta !== undefined ? this.constructor._declare_meta.className
                                                 : '<unknown>');
-                                // TODO File improvement: need to be caller-'use strict' aware
-                                // TODO File improvement: simple way to raise ReferenceError identical to default __noSuchProperty__
-                                result = undefined;
+                                throw new ReferenceError('"' + name + '" is not defined');
                             }
                         }
                     }
@@ -439,6 +427,7 @@ define(
                  * Sets the value of a specific property on this instance.
                  * 
                  * @instance
+                 * @protected
                  * @param {string}
                  *            name - the name of the property
                  * @param {object}
@@ -498,6 +487,7 @@ define(
                  * Determines if a specific property exists on this instance.
                  * 
                  * @instance
+                 * @protected
                  * @param {string}
                  *            name - the name of the property
                  * @returns {boolean} true if the property exists, false otherwise
@@ -569,6 +559,7 @@ define(
                  * property that can either be simulated via getters or have actual getters implemented (if getter redirection is enabled).
                  * 
                  * @instance
+                 * @protected
                  * @returns {string[]} the array of ids of all (public) properties
                  */
                 // __getIds__ is identical to __getKeys__ (JDK 6 compatibility)
@@ -587,6 +578,7 @@ define(
                  * property that can either be simulated via getters or have actual getters implemented (if getter redirection is enabled).
                  * 
                  * @instance
+                 * @protected
                  * @returns {string[]} the array of keys of all (public) properties
                  */
                 __getKeys__ : function ProxySupport__getKeys__()
@@ -623,6 +615,7 @@ define(
                  * property that can either be simulated via getters or have actual getters implemented (if getter redirection is enabled).
                  * 
                  * @instance
+                 * @protected
                  * @returns {string[]} the array of values of all (public) properties
                  */
                 __getValues__ : function ProxySupport__getValues__()
@@ -656,6 +649,7 @@ define(
                  * this instance via the "in" operator.
                  * 
                  * @instance
+                 * @protected
                  * @param {string}
                  *            name - the name of the propert to delete
                  * @returns {boolean} true if the property was deleted, false otherwise
@@ -677,6 +671,7 @@ define(
                  * properties have been set to enable those features and an implemented method with the same name could not be located.
                  * 
                  * @instance
+                 * @protected
                  * @param {string}
                  *            name - the name of the function to call
                  * @param {object}
@@ -756,7 +751,7 @@ define(
                     }
                     else if (result === undefined && fn === undefined)
                     {
-                        // TODO Throw error about fn not existing
+                        throw new TypeError(name + ' is not a function');
                     }
 
                     if (result === this)
@@ -771,6 +766,7 @@ define(
                  * Creates a new object instance from this constructor instance (if this instance is a function).
                  * 
                  * @instance
+                 * @protected
                  * @param {object}
                  *            [argX] - any number of arguments to the constructor
                  * @returns {object} a new object instance

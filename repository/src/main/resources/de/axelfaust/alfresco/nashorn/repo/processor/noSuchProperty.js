@@ -36,8 +36,14 @@
         catch (e)
         {
             restoreFn();
-            logger.debug('Failed to load legacy root object {}', propName);
+            logger.debug('Failed to load legacy root object', e);
             result = defaultResult;
+        }
+        
+        // every caller script should be strict - either explicitly or because we force it via our loaders
+        if (result === undefined)
+        {
+            throw new ReferenceError('"' + propName + '" is not defined');
         }
 
         return result;
