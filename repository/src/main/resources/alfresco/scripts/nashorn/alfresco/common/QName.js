@@ -11,8 +11,18 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', '.
 
     qnameCache = NashornScriptModel.newAssociativeContainer();
 
+    /**
+     * This module provides a script abstraction around the Java type QName.
+     * 
+     * @module alfresco/common/QName
+     * @requires module:_base/declare
+     * @requires module:alfresco/foundation/NamespaceService
+     * @requires module:_base/logger
+     * @mixes module:_base/JavaConvertableMixin
+     * @mixes module:_base/ProxySupport
+     */
     // we have to encapsulate QName as we can't Java.extend due to private constructor
-    // normal Java interop + extension could have save lots of boilerplate
+    // normal Java interop + extension could have saved lots of boilerplate
     Module = declare([ JavaConvertableMixin, ProxySupport ], {
 
         '--proxy-support-enabled' : true,
@@ -53,28 +63,88 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', '.
             });
         },
 
+        /**
+         * The Java QName object for this instance
+         * 
+         * @var qname
+         * @type {QName}
+         * @instance
+         * @readonly
+         * @memberof module:alfresco/common/QName
+         */
+        /**
+         * Retrieves the Java QName object for this instance
+         * 
+         * @instance
+         * @returns {QName} the Java QName object for this instance
+         */
         // due to potential case diferences (xy.qname / xy.qName) we provide this getter
         getQName : function alfresco_common_QName__getQName()
         {
             return this.qname;
         },
 
+        /**
+         * The local name for this instance
+         * 
+         * @var localName
+         * @type {string}
+         * @instance
+         * @readonly
+         * @memberof module:alfresco/common/QName
+         */
+        /**
+         * Retrieves the local name for this instance
+         * 
+         * @instance
+         * @returns {string} the local name for this instance
+         */
         // could have been avoided with Java.extend
         getLocalName : function alfresco_common_QName__getLocalName()
         {
             return this.qname.localName;
         },
 
+        /**
+         * The namespace URI for this instance
+         * 
+         * @var namespaceURI
+         * @type {string}
+         * @instance
+         * @readonly
+         * @memberof module:alfresco/common/QName
+         */
+        /**
+         * Retrieves the namespace URI for this instance
+         * 
+         * @instance
+         * @returns {string} the namespace URI for this instance
+         */
         // could have been avoided with Java.extend
         getNamespaceURI : function alfresco_common_QName__getNamespaceURI()
         {
             return this.qname.namespaceURI;
         },
 
+        /**
+         * The prefix string representation for this instance
+         * 
+         * @var prefixString
+         * @type {string}
+         * @instance
+         * @readonly
+         * @memberof module:alfresco/common/QName
+         */
+        /**
+         * Retrieves the prefix string representation for this instance
+         * 
+         * @instance
+         * @returns {string} the prefix string representation for this instance
+         */
         // could have been overriden via Java.extend
         getPrefixString : function alfresco_common_QName__getPrefixString()
         {
-            if (this.prefixString === undefined)
+            if (!this.hasOwnProperty('prefixString'))
             {
                 logger.debug('Defining prefixString on {}', this.qname);
                 // just a cached value to avoid redundant toPrefixString execution
@@ -86,9 +156,24 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', '.
             return this.prefixString;
         },
 
+        /**
+         * The long form string representation for this instance
+         * 
+         * @var fullString
+         * @type {string}
+         * @instance
+         * @readonly
+         * @memberof module:alfresco/common/QName
+         */
+        /**
+         * Retrieves long form string representation for this instance
+         * 
+         * @instance
+         * @returns {string} the long form string representation for this instance
+         */
         getFullString : function alfresco_common_QName__getPrefixString()
         {
-            if (this.fullString === undefined)
+            if (!this.hasOwnProperty('fullString'))
             {
                 logger.debug('Defining fullString on {}', this.qname);
                 // just a cached value
@@ -99,6 +184,12 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', '.
             return this.fullString;
         },
 
+        /**
+         * Provides a human readable string representation of this instance based on {@link module:alfresco/common/QName~prefixString}
+         * 
+         * @instance
+         * @returns {string} the human readable string representation
+         */
         toString : function alfresco_common_QName__toString()
         {
             // in script the prefixString is preferred
@@ -107,6 +198,15 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', '.
 
     });
 
+    /**
+     * Retrieves an instance of this module for a provided qname
+     * 
+     * @memberof module:alfresco/common/QName
+     * @param {string|QName}
+     *            qname the qname for which to retrieve an instance of this module - this can be either a Java QName object or a prefix /
+     *            long form string representation of one
+     * @returns {module:alfresco/common/QName} the qname instance
+     */
     Module.valueOf = function alfresco_common_QName__valueOf(qname)
     {
         var result;

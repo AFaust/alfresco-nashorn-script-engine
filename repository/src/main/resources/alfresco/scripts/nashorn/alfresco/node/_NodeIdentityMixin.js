@@ -1,4 +1,17 @@
 /* globals -require */
+/**
+ * This module provides a script abstraction around Alfresco node identity.
+ * 
+ * @module alfresco/node/_NodeIdentityMixin
+ * @requires module:_base/declare
+ * @requires module:alfresco/common/QName
+ * @requires module:alfresco/foundation/DictionaryService
+ * @requires module:alfresco/foundation/NodeService
+ * @requires module:alfresco/foundation/FileFolderService
+ * @requires module:_base/logger
+ * @requires module:nashorn!Java
+ * @mixes module:_base/ProxySupport
+ */
 define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundation/DictionaryService', '../foundation/NodeService',
         '../foundation/FileFolderService', '_base/logger', 'nashorn!Java' ], function alfresco_node_NodeIdentityMixin_root(declare,
         ProxySupport, QName, DictionaryService, NodeService, FileFolderService, logger, Java)
@@ -44,43 +57,157 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
             }
 
             // this is intended to be our only apparent property
-            // defined this way since we want to be immutable
+            // defined this way since we want it to be immutable
             Object.defineProperty(this, 'nodeRef', {
                 value : internalNodeRef,
                 enumerable : true
             });
         },
 
+        /**
+         * The Java NodeRef object for this instance
+         * 
+         * @var nodeRef
+         * @type {NodeRef}
+         * @instance
+         * @readonly
+         * @memberof module:alfresco/node/_NodeIdentityMixin
+         */
+        /**
+         * Retrieves the Java NodeRef object for this instance
+         * 
+         * @instance
+         * @returns {NodeRef} the Java NodeRef object for this instance
+         */
+        getNodeRef : function alfresco_node_NodeIdentityMixin__getNodeRef()
+        {
+            return this.nodeRef;
+        },
+
+        /**
+         * The ID fragment of the NodeRef
+         * 
+         * @var id
+         * @type {string}
+         * @instance
+         * @readonly
+         * @memberof module:alfresco/node/_NodeIdentityMixin
+         */
+        /**
+         * Retrieves the ID fragment of the underlying NodeRef
+         * 
+         * @instance
+         * @returns {string} the ID fragment
+         */
         getId : function alfresco_node_NodeIdentityMixin__getId()
         {
             return this.nodeRef.id;
         },
 
+        /**
+         * The store protocol fragment of the NodeRef
+         * 
+         * @var protocol
+         * @type {string}
+         * @instance
+         * @readonly
+         * @memberof module:alfresco/node/_NodeIdentityMixin
+         */
+        /**
+         * Retrieves the store protocol fragment of the underlying NodeRef
+         * 
+         * @instance
+         * @returns {string} the store protocol fragment
+         */
         getProtocol : function alfresco_node_NodeIdentityMixin__getProtocol()
         {
             return this.nodeRef.storeRef.protocol;
         },
 
+        /**
+         * The store type fragment of the NodeRef - this is equivalent to {@link module:alfresco/node/_NodeIdentityMixin~protocol} for
+         * compatibility reasons with legacy API
+         * 
+         * @var storeType
+         * @type {string}
+         * @instance
+         * @readonly
+         * @memberof module:alfresco/node/_NodeIdentityMixin
+         */
+        /**
+         * Retrieves the store type fragment of the underlying NodeRef - this is equivalent to
+         * {@link module:alfresco/node/_NodeIdentityMixin~getProtocol} for compatibility reasons with legacy API
+         * 
+         * @instance
+         * @returns {string} the store type fragment
+         */
         getStoreType : function alfresco_node_NodeIdentityMixin__getStoreType()
         {
             return this.nodeRef.storeRef.protocol;
         },
 
+        /**
+         * The store ID fragment of the NodeRef
+         * 
+         * @var storeId
+         * @type {string}
+         * @instance
+         * @readonly
+         * @memberof module:alfresco/node/_NodeIdentityMixin
+         */
+        /**
+         * Retrieves the store ID fragment of the underlying NodeRef
+         * 
+         * @instance
+         * @returns {string} the store ID fragment
+         */
         getStoreId : function alfresco_node_NodeIdentityMixin__getStoreId()
         {
             return this.nodeRef.storeRef.identifier;
         },
 
+        /**
+         * The type qname for this node
+         * 
+         * @var qnameType
+         * @type {module:alfresco/common/QName}
+         * @instance
+         * @readonly
+         * @memberof module:alfresco/node/_NodeIdentityMixin
+         */
+        /**
+         * Retrieves the type qname of this node
+         * 
+         * @instance
+         * @return {module:alfresco/common/QName} the type qname
+         */
         // due to potential case diferences (xy.qnameType / xy.qNameType) we provide this getter
         getQnameType : function alfresco_node_NodeIdentityMixin__getQnameType()
         {
             return this.getQNameType();
         },
 
+        /**
+         * The type qname for this node - this is equivalent to {@link module:alfresco/node/_NodeIdentityMixin~qnameType} for compatibility
+         * reasons with legacy API
+         * 
+         * @var qNameType
+         * @type {module:alfresco/common/QName}
+         * @instance
+         * @readonly
+         * @memberof module:alfresco/node/_NodeIdentityMixin
+         */
+        /**
+         * Retrieves the type qname of this node - this is equivalent to {@link module:alfresco/node/_NodeIdentityMixin~getQNameType} for
+         * compatibility reasons with legacy API
+         * 
+         * @instance
+         * @return {module:alfresco/common/QName} the type qname
+         */
         getQNameType : function alfresco_node_NodeIdentityMixin__getQNameType()
         {
             var qnameType;
-            if (this.qnameType === undefined)
+            if (!this.hasOwnProperty('qnameType'))
             {
                 qnameType = new QName(NodeService.getType(this.nodeRef));
                 // just a cached value
@@ -92,6 +219,21 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
             return this.qnameType;
         },
 
+        /**
+         * The long form string representation of the type of this node
+         * 
+         * @var type
+         * @type {string}
+         * @instance
+         * @readonly
+         * @memberof module:alfresco/node/_NodeIdentityMixin
+         */
+        /**
+         * Retrieves the long form string representation of the type of this node
+         * 
+         * @instance
+         * @return {string} the long form string representation of the type
+         */
         getType : function alfresco_node_NodeIdentityMixin__getType()
         {
             var qnameType, type;
@@ -102,6 +244,21 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
             return type;
         },
 
+        /**
+         * The prefixed string representation of the type of this node
+         * 
+         * @var typeShort
+         * @type {string}
+         * @instance
+         * @readonly
+         * @memberof module:alfresco/node/_NodeIdentityMixin
+         */
+        /**
+         * Retrieves the prefixed string representation of the type of this node
+         * 
+         * @instance
+         * @return {string} the prefixed string representation of the type
+         */
         getTypeShort : function alfresco_node_NodeIdentityMixin__getTypeShort()
         {
             var qnameType, type;
@@ -112,6 +269,21 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
             return type;
         },
 
+        /**
+         * Flag wether the node represented by this instance exists or not
+         * 
+         * @var exists
+         * @type {boolean}
+         * @instance
+         * @readonly
+         * @memberof module:alfresco/node/_NodeIdentityMixin
+         */
+        /**
+         * Checks if the node represented by this instance exists or not
+         * 
+         * @instance
+         * @return {boolean} true if the node exists, false otherwise
+         */
         // provides the shorthand xy.exists property
         // we aim to provide both property and exists() method of Rhino ScriptNode by implementing the __call__ extension hook)
         getExists : function alfresco_node_NodeIdentityMixin__getExists()
@@ -119,6 +291,20 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
             return NodeService.exists(this.nodeRef);
         },
 
+        /**
+         * The name of the node represented by this instance
+         * 
+         * @var name
+         * @type {string}
+         * @instance
+         * @memberof module:alfresco/node/_NodeIdentityMixin
+         */
+        /**
+         * Retrieves the name of the node represented by this instance
+         * 
+         * @instance
+         * @return {string} the name (cm:name) of the node
+         */
         getName : function alfresco_node_NodeIdentityMixin__getName()
         {
             // This is a trivial approach to get name (based on Rhino ScriptNode but without any caching as name might change at runtime)
@@ -143,6 +329,13 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
             return name || '';
         },
 
+        /**
+         * Sets the name of the node represented by this instance
+         * 
+         * @instance
+         * @param {string}
+         *            name the new name (cm:name) of the node
+         */
         setName : function alfresco_node_NodeIdentityMixin__setName(name)
         {
             var qnameType;
@@ -182,6 +375,12 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
             return result;
         },
 
+        /**
+         * Provides a human readable string representation of this instance
+         * 
+         * @instance
+         * @returns {string} the human readable string representation
+         */
         toString : function alfresco_node_NodeIdentity__toString()
         {
             return String(this.nodeRef);

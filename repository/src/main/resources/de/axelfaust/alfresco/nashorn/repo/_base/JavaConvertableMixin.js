@@ -3,6 +3,7 @@
  * processing after script execution or service APIs instead of the script object instance.
  * 
  * @module _base/JavaConvertableMixin
+ * @requires module:_base/declare
  * @author Axel Faust
  */
 /* globals -require */

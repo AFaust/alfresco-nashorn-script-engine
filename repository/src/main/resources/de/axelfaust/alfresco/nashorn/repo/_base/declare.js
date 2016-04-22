@@ -3,6 +3,8 @@
  * functions from base classes in a defined resolution order.
  * 
  * @module _base/declare
+ * @requires module:_base/c3mro
+ * @requires module:_base/logger
  * @author Axel Faust
  */
 /* globals -require */

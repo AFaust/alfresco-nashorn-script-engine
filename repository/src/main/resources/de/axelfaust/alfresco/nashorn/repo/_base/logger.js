@@ -85,23 +85,24 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
      * logging functionality of this module is caller-aware, meaning that each script will log into a distinct logger depending on its
      * module ID or - when no module ID can be determined for a caller - the URL it was loaded from.
      * 
-     * @exports _base/logger
+     * @module _base/logger
+     * @requires module:nashorn!Java
      * @author Axel Faust
      */
-    // @exports is an alias for @module in this specific constellation (using object literal)
     loggerModule = {
 
         /**
          * Log a message at "trace" level
          * 
          * @instance
+         * @memberof module:_base/logger
          * @param {string}
          *            message - the message / pattern for the log message
          * @param {Error|Throwable}
          *            [error] - the error / exception that needs to be logged
-         * @param {string}
-         *            [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if the log
-         *            level is enabled (mutually exclusive with error)
+         * @param {...object|array}
+         *            [params] - log message pattern substitution values to be used in rendering the full log message if the log level is
+         *            enabled (mutually exclusive with error)
          */
         trace : function logger__trace()
         {
@@ -112,6 +113,7 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
          * Checks if the "trace" log level is enabled for the caller script's logger
          * 
          * @instance
+         * @memberof module:_base/logger
          * @returns {boolean} true if the log level is enabled
          */
         isTraceEnabled : function logger__isTraceEnabled()
@@ -123,13 +125,14 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
          * Log a message at "debug" level
          * 
          * @instance
+         * @memberof module:_base/logger
          * @param {string}
          *            message - the message / pattern for the log message
          * @param {Error|Throwable}
          *            [error] - the error / exception that needs to be logged
-         * @param {string}
-         *            [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if the log
-         *            level is enabled (mutually exclusive with error)
+         * @param {...object|array}
+         *            [params] - log message pattern substitution values to be used in rendering the full log message if the log level is
+         *            enabled (mutually exclusive with error)
          */
         debug : function logger__debug()
         {
@@ -139,8 +142,8 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
         /**
          * Checks if the "debug" log level is enabled for the caller script's logger
          * 
-         * @method
          * @instance
+         * @memberof module:_base/logger
          * @returns {boolean} true if the log level is enabled
          */
         isDebugEnabled : function logger__isDebugEnabled()
@@ -152,13 +155,14 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
          * Log a message at "info" level
          * 
          * @instance
+         * @memberof module:_base/logger
          * @param {string}
          *            message - the message / pattern for the log message
          * @param {Error|Throwable}
          *            [error] - the error / exception that needs to be logged
-         * @param {string}
-         *            [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if the log
-         *            level is enabled (mutually exclusive with error)
+         * @param {...object|array}
+         *            [params] - log message pattern substitution values to be used in rendering the full log message if the log level is
+         *            enabled (mutually exclusive with error)
          */
         info : function logger__info()
         {
@@ -169,6 +173,7 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
          * Checks if the "info" log level is enabled for the caller script's logger
          * 
          * @instance
+         * @memberof module:_base/logger
          * @returns {boolean} true if the log level is enabled
          */
         isInfoEnabled : function logger__isInfoEnabled()
@@ -180,13 +185,14 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
          * Log a message at "warn" level
          * 
          * @instance
+         * @memberof module:_base/logger
          * @param {string}
          *            message - the message / pattern for the log message
          * @param {Error|Throwable}
          *            [error] - the error / exception that needs to be logged
-         * @param {string}
-         *            [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if the log
-         *            level is enabled (mutually exclusive with error)
+         * @param {...object|array}
+         *            [params] - log message pattern substitution values to be used in rendering the full log message if the log level is
+         *            enabled (mutually exclusive with error)
          */
         warn : function logger__warn()
         {
@@ -197,6 +203,7 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
          * Checks if the "warn" log level is enabled for the caller script's logger
          * 
          * @instance
+         * @memberof module:_base/logger
          * @returns {boolean} true if the log level is enabled
          */
         isWarnEnabled : function logger__isWarnEnabled()
@@ -208,13 +215,14 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
          * Log a message at "error" level
          * 
          * @instance
+         * @memberof module:_base/logger
          * @param {string}
          *            message - the message / pattern for the log message
          * @param {Error|Throwable}
          *            [error] - the error / exception that needs to be logged
-         * @param {string}
-         *            [argX] - (multiple) log message pattern substitution values to be used in rendering the full log message if the log
-         *            level is enabled (mutually exclusive with error)
+         * @param {...object|array}
+         *            [params] - log message pattern substitution values to be used in rendering the full log message if the log level is
+         *            enabled (mutually exclusive with error)
          */
         error : function logger__error()
         {
@@ -225,6 +233,7 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
          * Checks if the "error" log level is enabled for the caller script's logger
          * 
          * @instance
+         * @memberof module:_base/logger
          * @returns {boolean} true if the log level is enabled
          */
         isErrorEnabled : function logger__isErrorEnabled()
