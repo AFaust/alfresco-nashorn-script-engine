@@ -1,4 +1,15 @@
 /* globals -require */
+/**
+ * This module wraps the Rhino-based web script message utility typically provided as part of the script model to ensure compatibility with
+ * Nashorn. In addition to the legacy support for a get-operation this module also exposes messages as simple properties (without
+ * placeholder replacement functionality).
+ * 
+ * @module _legacy/webscript/msg
+ * @requires nashorn!Java
+ * @requires nashorn!JSAdapter
+ * @requires _base/ConversionService
+ * @author Axel Faust
+ */
 define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter', '_base/ConversionService' ], function msg(rhinoMsg, Java, JSAdapter,
         ConversionService)
 {
@@ -21,6 +32,22 @@ define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter', '_base/ConversionServi
     if (rhinoMsg instanceof ScriptMessage)
     {
         result = new JSAdapter({
+            toString : function msg__toString()
+            {
+                return rhinoMsg.toString();
+            }
+        }, {
+            /**
+             * Retrieves a message from the underlying, locale-aware message bundle(s) and optionally replaces any placeholders with
+             * specific values.
+             * 
+             * @instance
+             * @function
+             * @param {string}
+             *            msgId the key / ID to the message to retrieve
+             * @param {object|array|List|Map}
+             *            [args] the arguments to be used to replace any placeholders in the resolved message
+             */
             // overrides/prototype with a "normal" get to expose the legacy API of ScriptMessage
             get : function msg__get(msgId, args)
             {
@@ -35,6 +62,7 @@ define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter', '_base/ConversionServi
 
                         if (isObject(args) || args instanceof Map)
                         {
+                            // TODO Transparently map object/Map with numeric String keys into an array
                             // default ScriptMessage does not support object as parameter but in case an extended variant does we
                             // cover this case here
                             scriptable = cx.newObject(scope);

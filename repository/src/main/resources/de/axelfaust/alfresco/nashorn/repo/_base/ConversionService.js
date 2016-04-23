@@ -1,4 +1,15 @@
 /* globals -require */
+/**
+ * This module provides common conversion registration and execution capabilities that can be augmented by type specific plugins to cover a
+ * wider range of conversions. By default this module only supports converting instances of {@link module:_base/JavaConvertableMixin} to a
+ * Java representation.
+ * 
+ * @module _base/ConversionService
+ * @requires module:nashorn!Java
+ * @requires module:_base/JavaConvertableMixin
+ * @requires module:_base/logger
+ * @author Axel Faust
+ */
 define([ 'nashorn!Java', './JavaConvertableMixin', './logger' ], function _base_ConversionService_root(Java, JavaConvertableMixin, logger)
 {
     'use strict';
@@ -213,17 +224,6 @@ define([ 'nashorn!Java', './JavaConvertableMixin', './logger' ], function _base_
         }
     };
 
-    /**
-     * This module provides common conversion registration and execution capabilities that can be augmented by type specific plugins to
-     * cover a wider range of conversions. By default this module only supports converting instances of
-     * {@link module:_base/JavaConvertableMixin} to a Java representation.
-     * 
-     * @exports _base/ConversionService
-     * @requires module:nashorn!Java
-     * @requires module:_base/JavaConvertableMixin
-     * @requires module:_base/logger
-     * @author Axel Faust
-     */
     service = {
 
         /**
@@ -231,6 +231,7 @@ define([ 'nashorn!Java', './JavaConvertableMixin', './logger' ], function _base_
          * 
          * @instance
          * @function
+         * @memberof module:_base/ConversionService
          * @param {object}
          *            obj the script object to convert
          * @returns {object} the Java representation or the object itself if no conversion is supported
@@ -242,6 +243,7 @@ define([ 'nashorn!Java', './JavaConvertableMixin', './logger' ], function _base_
          * 
          * @instance
          * @function
+         * @memberof module:_base/ConversionService
          * @param {object}
          *            obj the Java object to convert
          * @returns {object} the script representation or the object itself if no conversion is supported
@@ -254,6 +256,7 @@ define([ 'nashorn!Java', './JavaConvertableMixin', './logger' ], function _base_
          * 
          * @instance
          * @function
+         * @memberof module:_base/ConversionService
          * @param {string}
          *            javaType the Java type / class name the converter can handle
          * @param {function}
