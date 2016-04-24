@@ -144,7 +144,9 @@ define([ 'nashorn!Java', './JavaConvertableMixin', './logger' ], function _base_
         {
             logger.debug('convertToScript called for "{}"', javaObject);
 
-            if (Java.isJavaObject(javaObject))
+            // some Java types are inheritently treated as first-class JS types despite Java.isJaveObject() yielding true
+            if (Java.isJavaObject(javaObject)
+                    && !(typeof javaObject === 'string' || typeof javaObject === 'number' || typeof javaObject === 'boolean'))
             {
                 identityHashCode = String(JavaSystem.identityHashCode(javaObject));
 

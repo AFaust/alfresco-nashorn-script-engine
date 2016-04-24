@@ -1,6 +1,17 @@
 /* globals -require */
-define([ '_base/declare', '_base/ProxySupport', '../common/QNameMapWrapper', '../foundation/NodeService', '_base/logger', 'nashorn!Java' ],
-        function alfresco_node_NodePropertiesMixin_root(declare, ProxySupport, QNameMapWrapper, NodeService, logger, Java)
+/**
+ * This mixin module provides the ability to handle properties of a live node in the Alfresco repository.
+ * 
+ * @module alfresco/node/_NodePropertiesMixin
+ * @mixes module:_base/ProxySupport
+ * @requires module:_base/declare
+ * @requires module:alfresco/node/NodePropertiesMap
+ * @requires module:_base/logger
+ * @requires module:nashorn!Java
+ * @author Axel Faust
+ */
+define([ '_base/declare', '_base/ProxySupport', './NodePropertiesMap', '_base/logger', 'nashorn!Java' ],
+        function alfresco_node_NodePropertiesMixin_root(declare, ProxySupport, NodePropertiesMap, logger, Java)
         {
             'use strict';
 
@@ -16,13 +27,18 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QNameMapWrapper', '..
 
                 getProperties : function alfresco_node_NodePropertiesMixin__getProperties()
                 {
-                    // TODO Switch from trivial to somewhat statefull impl
                     var result, properties;
 
-                    if (this.nodeRef instanceof NodeRef)
+                    if (!this.hasOwnProperty('properties') && this.nodeRef instanceof NodeRef)
                     {
-                        properties = NodeService.getProperties(this.nodeRef);
-                        result = new QNameMapWrapper(properties);
+                        logger.debug('Initialising properties of {}', this.nodeRef);
+                        properties = new NodePropertiesMap(this.nodeRef);
+                        Object.defineProperty(this, 'properties', {
+                            value : properties,
+                            enumerable : true
+                        });
+
+                        result = properties;
                     }
 
                     return result;
@@ -30,7 +46,22 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QNameMapWrapper', '..
 
                 save : function alfresco_node_NodePropertiesMixin__save()
                 {
-                    // TODO implement
+                    this.inherited(arguments);
+                    if (this.hasOwnProperty('properties'))
+                    {
+                        logger.debug('Saving properties of {}', this.nodeRef);
+                        this.properties.save();
+                    }
+                },
+
+                reset : function alfresco_node_NodePropertiesMixin__reset()
+                {
+                    this.inherited(arguments);
+                    if (this.hasOwnProperty('properties'))
+                    {
+                        logger.debug('Resetting properties of {}', this.nodeRef);
+                        this.properties.reset();
+                    }
                 }
             });
         });

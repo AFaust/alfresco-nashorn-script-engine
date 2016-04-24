@@ -1,6 +1,6 @@
 /* globals -require */
 define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', './QName', '_base/logger', 'nashorn!Java' ],
-        function alfresco_node_QNameMapWrapper_root(declare, JavaConvertableMixin, ProxySupport, QName, logger, Java)
+        function alfresco_common_QNameMapWrapper_root(declare, JavaConvertableMixin, ProxySupport, QName, logger, Java)
         {
             'use strict';
             var Map, IllegalArgumentException;
@@ -93,6 +93,9 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', '.
                         switch (prop)
                         {
                             case 'length':
+                            case 'clear':
+                            case 'size':
+                                result = true;
                                 break;
                             default:
                                 qname = QName.valueOf(prop);

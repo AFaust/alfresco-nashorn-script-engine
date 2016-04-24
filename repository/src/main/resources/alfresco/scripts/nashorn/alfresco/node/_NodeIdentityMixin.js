@@ -308,7 +308,6 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
         getName : function alfresco_node_NodeIdentityMixin__getName()
         {
             // This is a trivial approach to get name (based on Rhino ScriptNode but without any caching as name might change at runtime)
-            // TODO Override in ScriptNode and use internal properties representation
             var name, parentRef, childAssocQName;
 
             name = NodeService.getProperty(this.nodeRef, ContentModel.PROP_NAME);
@@ -341,8 +340,6 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
             var qnameType;
 
             // This is a trivial approach to set name (based on Rhino ScriptNode but without any property caching)
-            // TODO Override in ScriptNode and use internal properties representation
-
             if (typeof name === 'string')
             {
                 qnameType = NodeService.getType(this.nodeRef);
