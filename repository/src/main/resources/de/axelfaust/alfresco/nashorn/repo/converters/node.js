@@ -1,9 +1,9 @@
 /* globals -require */
-define([ '_base/ConversionService', 'alfresco/node/ScriptNode' ], function commonConverters_root(ConversionService, ScriptNode)
+define([ '_base/ConversionService', 'alfresco/node/ScriptNode' ], function nodeConverters_root(ConversionService, ScriptNode)
 {
     'use strict';
     ConversionService.registerJavaToScriptConverter('org.alfresco.service.cmr.repository.NodeRef',
-            function commonConverters_convertNodeRefToScript(nodeRef)
+            function nodeConverters_convertNodeRefToScript(nodeRef)
             {
                 var result;
 
@@ -14,7 +14,7 @@ define([ '_base/ConversionService', 'alfresco/node/ScriptNode' ], function commo
 
     // in case somehow a ScriptNode has already been provided as a parameters
     ConversionService.registerJavaToScriptConverter('org.alfresco.repo.jscript.ScriptNode',
-            function commonConverters_convertScriptNodeToScript(scriptNode)
+            function  nodeConverters_convertScriptNodeToScript(scriptNode)
             {
                 var result;
 
