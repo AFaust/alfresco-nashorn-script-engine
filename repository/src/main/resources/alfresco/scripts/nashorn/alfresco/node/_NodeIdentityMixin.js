@@ -167,12 +167,12 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
         },
 
         /**
-         * The type qname for this node
+         * The type qname for this node. Setting this property will try to specialize the type of the node and fail if the types are
+         * incompatible.
          * 
          * @var qnameType
          * @type {module:alfresco/common/QName}
          * @instance
-         * @readonly
          * @memberof module:alfresco/node/_NodeIdentityMixin
          */
         /**
@@ -188,18 +188,31 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
         },
 
         /**
+         * Sets the type of the node to a specialized sub-type if possible.
+         * 
+         * @instance
+         * @param {module:alfresco/common/QName}
+         *            qnameType the qname of the sub-type for the node
+         * @returns {module:alfresco/common/QName} the qname the new type
+         */
+        setQnameType : function alfresco_node_NodeIdentityMixin__setQnameType(qnameType)
+        {
+            return this.setQNameType(qnameType);
+        },
+
+        /**
          * The type qname for this node - this is equivalent to {@link module:alfresco/node/_NodeIdentityMixin~qnameType} for compatibility
-         * reasons with legacy API
+         * reasons with legacy API. Setting this property will try to specialize the type of the node and fail if the types are
+         * incompatible.
          * 
          * @var qNameType
          * @type {module:alfresco/common/QName}
          * @instance
-         * @readonly
          * @memberof module:alfresco/node/_NodeIdentityMixin
          */
         /**
-         * Retrieves the type qname of this node - this is equivalent to {@link module:alfresco/node/_NodeIdentityMixin~getQNameType} for
-         * compatibility reasons with legacy API
+         * Retrieves the type qname of this node - this is equivalent to {@link module:alfresco/node/_NodeIdentityMixin~getQnameType} for
+         * compatibility reasons with legacy API.
          * 
          * @instance
          * @return {module:alfresco/common/QName} the type qname
@@ -207,12 +220,13 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
         getQNameType : function alfresco_node_NodeIdentityMixin__getQNameType()
         {
             var qnameType;
-            if (!this.hasOwnProperty('qnameType'))
+            if (!this.hasOwnProperty('_qnameType'))
             {
-                qnameType = new QName(NodeService.getType(this.nodeRef));
-                // just a cached value
-                Object.defineProperty(this, 'qnameType', {
-                    value : qnameType
+                qnameType = QName.valueOf(NodeService.getType(this.nodeRef));
+                // just an internally cached value
+                Object.defineProperty(this, '_qnameType', {
+                    value : qnameType,
+                    writable : true
                 });
             }
 
@@ -220,12 +234,41 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
         },
 
         /**
-         * The long form string representation of the type of this node
+         * Sets the type of the node to a specialized sub-type if possible - this is equivalent to
+         * {@link module:alfresco/node/_NodeIdentityMixin~setQnameType} for compatibility reasons with legacy API.
+         * 
+         * @instance
+         * @param {module:alfresco/common/QName}
+         *            qnameType the qname of the sub-type for the node
+         * @returns {module:alfresco/common/QName} the qname the new type
+         */
+        setQNameType : function alfresco_node_NodeIdentityMixin__setQNameType(qnameType)
+        {
+            var result;
+            // TODO Introduce type check
+            if (type === this.getQNameType() || this.getQNameType().qname.equals(qnameType.qname || null))
+            {
+                result = qnameType;
+            }
+            else if (!this.specializeType(qnameType))
+            {
+                throw new Error('Node type could not be specialized to ' + qnameType);
+            }
+            else
+            {
+                result = this.getQNameType();
+            }
+
+            return result;
+        },
+
+        /**
+         * The long form string representation of the type of this node. Setting this property will try to specialize the type of the node
+         * and fail if the types are incompatible.
          * 
          * @var type
          * @type {string}
          * @instance
-         * @readonly
          * @memberof module:alfresco/node/_NodeIdentityMixin
          */
         /**
@@ -245,12 +288,39 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
         },
 
         /**
-         * The prefixed string representation of the type of this node
+         * Sets the type of the node to a specialized sub-type if possible.
+         * 
+         * @instance
+         * @param {string}
+         *            type the long form string representation of the sub-type for the node
+         * @returns {string} the long form string representation of the new type
+         */
+        setType : function alfresco_node_NodeIdentityMixin__setType(type)
+        {
+            var result;
+            if (type === this.getType())
+            {
+                result = type;
+            }
+            else if (!this.specializeType(type))
+            {
+                throw new Error('Node type could not be specialized to ' + type);
+            }
+            else
+            {
+                result = this.getType();
+            }
+
+            return result;
+        },
+
+        /**
+         * The prefixed string representation of the type of this node. Setting this property will try to specialize the type of the node
+         * and fail if the types are incompatible.
          * 
          * @var typeShort
          * @type {string}
          * @instance
-         * @readonly
          * @memberof module:alfresco/node/_NodeIdentityMixin
          */
         /**
@@ -270,7 +340,153 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
         },
 
         /**
-         * Flag wether the node represented by this instance exists or not
+         * Sets the type of the node to a specialized sub-type if possible.
+         * 
+         * @instance
+         * @param {string}
+         *            typeShort the prefixed string representation of the sub-type for the node
+         * @returns {string} the prefixed string representation of the new type
+         */
+        setTypeShort : function alfresco_node_NodeIdentityMixin__setTypeShort(typeShort)
+        {
+            var result;
+            if (typeShort === this.getTypeShort())
+            {
+                result = typeShort;
+            }
+            else if (!this.specializeType(typeShort))
+            {
+                throw new Error('Node type could not be specialized to ' + typeShort);
+            }
+            else
+            {
+                result = this.getTypeShort();
+            }
+
+            return result;
+        },
+
+        /**
+         * Sets the type of the node to a specialized sub-type.
+         * 
+         * @instance
+         * @param {string|QName|module:alfresco/common/QName}
+         *            type the sub-type for the node
+         * @returns {boolean} true if the node was specialized, false otherwise
+         */
+        specializeType : function alfresco_node_NodeIdentityMixin__specializeType(type)
+        {
+            var qname, currentTypeQName, result = false;
+
+            qname = QName.valueOf(type);
+            if (qname === undefined || qname === null)
+            {
+                throw new Error('type is a required parameter');
+            }
+
+            currentTypeQName = this.getQNameType();
+
+            if (!currentTypeQName.qname.equals(qname.qname) && DictionaryService.isSubClass(qname.qname, currentTypeQName.qname))
+            {
+                NodeService.setType(this.nodeRef, qname.qname);
+                // update internally cached value
+                this._qnameType = qname;
+                result = true;
+            }
+
+            return result;
+        },
+
+        /**
+         * The array of long form string representations for all aspects applied to the node
+         * 
+         * @var aspects
+         * @type {array}
+         * @instance
+         * @readonly
+         * @memberof module:alfresco/node/_NodeIdentityMixin
+         */
+        /**
+         * Retrieves the aspects applied to the node in their long form string representation
+         * 
+         * @instance
+         * @returns {array} the applied aspects in long form string representation
+         */
+        getAspects : function alfresco_node_NodeIdentityMixin__getAspects()
+        {
+            var aspectsLong, aspects;
+            aspects = this._getAspectsQName();
+            aspectsLong = [];
+            aspects.forEach(function alfresco_node_NodeIdentityMixin__getAspects__forEachAspect(aspect)
+            {
+                aspectsLong.push(aspect.fullString);
+            });
+
+            return aspectsLong;
+        },
+
+        /**
+         * The array of prefixed string representations for all aspects applied to the node
+         * 
+         * @var aspectsShort
+         * @type {array}
+         * @instance
+         * @readonly
+         * @memberof module:alfresco/node/_NodeIdentityMixin
+         */
+        /**
+         * Retrieves the aspects applied to the node in their prefixed string representation
+         * 
+         * @instance
+         * @returns {array} the applied aspects in prefixed string representation
+         */
+        getAspectsShort : function alfresco_node_NodeIdentityMixin__getAspectsShort()
+        {
+            var aspectsShort, aspects;
+            aspects = this._getAspectsQName();
+            aspectsShort = [];
+            aspects.forEach(function alfresco_node_NodeIdentityMixin__getAspectsShort__forEachAspect(aspect)
+            {
+                aspectsShort.push(aspect.prefixString);
+            });
+
+            return aspectsShort;
+        },
+
+        /**
+         * Retrieves the aspects applied to the node
+         * 
+         * @instance
+         * @private
+         * @returns {array} the applied aspects
+         */
+        _getAspectsQName : function alfresco_node_NodeIdentityMixin__getAspectsQName()
+        {
+            var aspects, aspectQNames;
+            if (!this.hasOwnProperty('_aspectQNames'))
+            {
+                aspects = NodeService.getAspects(this.nodeRef);
+                aspectQNames = [];
+                aspects.forEach(function alfresco_node_NodeIdentityMixin__getAspectsQName_forEachAspect(aspect)
+                {
+                    aspectQNames.push(QName.valueOf(aspect));
+                });
+
+                // just an internally cached value
+                Object.defineProperty(this, '_aspectQNames', {
+                    value : aspectQNames,
+                    configurable : true
+                });
+            }
+
+            return this.aspectQNames;
+        },
+        
+        // TODO Aspect addition / removal
+
+        /**
+         * Flag wether the node represented by this instance exists or not. For compatibility with legacy API this property can also be
+         * called as a function.
          * 
          * @var exists
          * @type {boolean}
@@ -360,7 +576,7 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
         __call__ : function alfresco_node_NodeIdentity__call__(name)
         {
             var result;
-            if (name === 'exists' && arguments.length === 1)
+            if (name === 'exists')
             {
                 result = this.getExists();
             }

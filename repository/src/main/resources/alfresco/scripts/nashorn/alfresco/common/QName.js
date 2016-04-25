@@ -224,17 +224,28 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', '.
                 qnameCache[result.prefixString] = result;
             }
         }
+        else if (qname !== undefined && qname !== null)
+        {
+            if (typeof qname.isInstanceOf === 'function' && qname.isInstanceOf(Module))
+            {
+                result = qname;
+            }
+            else
+            {
+                result = qnameCache[qname];
+
+                if (result === null)
+                {
+                    result = new Module(qname);
+                    qnameCache[qname] = result;
+                    qnameCache[result.qname] = result;
+                    qnameCache[result.prefixString] = result;
+                }
+            }
+        }
         else
         {
-            result = qnameCache[qname];
-
-            if (result === null)
-            {
-                result = new Module(qname);
-                qnameCache[qname] = result;
-                qnameCache[result.qname] = result;
-                qnameCache[result.prefixString] = result;
-            }
+            result = null;
         }
 
         logger.debug('valueOf for {} yielded {}', qname, result);

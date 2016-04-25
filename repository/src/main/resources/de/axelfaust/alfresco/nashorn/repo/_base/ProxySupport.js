@@ -338,7 +338,11 @@ define(
                 {
                     var result, getterName, suffix, prop, _this;
 
-                    if (this['--proxy-use-getter-only'] !== true && __noSuchProperty__call !== true)
+                    if (name in this && typeof this[name] === 'function')
+                    {
+                        result = this[name];
+                    }
+                    else if (this['--proxy-use-getter-only'] !== true && __noSuchProperty__call !== true)
                     {
                         // either exists or handled by __noSuchProperty__
                         result = this[name];
