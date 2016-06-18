@@ -433,7 +433,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
                 }
             }
 
-            // 5) Java extensions (must be picked up by modules before #7)
+            // 5) Java extensions (must be picked up by modules before #9)
             globalBindings.put("processorExtensions", this.processorExtensions);
 
             // 6) AMD config

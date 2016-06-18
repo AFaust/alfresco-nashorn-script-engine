@@ -14,11 +14,14 @@
 package de.axelfaust.alfresco.nashorn.repo.web.scripts;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.alfresco.service.cmr.repository.ScriptService;
 import org.alfresco.util.PropertyCheck;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.extensions.webscripts.MultiScriptLoader;
 import org.springframework.extensions.webscripts.ScriptContent;
@@ -33,6 +36,12 @@ import org.springframework.extensions.webscripts.WebScriptException;
  */
 public class RepositoryNashornScriptProcessor implements ScriptProcessor, InitializingBean
 {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(RepositoryNashornScriptProcessor.class);
+
+    protected static final String RUNNER_CLASSPATH = "de/axelfaust/alfresco/nashorn/repo/webscripts/webscript-runner.js";
+
+    protected static final String MODEL_KEY_SCRIPT_CONTENT = "_RepositoryNashornScriptProcessor_scriptContent";
 
     protected ScriptService scriptService;
 
@@ -105,7 +114,24 @@ public class RepositoryNashornScriptProcessor implements ScriptProcessor, Initia
     @Override
     public Object executeScript(final ScriptContent location, final Map<String, Object> model)
     {
-        return this.scriptService.executeScript("nashorn", new RepositoryScriptLocation(location), model);
+        final Map<String, Object> effectiveModel = model != null ? model : new HashMap<String, Object>();
+
+        if (effectiveModel.containsKey(MODEL_KEY_SCRIPT_CONTENT))
+        {
+            LOGGER.warn(
+                    "Script model already contains a variable called {} - overriding value {} to hook in the actual web script content",
+                    MODEL_KEY_SCRIPT_CONTENT, effectiveModel.get(MODEL_KEY_SCRIPT_CONTENT));
+        }
+
+        effectiveModel.put(MODEL_KEY_SCRIPT_CONTENT, new RepositoryScriptLocation(location));
+        try
+        {
+            return this.scriptService.executeScript("nashorn", RUNNER_CLASSPATH, effectiveModel);
+        }
+        finally
+        {
+            effectiveModel.remove(MODEL_KEY_SCRIPT_CONTENT);
+        }
     }
 
     /**
