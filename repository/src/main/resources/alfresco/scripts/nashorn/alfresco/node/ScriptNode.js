@@ -11,10 +11,8 @@
  * @requires module:_base/declare
  * @author Axel Faust
  */
-define([ '_base/declare', '_base/JavaConvertableMixin', './_NodeIdentityMixin', './_NodePropertiesMixin',
-        '../foundation/DictionaryService', '../foundation/NodeService', '../foundation/FileFolderService' ],
-        function alfresco_node_ScriptNode_root(declare, JavaConvertableMixin, _NodeIdentityMixin, _NodePropertiesMixin, DictionaryService,
-                NodeService, FileFolderService)
+define([ '_base/declare', '_base/JavaConvertableMixin', './_NodeIdentityMixin', './_NodePropertiesMixin' ],
+        function alfresco_node_ScriptNode_root(declare, JavaConvertableMixin, _NodeIdentityMixin, _NodePropertiesMixin)
         {
             'use strict';
             return declare([ JavaConvertableMixin, _NodeIdentityMixin, _NodePropertiesMixin ], {
@@ -60,7 +58,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', './_NodeIdentityMixin', 
                  *            type the sub-type for the node
                  * @returns {boolean} true if the node was specialized, false otherwise
                  */
-                specializeType : function alfresco_node_ScriptNode__specializeType(type)
+                specializeType : function alfresco_node_ScriptNode__specializeType()
                 {
                     var specialized, properties;
 
@@ -74,7 +72,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', './_NodeIdentityMixin', 
 
                     return specialized;
                 }
-                
-                // TODO Handle addAspect with properties
+
+            // TODO Handle addAspect with properties
             });
         });

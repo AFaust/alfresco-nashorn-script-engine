@@ -246,7 +246,7 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
         {
             var result;
             // TODO Introduce type check
-            if (type === this.getQNameType() || this.getQNameType().qname.equals(qnameType.qname || null))
+            if (qnameType === this.getQNameType() || this.getQNameType().qname.equals(qnameType.qname || null))
             {
                 result = qnameType;
             }

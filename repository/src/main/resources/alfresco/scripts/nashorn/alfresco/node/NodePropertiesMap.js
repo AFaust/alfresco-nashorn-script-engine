@@ -433,7 +433,7 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '_base/Conver
                  */
                 save : function alfresco_node_NodePropertiesMap__save()
                 {
-                    var propertiesToAdd, name;
+                    var propertiesToAdd, name, qnameType;
 
                     propertiesToAdd = this.__getModifiedPropertiesMap();
 
@@ -475,9 +475,14 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '_base/Conver
                  */
                 _getModifiedPropertiesMap : function alfresco_node_NodePropertiesMap__getModifiedPropertiesMap()
                 {
-                    var propertiesToAdd, qname, value, arr, javaValue, idx;
+                    var propertiesToAdd, arrayValueConverter, qname, value, arr, javaValue, idx;
 
                     propertiesToAdd = new HashMap();
+                    arrayValueConverter = function alfresco_node_NodePropertiesMap__save_forEachValueArrElem(element, index, arr)
+                    {
+                        var converted = ConversionService.convertToJava(element);
+                        arr[index] = converted;
+                    };
 
                     // we only process properties explicitly set or accessed (w/ potential external modification)
                     for (idx = 0; idx < this.explicitlyAccessedProperties.length; idx++)
@@ -492,11 +497,7 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '_base/Conver
                         else if (Array.isArray(value))
                         {
                             arr = [].concat(value);
-                            arr.forEach(function alfresco_node_NodePropertiesMap__save_forEachValueArrElem(element, index)
-                            {
-                                var converted = ConversionService.convertToJava(element);
-                                arr[index] = converted;
-                            });
+                            arr.forEach(arrayValueConverter);
                             javaValue = Java.to(arr, List);
                             propertiesToAdd.put(qname.qname, javaValue);
                         }
