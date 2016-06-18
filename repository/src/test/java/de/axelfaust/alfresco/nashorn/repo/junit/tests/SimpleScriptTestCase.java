@@ -49,10 +49,13 @@ public class SimpleScriptTestCase extends TestCase implements ScriptContextReusi
 
     protected static final Map<String, ScriptContext> contextByFile = new ConcurrentHashMap<String, ScriptContext>();
 
+    private static final String SCRIPT_SIMPLE_LOGGER = "simple-logger.js";
+
     private static final String SCRIPT_AMD = "amd.js";
 
     public static void initializeAMD(final ScriptEngine engine, final ScriptContext scriptContext) throws ScriptException
     {
+        loadScriptResource(engine, scriptContext, NashornScriptProcessor.class, SCRIPT_SIMPLE_LOGGER);
         loadScriptResource(engine, scriptContext, NashornScriptProcessor.class, SCRIPT_AMD);
     }
 

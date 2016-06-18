@@ -59,6 +59,7 @@ import de.axelfaust.alfresco.nashorn.repo.junit.interop.JUnitBeforeAwareScript;
 import de.axelfaust.alfresco.nashorn.repo.junit.interop.JUnitBeforeScriptAwareScript;
 import de.axelfaust.alfresco.nashorn.repo.junit.interop.JUnitTestCaseAwareScript;
 import de.axelfaust.alfresco.nashorn.repo.junit.interop.JUnitTestScript;
+import de.axelfaust.alfresco.nashorn.repo.junit.interop.NashornScriptModelSatementFacade;
 import de.axelfaust.alfresco.nashorn.repo.junit.interop.RunScriptLifecycleMethods;
 import de.axelfaust.alfresco.nashorn.repo.junit.interop.ScriptFunction;
 import de.axelfaust.alfresco.nashorn.repo.junit.tests.ScriptContextReusingTestCase;
@@ -314,6 +315,14 @@ public class ScriptFile extends ParentRunner<ScriptFunction>
         return resultStatement;
     }
 
+    @Override
+    protected Statement classBlock(final RunNotifier notifier)
+    {
+        Statement statement = super.classBlock(notifier);
+        statement = new NashornScriptModelSatementFacade(statement);
+        return statement;
+    }
+
     protected Statement methodBlock(final ScriptFunction scriptFunction)
     {
         Object test;
@@ -348,6 +357,7 @@ public class ScriptFile extends ParentRunner<ScriptFunction>
         statement = this.withBefores(test, scriptTest, statement);
         statement = this.withAfters(test, scriptTest, statement);
         statement = this.withTestRules(scriptFunction, this.getTestRules(test), statement);
+        statement = new NashornScriptModelSatementFacade(statement);
         return statement;
     }
 

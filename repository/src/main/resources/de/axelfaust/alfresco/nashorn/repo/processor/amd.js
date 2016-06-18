@@ -745,8 +745,7 @@
         checkAndFulfillModuleListeners(module);
 
         // TODO Refactor with check for wrapper (when we have introduced the generic module result wrapper)
-        if (callerSecure !== true && moduleResult !== undefined && moduleResult !== null
-                && ('secureUseOnly' in moduleResult && moduleResult.secureUseOnly === true))
+        if (callerSecure !== true && isObject(moduleResult) && ('secureUseOnly' in moduleResult) && moduleResult.secureUseOnly === true)
         {
             throw new Error('Access to module \'' + normalizedId + '\' is not allowed for unsecure caller \'' + callerUrl + '\'');
         }
