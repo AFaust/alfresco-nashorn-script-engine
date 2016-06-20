@@ -210,6 +210,7 @@
             }
             else if (arguments.length === 2 && Array.isArray(arg2))
             {
+                // TODO Optimize (this lookup is quite expansive)
                 this.logger['trace(java.lang.String,java.lang.Object[])'](message, this.logger.traceEnabled ? processMessageParams(arg2)
                         : arg2);
             }
@@ -221,6 +222,7 @@
                     args.push(arguments[idx]);
                 }
 
+                // TODO Optimize (this lookup is quite expansive)
                 this.logger['trace(java.lang.String,java.lang.Object[])'](message, this.logger.traceEnabled ? processMessageParams(args)
                         : args);
             }
@@ -254,6 +256,7 @@
             }
             else if (arguments.length === 2 && Array.isArray(arg2))
             {
+                // TODO Optimize (this lookup is quite expansive)
                 this.logger['debug(java.lang.String,java.lang.Object[])'](message, this.logger.debugEnabled ? processMessageParams(arg2)
                         : arg2);
             }
@@ -265,6 +268,7 @@
                     args.push(arguments[idx]);
                 }
 
+                // TODO Optimize (this lookup is quite expansive)
                 this.logger['debug(java.lang.String,java.lang.Object[])'](message, this.logger.debugEnabled ? processMessageParams(args)
                         : args);
             }
@@ -298,6 +302,7 @@
             }
             else if (arguments.length === 2 && Array.isArray(arg2))
             {
+                // TODO Optimize (this lookup is quite expansive)
                 this.logger['info(java.lang.String,java.lang.Object[])'](message, this.logger.infoEnabled ? processMessageParams(arg2)
                         : arg2);
             }
@@ -309,6 +314,7 @@
                     args.push(arguments[idx]);
                 }
 
+                // TODO Optimize (this lookup is quite expansive)
                 this.logger['info(java.lang.String,java.lang.Object[])'](message, this.logger.infoEnabled ? processMessageParams(args)
                         : args);
             }
@@ -342,6 +348,7 @@
             }
             else if (arguments.length === 2 && Array.isArray(arg2))
             {
+                // TODO Optimize (this lookup is quite expansive)
                 this.logger['warn(java.lang.String,java.lang.Object[])'](message, this.logger.warnEnabled ? processMessageParams(arg2)
                         : arg2);
             }
@@ -353,6 +360,7 @@
                     args.push(arguments[idx]);
                 }
 
+                // TODO Optimize (this lookup is quite expansive)
                 this.logger['warn(java.lang.String,java.lang.Object[])'](message, this.logger.warnEnabled ? processMessageParams(args)
                         : args);
             }
@@ -386,6 +394,7 @@
             }
             else if (arguments.length === 2 && Array.isArray(arg2))
             {
+                // TODO Optimize (this lookup is quite expansive)
                 this.logger['error(java.lang.String,java.lang.Object[])'](message, this.logger.errorEnabled ? processMessageParams(arg2)
                         : arg2);
             }
@@ -397,6 +406,7 @@
                     args.push(arguments[idx]);
                 }
 
+                // TODO Optimize (this lookup is quite expansive)
                 this.logger['error(java.lang.String,java.lang.Object[])'](message, this.logger.errorEnabled ? processMessageParams(args)
                         : args);
             }
