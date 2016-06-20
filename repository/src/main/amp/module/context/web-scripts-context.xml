@@ -6,18 +6,35 @@
     <!-- Exceptions: service beans (unique name) and beans with name conventions (e.g. web scripts) -->
 
     <bean id="${project.artifactId}-webscripts.nashorn.processor.factory" class="org.alfresco.repo.web.scripts.RepositoryScriptProcessorFactory">
-      <property name="scriptProcessor" ref="${project.artifactId}-webscripts.nashorn.processor"/>
-   </bean>
+        <property name="scriptProcessor" ref="${project.artifactId}-webscripts.nashorn.processor" />
+    </bean>
 
     <bean id="${project.artifactId}-webscripts.nashorn.processor" class="${project.artifactId}.web.scripts.RepositoryNashornScriptProcessor">
         <property name="scriptService" ref="scriptService" />
         <property name="searchPath" ref="webscripts.searchpath" />
     </bean>
-    
+
     <bean class="org.springframework.extensions.webscripts.ScriptProcessorRegistrar" init-method="init">
-      <property name="registry" ref="webscripts.repo.registry.scriptprocessor" />
-      <property name="factory" ref="${project.artifactId}-webscripts.nashorn.processor.factory" />
-      <property name="name"><value>Repository Nashorn Script Processor</value></property>
-      <property name="extension" value="nashornjs" />
-   </bean>
+        <property name="registry" ref="webscripts.repo.registry.scriptprocessor" />
+        <property name="factory" ref="${project.artifactId}-webscripts.nashorn.processor.factory" />
+        <property name="name">
+            <value>Repository Nashorn Script Processor</value>
+        </property>
+        <property name="extension" value="nashornjs" />
+    </bean>
+
+    <bean id="webscript.de.axelfaust.nashorn.execute.post" class="${project.artifactId}.web.scripts.console.ExecutePost" parent="webscript">
+        <property name="transactionService" ref="TransactionService" />
+        <property name="printOutputCache" ref="${project.artifactId}-printOutputCache" />
+        <property name="resultCache" ref="${project.artifactId}-resultCache" />
+        <property name="printOutputChunkSize" value="${nashornJavaScriptProcessor.nashorn.printOutputChunkSize}" />
+    </bean>
+
+    <bean name="${project.artifactId}-printOutputCache" factory-bean="cacheFactory" factory-method="createCache">
+        <constructor-arg value="cache.nashornJavaScriptProcessor.console.printOutput" />
+    </bean>
+
+    <bean name="${project.artifactId}-resultCache" factory-bean="cacheFactory" factory-method="createCache">
+        <constructor-arg value="cache.nashornJavaScriptProcessor.console.result" />
+    </bean>
 </beans>

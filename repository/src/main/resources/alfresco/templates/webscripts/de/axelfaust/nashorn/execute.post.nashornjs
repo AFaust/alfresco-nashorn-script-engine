@@ -1,0 +1,35 @@
+/* globals -require */
+/**
+ * This module acts as the standard runner for dynamic Nashorn web script code provided to the JavaScript Console execution backend. Its
+ * primary purpose is to wrap executions to additionally preload the expected root scope utilities and hooks to suport the JavaScript
+ * Console addon.
+ * 
+ * @requires module:require
+ * @author Axel Faust
+ */
+define([ 'require' ], function execute__factory(require)
+{
+    'use strict';
+
+    // TODO Preload additional modules
+
+    return function execute()
+    {
+        var result;
+
+        require([ 'callerProvided!js-console/script' ], function execute__callback(scriptResult)
+        {
+            result = scriptResult;
+
+            if (typeof result === 'function')
+            {
+                result = result();
+            }
+        }, function execute__errCallback(dependencies, resolutions, implicitResolutions)
+        {
+            result = resolutions[0] || implicitResolutions[0];
+        });
+
+        return result;
+    };
+});

@@ -23,6 +23,11 @@ define([ 'require', 'args!_RepositoryNashornScriptProcessor_scriptContent' ], fu
         require([ webscriptModuleId ], function webscript_runner__callback(webscriptResult)
         {
             result = webscriptResult;
+
+            if (typeof result === 'function')
+            {
+                result = result();
+            }
         }, function webscript_runner__errCallback(dependencies, resolutions, implicitResolutions)
         {
             result = resolutions[0] || implicitResolutions[0];
