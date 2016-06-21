@@ -14,12 +14,10 @@
  */
 /* globals -require */
 /* globals SimpleLogger: false */
-define([ 'require', 'nashorn!Java' ], function logger(require, Java)
+define([ 'require' ], function logger(require)
 {
     'use strict';
-    var loggerModule, getSimpleLogger, isEnabledImpl, logImpl, loggerByScriptUrl = {}, Throwable;
-
-    Throwable = Java.type('java.lang.Throwable');
+    var loggerModule, getSimpleLogger, loggerByScriptUrl = {};
 
     getSimpleLogger = function logger__getSimpleLogger()
     {
@@ -52,33 +50,6 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
         return logger;
     };
 
-    isEnabledImpl = function logger__isEnabledImpl(level)
-    {
-        var logger = getSimpleLogger(), prop, isEnabled = false;
-
-        prop = (level || 'debug') + 'Enabled';
-        isEnabled = logger[prop];
-
-        return isEnabled;
-    };
-
-    logImpl = function logger__logImpl(level, args)
-    {
-        var logger, enabledProp, meth;
-
-        // we could delegate to isEnabledImpl but that would mean retrieving logger potentially twice
-        logger = getSimpleLogger();
-        enabledProp = String((level || 'debug') + 'Enabled');
-
-        // to avoid interop performance overhead we should drop out as soon as possible
-        if (logger[enabledProp])
-        {
-            // TODO Determine caller fn + line and expose via MDC
-            meth = level || 'debug';
-            logger[meth].apply(logger, args);
-        }
-    };
-
     // TODO Provide option to hook in dynamic log delegates (i.e. for JavaScript Console)
     /**
      * This module provides basic logging capabilities and delegates to SLF4J (which in turn will most likely be backed by Log4J). The
@@ -86,7 +57,6 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
      * module ID or - when no module ID can be determined for a caller - the URL it was loaded from.
      * 
      * @module _base/logger
-     * @requires module:nashorn!Java
      * @author Axel Faust
      */
     loggerModule = {
@@ -106,7 +76,10 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
          */
         trace : function logger__trace()
         {
-            logImpl('trace', arguments);
+            // hard redirect is better than dynamic lookup in generic logImpl we had previously
+            var logger = getSimpleLogger();
+            // TODO Determine caller fn + line and expose via MDC
+            logger.trace.apply(logger, arguments);
         },
 
         /**
@@ -118,7 +91,9 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
          */
         isTraceEnabled : function logger__isTraceEnabled()
         {
-            return isEnabledImpl('trace');
+            // hard redirect is better than dynamic lookup in generic isEnabledImpl we had previously
+            var logger = getSimpleLogger();
+            return logger.isTraceEnabled();
         },
 
         /**
@@ -136,7 +111,10 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
          */
         debug : function logger__debug()
         {
-            logImpl('debug', arguments);
+            // hard redirect is better than dynamic lookup in generic logImpl we had previously
+            var logger = getSimpleLogger();
+            // TODO Determine caller fn + line and expose via MDC
+            logger.debug.apply(logger, arguments);
         },
 
         /**
@@ -148,7 +126,9 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
          */
         isDebugEnabled : function logger__isDebugEnabled()
         {
-            return isEnabledImpl('debug');
+            // hard redirect is better than dynamic lookup in generic isEnabledImpl we had previously
+            var logger = getSimpleLogger();
+            return logger.isDebugEnabled();
         },
 
         /**
@@ -166,7 +146,10 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
          */
         info : function logger__info()
         {
-            logImpl('info', arguments);
+            // hard redirect is better than dynamic lookup in generic logImpl we had previously
+            var logger = getSimpleLogger();
+            // TODO Determine caller fn + line and expose via MDC
+            logger.info.apply(logger, arguments);
         },
 
         /**
@@ -178,7 +161,9 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
          */
         isInfoEnabled : function logger__isInfoEnabled()
         {
-            return isEnabledImpl('info');
+            // hard redirect is better than dynamic lookup in generic isEnabledImpl we had previously
+            var logger = getSimpleLogger();
+            return logger.isInfoEnabled();
         },
 
         /**
@@ -196,7 +181,10 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
          */
         warn : function logger__warn()
         {
-            logImpl('warn', arguments);
+            // hard redirect is better than dynamic lookup in generic logImpl we had previously
+            var logger = getSimpleLogger();
+            // TODO Determine caller fn + line and expose via MDC
+            logger.warn.apply(logger, arguments);
         },
 
         /**
@@ -208,7 +196,9 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
          */
         isWarnEnabled : function logger__isWarnEnabled()
         {
-            return isEnabledImpl('warn');
+            // hard redirect is better than dynamic lookup in generic isEnabledImpl we had previously
+            var logger = getSimpleLogger();
+            return logger.isWarnEnabled();
         },
 
         /**
@@ -226,7 +216,10 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
          */
         error : function logger__error()
         {
-            logImpl('error', arguments);
+            // hard redirect is better than dynamic lookup in generic logImpl we had previously
+            var logger = getSimpleLogger();
+            // TODO Determine caller fn + line and expose via MDC
+            logger.error.apply(logger, arguments);
         },
 
         /**
@@ -238,7 +231,9 @@ define([ 'require', 'nashorn!Java' ], function logger(require, Java)
          */
         isErrorEnabled : function logger__isErrorEnabled()
         {
-            return isEnabledImpl('error');
+            // hard redirect is better than dynamic lookup in generic isEnabledImpl we had previously
+            var logger = getSimpleLogger();
+            return logger.isErrorEnabled();
         }
     };
 

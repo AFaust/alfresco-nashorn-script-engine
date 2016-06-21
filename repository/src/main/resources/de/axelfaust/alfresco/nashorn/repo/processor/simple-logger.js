@@ -59,7 +59,9 @@
      */
     SimpleLogger = function simple_logger__constructor(loggerName)
     {
-        this.logger = LoggerFactory.getLogger(loggerName);
+        Object.defineProperty(this, 'logger', {
+            value : LoggerFactory.getLogger(loggerName)
+        });
     };
 
     // TODO Find out why jsdoc3 is so difficult to handle in documenting class members
@@ -67,11 +69,72 @@
 
         __noSuchProperty__ : function simple_logger__noSuchProperty__(name)
         {
-            var result, getterName;
-            if (/^(trace|debug|info|warn|error)Enabled$/.test(name))
+            var result, level, enabledIndex;
+
+            // switch-case with hard redirect instead of dynamic lookup
+            // this "should" cause callsites to be more stable performance-wise
+            enabledIndex = name.indexOf('Enabled');
+            if (enabledIndex !== -1)
             {
-                getterName = 'is' + name.substring(0, 1).toUpperCase(Locale.ENGLISH) + name.substring(1);
-                result = this[getterName]();
+                level = name.substring(0, enabledIndex);
+
+                switch (level)
+                {
+                    case 'trace':
+                        result = this.isTraceEnabled();
+                        break;
+                    case 'debug':
+                        result = this.isDebugEnabled();
+                        break;
+                    case 'info':
+                        result = this.isInfoEnabled();
+                        break;
+                    case 'warn':
+                        result = this.isWarnEnabled();
+                        break;
+                    case 'error':
+                        result = this.isErrorEnabled();
+                        break;
+                }
+            }
+            else
+            {
+                // lookup and store varArgs log method handles for better runtime performance
+                // (repeated lookup of a "SingleDynamicMethod"/"OverloadedDynamicMethod" via linker is expensive)
+                // use of Function.prototype.bind ensures proper "this" context (simple .call(this, ...) does not work on handle)
+                switch (name)
+                {
+                    case '_traceVarArgs':
+                        Object.defineProperty(this, '_traceVarArgs', {
+                            value : Function.prototype.bind.call(this.logger['trace(java.lang.String,java.lang.Object[])'], this.logger)
+                        });
+                        result = this._traceVarArgs;
+                        break;
+                    case '_debugVarArgs':
+                        Object.defineProperty(this, '_debugVarArgs', {
+                            value : Function.prototype.bind.call(this.logger['debug(java.lang.String,java.lang.Object[])'], this.logger)
+                        });
+                        result = this._debugVarArgs;
+                        break;
+                    case '_infoVarArgs':
+                        Object.defineProperty(this, '_infoVarArgs', {
+                            value : Function.prototype.bind.call(this.logger['info(java.lang.String,java.lang.Object[])'], this.logger)
+                        });
+                        result = this._traceVarArgs;
+                        break;
+                    case '_warnVarArgs':
+                        Object.defineProperty(this, '_warnVarArgs', {
+                            value : Function.prototype.bind.call(this.logger['warn(java.lang.String,java.lang.Object[])'], this.logger)
+                        });
+                        result = this._traceVarArgs;
+                        break;
+                    case '_errorVarArgs':
+                        Object.defineProperty(this, '_errorVarArgs', {
+                            value : Function.prototype.bind.call(this.logger['error(java.lang.String,java.lang.Object[])'], this.logger)
+                        });
+                        result = this._traceVarArgs;
+                        break;
+                }
             }
 
             return result;
@@ -199,32 +262,32 @@
         {
             var args, idx;
 
-            if (arguments.length === 1)
+            // no point wasting time if it isn't enabled
+            if (this.logger.traceEnabled)
             {
-                this.logger.trace(message);
-            }
-            else if (arguments.length === 2
-                    && (arg2 instanceof Throwable || (arg2 instanceof Error && arg2.nashornException instanceof Throwable)))
-            {
-                this.logger.trace(message, arg2 instanceof Throwable ? arg2 : arg2.nashornException);
-            }
-            else if (arguments.length === 2 && Array.isArray(arg2))
-            {
-                // TODO Optimize (this lookup is quite expansive)
-                this.logger['trace(java.lang.String,java.lang.Object[])'](message, this.logger.traceEnabled ? processMessageParams(arg2)
-                        : arg2);
-            }
-            else if (arguments.length > 1)
-            {
-                args = [];
-                for (idx = 1; idx < arguments.length; idx++)
+                if (arguments.length === 1)
                 {
-                    args.push(arguments[idx]);
+                    this.logger.trace(message);
                 }
+                else if (arguments.length === 2
+                        && (arg2 instanceof Throwable || (arg2 instanceof Error && arg2.nashornException instanceof Throwable)))
+                {
+                    this.logger.trace(message, arg2 instanceof Throwable ? arg2 : arg2.nashornException);
+                }
+                else if (arguments.length === 2 && Array.isArray(arg2))
+                {
+                    this._traceVarArgs(message, processMessageParams(arg2));
+                }
+                else if (arguments.length > 1)
+                {
+                    args = [];
+                    for (idx = 1; idx < arguments.length; idx++)
+                    {
+                        args.push(arguments[idx]);
+                    }
 
-                // TODO Optimize (this lookup is quite expansive)
-                this.logger['trace(java.lang.String,java.lang.Object[])'](message, this.logger.traceEnabled ? processMessageParams(args)
-                        : args);
+                    this._traceVarArgs(message, processMessageParams(args));
+                }
             }
         },
 
@@ -245,32 +308,32 @@
         {
             var args, idx;
 
-            if (arguments.length === 1)
+            // no point wasting time if it isn't enabled
+            if (this.logger.debugEnabled)
             {
-                this.logger.debug(message);
-            }
-            else if (arguments.length === 2
-                    && (arg2 instanceof Throwable || (arg2 instanceof Error && arg2.nashornException instanceof Throwable)))
-            {
-                this.logger.debug(message, arg2 instanceof Throwable ? arg2 : arg2.nashornException);
-            }
-            else if (arguments.length === 2 && Array.isArray(arg2))
-            {
-                // TODO Optimize (this lookup is quite expansive)
-                this.logger['debug(java.lang.String,java.lang.Object[])'](message, this.logger.debugEnabled ? processMessageParams(arg2)
-                        : arg2);
-            }
-            else if (arguments.length > 1)
-            {
-                args = [];
-                for (idx = 1; idx < arguments.length; idx++)
+                if (arguments.length === 1)
                 {
-                    args.push(arguments[idx]);
+                    this.logger.debug(message);
                 }
+                else if (arguments.length === 2
+                        && (arg2 instanceof Throwable || (arg2 instanceof Error && arg2.nashornException instanceof Throwable)))
+                {
+                    this.logger.debug(message, arg2 instanceof Throwable ? arg2 : arg2.nashornException);
+                }
+                else if (arguments.length === 2 && Array.isArray(arg2))
+                {
+                    this._debugVarArgs(message, processMessageParams(arg2));
+                }
+                else if (arguments.length > 1)
+                {
+                    args = [];
+                    for (idx = 1; idx < arguments.length; idx++)
+                    {
+                        args.push(arguments[idx]);
+                    }
 
-                // TODO Optimize (this lookup is quite expansive)
-                this.logger['debug(java.lang.String,java.lang.Object[])'](message, this.logger.debugEnabled ? processMessageParams(args)
-                        : args);
+                    this._debugVarArgs(message, processMessageParams(args));
+                }
             }
         },
 
@@ -291,32 +354,32 @@
         {
             var args, idx;
 
-            if (arguments.length === 1)
+            // no point wasting time if it isn't enabled
+            if (this.logger.infoEnabled)
             {
-                this.logger.info(message);
-            }
-            else if (arguments.length === 2
-                    && (arg2 instanceof Throwable || (arg2 instanceof Error && arg2.nashornException instanceof Throwable)))
-            {
-                this.logger.info(message, arg2 instanceof Throwable ? arg2 : arg2.nashornException);
-            }
-            else if (arguments.length === 2 && Array.isArray(arg2))
-            {
-                // TODO Optimize (this lookup is quite expansive)
-                this.logger['info(java.lang.String,java.lang.Object[])'](message, this.logger.infoEnabled ? processMessageParams(arg2)
-                        : arg2);
-            }
-            else if (arguments.length > 1)
-            {
-                args = [];
-                for (idx = 1; idx < arguments.length; idx++)
+                if (arguments.length === 1)
                 {
-                    args.push(arguments[idx]);
+                    this.logger.info(message);
                 }
+                else if (arguments.length === 2
+                        && (arg2 instanceof Throwable || (arg2 instanceof Error && arg2.nashornException instanceof Throwable)))
+                {
+                    this.logger.info(message, arg2 instanceof Throwable ? arg2 : arg2.nashornException);
+                }
+                else if (arguments.length === 2 && Array.isArray(arg2))
+                {
+                    this._infoVarArgs(message, processMessageParams(arg2));
+                }
+                else if (arguments.length > 1)
+                {
+                    args = [];
+                    for (idx = 1; idx < arguments.length; idx++)
+                    {
+                        args.push(arguments[idx]);
+                    }
 
-                // TODO Optimize (this lookup is quite expansive)
-                this.logger['info(java.lang.String,java.lang.Object[])'](message, this.logger.infoEnabled ? processMessageParams(args)
-                        : args);
+                    this._infoVarArgs(message, processMessageParams(args));
+                }
             }
         },
 
@@ -337,32 +400,32 @@
         {
             var args, idx;
 
-            if (arguments.length === 1)
+            // no point wasting time if it isn't enabled
+            if (this.logger.warnEnabled)
             {
-                this.logger.warn(message);
-            }
-            else if (arguments.length === 2
-                    && (arg2 instanceof Throwable || (arg2 instanceof Error && arg2.nashornException instanceof Throwable)))
-            {
-                this.logger.warn(message, arg2 instanceof Throwable ? arg2 : arg2.nashornException);
-            }
-            else if (arguments.length === 2 && Array.isArray(arg2))
-            {
-                // TODO Optimize (this lookup is quite expansive)
-                this.logger['warn(java.lang.String,java.lang.Object[])'](message, this.logger.warnEnabled ? processMessageParams(arg2)
-                        : arg2);
-            }
-            else if (arguments.length > 1)
-            {
-                args = [];
-                for (idx = 1; idx < arguments.length; idx++)
+                if (arguments.length === 1)
                 {
-                    args.push(arguments[idx]);
+                    this.logger.warn(message);
                 }
+                else if (arguments.length === 2
+                        && (arg2 instanceof Throwable || (arg2 instanceof Error && arg2.nashornException instanceof Throwable)))
+                {
+                    this.logger.warn(message, arg2 instanceof Throwable ? arg2 : arg2.nashornException);
+                }
+                else if (arguments.length === 2 && Array.isArray(arg2))
+                {
+                    this._warnVarArgs(message, processMessageParams(arg2));
+                }
+                else if (arguments.length > 1)
+                {
+                    args = [];
+                    for (idx = 1; idx < arguments.length; idx++)
+                    {
+                        args.push(arguments[idx]);
+                    }
 
-                // TODO Optimize (this lookup is quite expansive)
-                this.logger['warn(java.lang.String,java.lang.Object[])'](message, this.logger.warnEnabled ? processMessageParams(args)
-                        : args);
+                    this._warnVarArgs(message, processMessageParams(args));
+                }
             }
         },
 
@@ -383,32 +446,32 @@
         {
             var args, idx;
 
-            if (arguments.length === 1)
+            // no point wasting time if it isn't enabled
+            if (this.logger.errorEnabled)
             {
-                this.logger.error(message);
-            }
-            else if (arguments.length === 2
-                    && (arg2 instanceof Throwable || (arg2 instanceof Error && arg2.nashornException instanceof Throwable)))
-            {
-                this.logger.error(message, arg2 instanceof Throwable ? arg2 : arg2.nashornException);
-            }
-            else if (arguments.length === 2 && Array.isArray(arg2))
-            {
-                // TODO Optimize (this lookup is quite expansive)
-                this.logger['error(java.lang.String,java.lang.Object[])'](message, this.logger.errorEnabled ? processMessageParams(arg2)
-                        : arg2);
-            }
-            else if (arguments.length > 1)
-            {
-                args = [];
-                for (idx = 1; idx < arguments.length; idx++)
+                if (arguments.length === 1)
                 {
-                    args.push(arguments[idx]);
+                    this.logger.error(message);
                 }
+                else if (arguments.length === 2
+                        && (arg2 instanceof Throwable || (arg2 instanceof Error && arg2.nashornException instanceof Throwable)))
+                {
+                    this.logger.error(message, arg2 instanceof Throwable ? arg2 : arg2.nashornException);
+                }
+                else if (arguments.length === 2 && Array.isArray(arg2))
+                {
+                    this._errorVarArgs(message, processMessageParams(arg2));
+                }
+                else if (arguments.length > 1)
+                {
+                    args = [];
+                    for (idx = 1; idx < arguments.length; idx++)
+                    {
+                        args.push(arguments[idx]);
+                    }
 
-                // TODO Optimize (this lookup is quite expansive)
-                this.logger['error(java.lang.String,java.lang.Object[])'](message, this.logger.errorEnabled ? processMessageParams(args)
-                        : args);
+                    this._errorVarArgs(message, processMessageParams(args));
+                }
             }
         }
 
