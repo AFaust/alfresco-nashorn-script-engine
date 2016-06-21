@@ -37,6 +37,7 @@
     moduleListenersByModule = NashornScriptModel.newAssociativeContainer();
     executionState = NashornScriptModel.newAssociativeContainer();
 
+    // TODO Profiling shows constructor to be somewhat expensive - optimize to avoid e.g. up-front stack cost
     UnavailableModuleError = function amd__UnavailableModuleError()
     {
         var t = Error.apply(this, arguments);
@@ -55,6 +56,7 @@
         return result;
     };
 
+    // TODO Profiling shows function to be somewhat expensive - optimize
     clone = function amd__clone(obj, protectedKeys)
     {
         var result, desc;
@@ -580,6 +582,7 @@
         }
     };
 
+    // TODO profiling shows method to be somewhat expensive - optimize e.g. by splitting into smaller, better optimizable (and profileable) fragments
     getModule = function amd__getModule(normalizedId, doLoad, callerSecure, callerUrl)
     {
         var module, isSecure, moduleResult, dependency, resolvedDependencies, idx, currentlyTaggedCallerScriptUrl;

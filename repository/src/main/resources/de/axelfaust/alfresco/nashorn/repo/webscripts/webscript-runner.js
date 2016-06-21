@@ -12,6 +12,7 @@ define([ 'require', 'args!_RepositoryNashornScriptProcessor_scriptContent' ], fu
 {
     'use strict';
 
+    // TODO Optimize define - allow re-use of initialized webscript loader in future executions
     define.preload('loaderMetaLoader!webscript');
 
     return function webscript_runner()

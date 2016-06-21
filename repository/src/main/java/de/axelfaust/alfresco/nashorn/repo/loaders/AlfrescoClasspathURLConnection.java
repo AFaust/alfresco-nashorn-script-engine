@@ -162,6 +162,7 @@ public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnec
             this.ensureScriptExists();
             if (this.file != null)
             {
+                // TODO Optimize - Instead of checking with the file system each time, can't we just monitor for changes?
                 this.contentLength = this.file.lastModified();
             }
             else
