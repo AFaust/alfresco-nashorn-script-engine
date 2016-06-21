@@ -27,7 +27,16 @@ define([ 'require' ], function execute__factory(require)
             }
         }, function execute__errCallback(dependencies, resolutions, implicitResolutions)
         {
-            result = resolutions[0] || implicitResolutions[0];
+            result = resolutions[0];
+
+            if (typeof result === 'function')
+            {
+                result = result();
+            }
+            else
+            {
+                result = result || implicitResolutions[0];
+            }
         });
 
         return result;
