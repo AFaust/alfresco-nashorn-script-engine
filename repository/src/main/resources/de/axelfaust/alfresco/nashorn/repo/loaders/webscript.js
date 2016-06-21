@@ -51,13 +51,30 @@ define(
                 {
                     var script = null, url;
 
-                    suffixes.forEach(function webscript_loader__load_forEachSuffix(suffix)
+                    // avoid repeated script resolution when already provided (especially since resolution may query DB) 
+                    require([ 'args!_RepositoryNashornScriptProcessor_scriptContent' ], function webscript_loader__load_callback(
+                            scriptContent)
                     {
-                        if (script === null)
+                        if (scriptContent.scriptModuleId === normalizedId)
                         {
-                            script = scriptLoader.getScript(normalizedId + suffix);
+                            logger.trace('Currently part of web script execution and requested module ID matches pre-resolved web script');
+                            script = scriptContent;
                         }
+                    }, function webscript_loader__load_errCallback()
+                    {
+                        logger.trace('Currently not part of "real" web script execution');
                     });
+
+                    if (script === null)
+                    {
+                        suffixes.forEach(function webscript_loader__load_forEachSuffix(suffix)
+                        {
+                            if (script === null)
+                            {
+                                script = scriptLoader.getScript(normalizedId + suffix);
+                            }
+                        });
+                    }
 
                     if (script !== null)
                     {
