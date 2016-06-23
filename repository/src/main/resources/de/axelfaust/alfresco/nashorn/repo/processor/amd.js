@@ -14,16 +14,17 @@
     // Nashorn script loading utils
     nashornLoad = load, defaultScope = this,
     // internal fns
-    isObject, clone, ensureExecutionStateInit, getRestoreTaggedCallerFn, normalizeSimpleId, normalizeModuleId, mapModuleId, loadModule, getModule, checkAndFulfillModuleListeners, _load, SecureUseOnlyWrapper,
+    isObject, ensureExecutionStateInit, getRestoreTaggedCallerFn, normalizeSimpleId, normalizeModuleId, mapModuleId, loadModule, getModule, checkAndFulfillModuleListeners, _load, SecureUseOnlyWrapper,
     // internal error subtype
     UnavailableModuleError,
     // Java utils
-    NashornUtils, NashornScriptModel, NashornScriptProcessor, Throwable, URL, AlfrescoClasspathURLStreamHandler, streamHandler, logger,
+    UUID, NashornUtils, NashornScriptModel, NashornScriptProcessor, Throwable, URL, AlfrescoClasspathURLStreamHandler, streamHandler, logger,
     // meta loader module
     loaderMetaLoader,
     // public fns
     require, define;
 
+    UUID = Java.type('java.util.UUID');
     NashornUtils = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils');
     NashornScriptModel = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel');
     NashornScriptProcessor = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor');
@@ -56,73 +57,92 @@
         return result;
     };
 
-    // TODO Profiling shows function to be somewhat expensive - optimize
-    clone = function amd__clone(obj, protectedKeys)
-    {
-        var result, desc;
-        // TODO Ensure values with multiple key-mappings are not cloned into two disjunct values
-
-        if (obj === undefined || obj === null)
-        {
-            result = obj;
-        }
-        else if (Array.isArray(obj))
-        {
-            result = [];
-            obj.forEach(function amd__clone_arrElement(element)
-            {
-                result.push(clone(element, protectedKeys));
-            }, this);
-        }
-        else if (isObject(obj))
-        {
-            result = {};
-            Object.getOwnPropertyNames(obj).forEach(function amd__clone_objKey(key)
-            {
-                desc = Object.getOwnPropertyDescriptor(obj, key);
-                Object.defineProperty(result, key, {
-                    value : (isObject(protectedKeys) && protectedKeys[key]) === true ? obj[key] : clone(obj[key], protectedKeys),
-                    writable : desc.writable,
-                    configurable : desc.configurable,
-                    enumerable : desc.enumerable
-                });
-            }, this);
-        }
-        else
-        {
-            // assume simple / literal values
-            result = obj;
-        }
-
-        return result;
-    };
-
     ensureExecutionStateInit = function amd__ensureExecutionStateInit()
     {
-        var moduleId, module;
-        if (modules.length === 0 && Object.keys(moduleBackup).length > 0)
-        {
-            for (moduleId in moduleBackup)
-            {
-                if (moduleBackup.hasOwnProperty(moduleId) && isObject(moduleBackup[moduleId]))
-                {
-                    module = clone(moduleBackup[moduleId], {
-                        result : true
-                    });
+        var moduleId, moduleInit, listenerInit, initializedListeners;
 
-                    modules[moduleId] = module;
-                    moduleByUrl[module.url] = module;
+        if (modules.length === 0)
+        {
+            moduleInit = function amd__ensureExecutionStateInit_moduleInit(moduleId)
+            {
+                var module;
+                if (isObject(moduleBackup[moduleId]))
+                {
+                    if (moduleBackup[moduleId].url in moduleByUrl)
+                    {
+                        modules[moduleId] = moduleByUrl[moduleBackup[moduleId].url];
+                    }
+                    else
+                    {
+                        // simply use backup-ed module as prototype
+                        // prevent prototype mutation by re-adding mutables locally
+                        module = Object.create(moduleBackup[moduleId], {
+                            initialized : {
+                                value : moduleBackup[moduleId].initialized,
+                                enumerable : true,
+                                writable : !moduleBackup[moduleId].initialized
+                            },
+                            constructing : {
+                                value : false,
+                                enumerable : true,
+                                writable : !moduleBackup[moduleId].initialized
+                            },
+                            result : {
+                                value : moduleBackup[moduleId].result,
+                                enumerable : true,
+                                writable : !moduleBackup[moduleId].initialized
+                            }
+                        });
+
+                        modules[moduleId] = module;
+                        moduleByUrl[module.url] = module;
+                    }
                 }
-            }
+            };
+            Object.keys(moduleBackup).forEach(moduleInit);
         }
 
         if (moduleListenersByModule.length === 0 && Object.keys(moduleListenersByModuleBackup).length > 0)
         {
+            initializedListeners = {};
+            listenerInit = function amd__ensureExecutionStateInit_listenerInit(listener, index, arr)
+            {
+                var copiedListener;
+
+                if (initializedListeners.hasOwnProperty(listener.id))
+                {
+                    copiedListener = initializedListeners[listener.id];
+                }
+
+                if (copiedListener === undefined)
+                {
+                    // simply use backup-ed listener as prototype
+                    // prevent prototype mutation by re-adding mutables locally
+                    copiedListener = Object.create(listener, {
+                        triggered : {
+                            value : listener.triggered,
+                            enumerable : true,
+                            writable : true
+                        },
+                        resolved : {
+                            value : listener.resolved.slice(),
+                            enumerable : true
+                        }
+                    });
+                    initializedListeners[listener.id] = copiedListener;
+                }
+
+                arr[index] = copiedListener;
+            };
+
             for (moduleId in moduleListenersByModuleBackup)
             {
-                if (moduleListenersByModuleBackup.hasOwnProperty(moduleId))
+                if (Array.isArray(moduleListenersByModuleBackup[moduleId]))
                 {
-                    moduleListenersByModule[moduleId] = clone(moduleListenersByModuleBackup[moduleId]);
+                    // shallow copy array
+                    moduleListenersByModule[moduleId] = moduleListenersByModuleBackup[moduleId].slice();
+                    // decouple elements from the backup state
+                    moduleListenersByModule[moduleId].forEach(listenerInit);
                 }
             }
         }
@@ -296,7 +316,7 @@
 
     normalizeModuleId = function amd__normalizeModuleId(id, contextModule, contextUrl, forceIsSecure)
     {
-        var loaderName, realId, loader, normalizedId, isSecure;
+        var loaderName, realId, loader, normalizedId, isSecure, derivativeContextModule;
         if (typeof id !== 'string')
         {
             throw new Error('Module ID was either not provided or is not a string');
@@ -313,7 +333,7 @@
 
             isSecure = forceIsSecure === true || (isObject(contextModule) && contextModule.secureSource === true);
             loader = getModule(loaderName, true, isSecure, isObject(contextModule) ? contextModule.url : contextUrl);
-            if (loader === null)
+            if (loader === undefined || loader === null)
             {
                 throw new Error('No loader plugin named \'' + loaderName + '\' has been registered');
             }
@@ -321,8 +341,22 @@
             if (typeof loader.normalize === 'function')
             {
                 logger.trace('Calling normalize-function of loader "{}"', loaderName);
-                // TODO Protect against loader manipulating the contextModule
-                normalizedId = loaderName + '!' + loader.normalize(realId, normalizeSimpleId, contextModule);
+                // protect against loader manipulating the contextModule by using a derivative
+                derivativeContextModule = Object.create(contextModule, {
+                    initialized : {
+                        value : contextModule.initialized,
+                        enumerable : true
+                    },
+                    constructing : {
+                        value : false,
+                        enumerable : true
+                    },
+                    result : {
+                        value : contextModule.result,
+                        enumerable : true
+                    }
+                });
+                normalizedId = loaderName + '!' + loader.normalize(realId, normalizeSimpleId, derivativeContextModule);
             }
             else
             {
@@ -362,7 +396,7 @@
                     modules[normalizedId] = modules[moduleByUrl[urlStr].id];
 
                     // if still in initialisation add to backup
-                    if (NashornScriptProcessor.isInEngineContextInitialization() && Object.keys(moduleBackup).length > 0)
+                    if (NashornScriptProcessor.isInEngineContextInitialization())
                     {
                         moduleBackup[normalizedId] = modules[normalizedId];
                     }
@@ -371,24 +405,37 @@
                 {
                     logger.debug('Loading module "{}" from url "{}" (secureSource: {})', [ normalizedId, url, isSecureSource === true ]);
 
-                    module = {};
-
-                    Object.defineProperty(module, 'id', {
-                        value : normalizedId,
-                        enumerable : true
+                    // minimal module for URL - just enough for context use
+                    moduleByUrl[urlStr] = Object.create(null, {
+                        id : {
+                            value : normalizedId,
+                            enumerable : true
+                        },
+                        url : {
+                            value : urlStr,
+                            enumerable : true
+                        },
+                        loader : {
+                            value : loaderName,
+                            enumerable : true
+                        },
+                        initialized : {
+                            value : false,
+                            enumerable : true
+                        },
+                        constructing : {
+                            value : false,
+                            enumerable : true
+                        },
+                        result : {
+                            value : null,
+                            enumerable : true
+                        },
+                        secureSource : {
+                            value : isSecureSource === true,
+                            enumerable : true
+                        }
                     });
-
-                    Object.defineProperty(module, 'loader', {
-                        value : loaderName,
-                        enumerable : true
-                    });
-
-                    Object.defineProperty(module, 'secureSource', {
-                        value : isSecureSource === true,
-                        enumerable : true
-                    });
-
-                    moduleByUrl[urlStr] = module;
 
                     // we load with custom scope to prevent pollution of the potentially shared global
                     customScope = Object.create(defaultScope);
@@ -411,30 +458,60 @@
                         throw e;
                     }
 
-                    // script may not define a module
-                    // we store the result of script execution for require(dependencies[], successFn, errorFn)
-                    logger.debug('Module "{}" from url "{}" yielded implicit result "{}"', [ normalizedId, url, implicitResult ]);
-
-                    Object.defineProperty(module, 'implicitResult', {
-                        value : implicitResult,
-                        enumerable : true
-                    });
-
                     // no module defined yet by requested module id
-                    // may be a non-module script with implicit return value or define
+                    // may be a non-module script with implicit return value
                     if (!(normalizedId in modules))
                     {
-                        if (!module.hasOwnProperty('dependencies'))
-                        {
-                            Object.defineProperty(module, 'dependencies', {
+                        // script may not define a module
+                        // we store the result of script execution for require(dependencies[], successFn, errorFn)
+                        logger.debug('Module "{}" from url "{}" yielded implicit result "{}"', [ normalizedId, url, implicitResult ]);
+
+                        module = Object.create(null, {
+                            id : {
+                                value : normalizedId,
+                                enumerable : true
+                            },
+                            loader : {
+                                value : loaderName,
+                                enumerable : true
+                            },
+                            url : {
+                                value : urlStr,
+                                enumerable : true
+                            },
+                            dependencies : {
                                 value : [],
                                 enumerable : true
-                            });
-                        }
+                            },
+                            initialized : {
+                                value : true,
+                                enumerable : true
+                            },
+                            constructing : {
+                                value : false,
+                                enumerable : true
+                            },
+                            result : {
+                                value : null,
+                                enumerable : true
+                            },
+                            implicitResult : {
+                                value : implicitResult,
+                                enumerable : true
+                            },
+                            secureSource : {
+                                value : isSecureSource === true,
+                                enumerable : true
+                            }
+                        });
+
+                        Object.freeze(module.dependencies);
+
+                        moduleByUrl[urlStr] = module;
                         modules[normalizedId] = module;
 
                         // if still in initialisation add to backup
-                        if (NashornScriptProcessor.isInEngineContextInitialization() && Object.keys(moduleBackup).length > 0)
+                        if (NashornScriptProcessor.isInEngineContextInitialization())
                         {
                             moduleBackup[normalizedId] = module;
                         }
@@ -445,31 +522,39 @@
             {
                 logger.debug('Registering pre-resolved module "{}"', normalizedId);
 
-                module = {};
-
-                Object.defineProperty(module, 'id', {
-                    value : normalizedId,
-                    enumerable : true
-                });
-
-                Object.defineProperty(module, 'loader', {
-                    value : loaderName,
-                    enumerable : true
-                });
-
-                Object.defineProperty(module, 'dependencies', {
-                    value : [],
-                    enumerable : true
-                });
-
-                Object.defineProperty(module, 'result', {
-                    value : value,
-                    enumerable : true
-                });
-
-                Object.defineProperty(module, 'secureSource', {
-                    value : isSecureSource === true,
-                    enumerable : true
+                module = Object.create(null, {
+                    id : {
+                        value : normalizedId,
+                        enumerable : true
+                    },
+                    loader : {
+                        value : loaderName,
+                        enumerable : true
+                    },
+                    url : {
+                        value : typeof overrideUrl === 'string' ? overrideUrl : null,
+                        enumerable : true
+                    },
+                    dependencies : {
+                        value : [],
+                        enumerable : true
+                    },
+                    initialized : {
+                        value : true,
+                        enumerable : true
+                    },
+                    constructing : {
+                        value : false,
+                        enumerable : true
+                    },
+                    result : {
+                        value : value,
+                        enumerable : true
+                    },
+                    secureSource : {
+                        value : isSecureSource === true,
+                        enumerable : true
+                    }
                 });
 
                 Object.freeze(module.dependencies);
@@ -482,7 +567,7 @@
                 }
 
                 // if still in initialisation add to backup
-                if (NashornScriptProcessor.isInEngineContextInitialization() && Object.keys(moduleBackup).length > 0)
+                if (NashornScriptProcessor.isInEngineContextInitialization())
                 {
                     moduleBackup[normalizedId] = module;
                 }
@@ -582,16 +667,18 @@
         }
     };
 
-    // TODO profiling shows method to be somewhat expensive - optimize e.g. by splitting into smaller, better optimizable (and profileable) fragments
+    // TODO profiling shows method to be somewhat expensive - optimize e.g. by splitting into smaller, better optimizable (and profileable)
+    // fragments
     getModule = function amd__getModule(normalizedId, doLoad, callerSecure, callerUrl)
     {
         var module, isSecure, moduleResult, dependency, resolvedDependencies, idx, currentlyTaggedCallerScriptUrl;
 
         logger.debug('Retrieving module "{}" (force load: {})', [ normalizedId, doLoad ]);
 
-        if ((normalizedId in modules))
+        if (normalizedId in modules && modules[normalizedId] !== null)
         {
             logger.trace('Module "{}" already defined', normalizedId);
+
             module = modules[normalizedId];
         }
         else if (doLoad)
@@ -600,7 +687,7 @@
 
             loadModule(normalizedId, callerSecure, callerUrl);
 
-            if ((normalizedId in modules))
+            if (normalizedId in modules)
             {
                 logger.trace('Module "{}" defined by load', normalizedId);
                 module = modules[normalizedId];
@@ -620,9 +707,9 @@
 
         if (isObject(module))
         {
-            if (module.hasOwnProperty('result'))
+            if (module.initialized === true)
             {
-                logger.trace('Module "{}" already initialised', normalizedId);
+                logger.trace('Module "{}" already initialized', normalizedId);
                 moduleResult = module.result;
 
                 // special case where module was only defined to track implicit return values
@@ -649,10 +736,7 @@
                         {
                             logger.trace('Module "{}" has no dependencies - calling factory', normalizedId);
 
-                            Object.defineProperty(module, 'result', {
-                                value : module.factory(),
-                                enumerable : true
-                            });
+                            module.result = module.factory();
                         }
                         else
                         {
@@ -669,10 +753,7 @@
                                             .trace(
                                                     'Module "{}" uses "exports"-dependency to expose module during initialisation (avoiding circular dependency issues)',
                                                     normalizedId);
-                                    Object.defineProperty(module, 'result', {
-                                        value : {},
-                                        enumerable : true
-                                    });
+                                    module.result = {};
                                     resolvedDependencies.push(module.result);
                                 }
                                 else
@@ -688,18 +769,16 @@
                             }
 
                             logger.trace('All dependencies of module "{}" resolved - calling factory', normalizedId);
-                            if (module.hasOwnProperty('result'))
+                            if (module.result !== null)
                             {
                                 module.factory.apply(this, resolvedDependencies);
                             }
                             else
                             {
-                                Object.defineProperty(module, 'result', {
-                                    value : module.factory.apply(this, resolvedDependencies),
-                                    enumerable : true
-                                });
+                                module.result = module.factory.apply(this, resolvedDependencies);
                             }
                         }
+                        module.initialized = true;
 
                         // reset
                         module.constructing = false;
@@ -727,11 +806,9 @@
 
                     moduleResult = module.result;
                 }
-                // special case where module was only defined to track implicit return values
-                // see _load
-                else if (module.hasOwnProperty('implicitResult'))
+                else
                 {
-                    throw new UnavailableModuleError('Module \'' + normalizedId + '\' could not be loaded');
+                    throw new UnavailableModuleError('Module \'' + normalizedId + '\' could not be loaded (no factory is available)');
                 }
             }
             else
@@ -939,14 +1016,37 @@
 
         isSecure = isObject(contextModule) && contextModule.secureSource === true;
 
-        listener = {
-            isSecure : isSecure,
-            url : contextScriptUrl,
-            callback : callback,
-            resolved : [],
-            dependencies : [],
-            triggered : false
-        };
+        listener = Object.create(null, {
+            // just internal identifier
+            id : {
+                value : UUID.randomUUID().toString()
+            },
+            isSecure : {
+                value : isSecure,
+                enumerable : true
+            },
+            url : {
+                value : contextScriptUrl,
+                enumerable : true
+            },
+            callback : {
+                value : callback,
+                enumerable : true
+            },
+            resolved : {
+                value : [],
+                enumerable : true
+            },
+            dependencies : {
+                value : [],
+                enumerable : true
+            },
+            triggered : {
+                value : false,
+                enumerable : true,
+                writable : true
+            }
+        });
 
         if (typeof dependencies === 'string')
         {
@@ -965,6 +1065,8 @@
         {
             throw new Error('Invalid dependencies');
         }
+
+        Object.freeze(listener.dependencies);
 
         if (logger.traceEnabled)
         {
@@ -985,6 +1087,11 @@
                 if (!(listener.dependencies[idx] in moduleListenersByModule))
                 {
                     moduleListenersByModule[listener.dependencies[idx]] = [];
+
+                    if (NashornScriptProcessor.isInEngineContextInitialization())
+                    {
+                        moduleListenersByModuleBackup[listener.dependencies[idx]] = moduleListenersByModule[listener.dependencies[idx]];
+                    }
                 }
 
                 moduleListenersByModule[listener.dependencies[idx]].push(listener);
@@ -1042,7 +1149,8 @@
         {
             Object.keys(map).forEach(function amd__require_config_key_map_sourcePrefix(sourcePrefix)
             {
-                mappings[sourcePrefix] = clone(map[sourcePrefix]);
+                // stringify + parse for efficient clone
+                mappings[sourcePrefix] = JSON.parse(JSON.stringify(map[sourcePrefix]));
             }, this);
         };
 
@@ -1131,16 +1239,13 @@
             logger.trace('Backing up registered modules {}', JSON.stringify(moduleIds));
         }
 
-        // backup current module state into shared state
+        // move current module state into shared state
         for (moduleId in modules)
         {
             if (isObject(modules[moduleId]))
             {
-                module = clone(modules[moduleId], {
-                    result : true
-                });
-
-                moduleBackup[moduleId] = module;
+                moduleBackup[moduleId] = modules[moduleId];
+                delete modules[moduleId];
             }
         }
 
@@ -1148,9 +1253,13 @@
         {
             if (Array.isArray(moduleListenersByModule[moduleId]))
             {
-                moduleListenersByModuleBackup[moduleId] = clone(moduleListenersByModule[moduleId]);
+                moduleListenersByModuleBackup[moduleId] = moduleListenersByModule[moduleId];
+                delete moduleListenersByModule[moduleId];
             }
         }
+        
+        // re-init execution state from shared state
+        ensureExecutionStateInit();
     };
 
     require.isSecureCallerScript = function amd__require_isSecureCallerScript(suppressTaggedCaller)
@@ -1389,36 +1498,46 @@
                     isObject(contextModule) ? contextModule.secureSource : false ]);
         }
 
-        module = {};
-
-        Object.defineProperty(module, 'id', {
-            value : id,
-            enumerable : true
-        });
-
-        Object.defineProperty(module, 'loader', {
-            value : isObject(contextModule) ? contextModule.loader : null,
-            enumerable : true
-        });
-
-        Object.defineProperty(module, 'dependencies', {
-            value : dependencies,
-            enumerable : true
-        });
-
-        Object.defineProperty(module, 'factory', {
-            value : factory,
-            enumerable : true
-        });
-
-        Object.defineProperty(module, 'url', {
-            value : contextScriptUrl,
-            enumerable : true
-        });
-
-        Object.defineProperty(module, 'secureSource', {
-            value : isObject(contextModule) ? contextModule.secureSource : false,
-            enumerable : true
+        module = Object.create(null, {
+            id : {
+                value : id,
+                enumerable : true
+            },
+            loader : {
+                value : (isObject(contextModule) ? contextModule.loader : null),
+                enumerable : true
+            },
+            url : {
+                value : contextScriptUrl,
+                enumerable : true
+            },
+            dependencies : {
+                value : dependencies,
+                enumerable : true
+            },
+            factory : {
+                value : factory,
+                enumerable : true
+            },
+            initialized : {
+                value : false,
+                enumerable : true,
+                writable : true
+            },
+            constructing : {
+                value : false,
+                enumerable : true,
+                writable : true
+            },
+            result : {
+                value : null,
+                enumerable : true,
+                writable : true
+            },
+            secureSource : {
+                value : (isObject(contextModule) ? contextModule.secureSource : false),
+                enumerable : true
+            }
         });
 
         Object.freeze(dependencies);
@@ -1427,7 +1546,7 @@
         moduleByUrl[contextScriptUrl] = module;
 
         // if still in initialisation add to backup
-        if (NashornScriptProcessor.isInEngineContextInitialization() && Object.keys(moduleBackup).length > 0)
+        if (NashornScriptProcessor.isInEngineContextInitialization())
         {
             moduleBackup[id] = modules[id];
         }
@@ -1499,26 +1618,86 @@
     Object.freeze(define.amd);
     Object.freeze(define);
 
-    modules.require = {
-        id : 'require',
-        secureSource : true,
-        result : require,
-        url : NashornUtils.getCallerScriptURL(false, false)
-    };
+    modules.require = Object.create(null, {
+        id : {
+            value : 'require',
+            enumerable : true
+        },
+        url : {
+            value : NashornUtils.getCallerScriptURL(false, false),
+            enumerable : true
+        },
+        initialized : {
+            value : true,
+            enumerable : true
+        },
+        constructing : {
+            value : false,
+            enumerable : true
+        },
+        result : {
+            value : require,
+            enumerable : true
+        },
+        secureSource : {
+            value : true,
+            enumerable : true
+        }
+    });
 
-    modules.define = {
-        id : 'define',
-        secureSource : true,
-        result : define,
-        url : NashornUtils.getCallerScriptURL(false, false)
-    };
+    modules.define = Object.create(null, {
+        id : {
+            value : 'define',
+            enumerable : true
+        },
+        url : {
+            value : NashornUtils.getCallerScriptURL(false, false),
+            enumerable : true
+        },
+        initialized : {
+            value : true,
+            enumerable : true
+        },
+        constructing : {
+            value : false,
+            enumerable : true
+        },
+        result : {
+            value : define,
+            enumerable : true
+        },
+        secureSource : {
+            value : true,
+            enumerable : true
+        }
+    });
 
-    modules.loaderMetaLoader = {
-        id : 'loaderMetaLoader',
-        secureSource : true,
-        result : loaderMetaLoader,
-        url : NashornUtils.getCallerScriptURL(false, false)
-    };
+    modules.loaderMetaLoader = Object.create(null, {
+        id : {
+            value : 'loaderMetaLoader',
+            enumerable : true
+        },
+        url : {
+            value : NashornUtils.getCallerScriptURL(false, false),
+            enumerable : true
+        },
+        initialized : {
+            value : true,
+            enumerable : true
+        },
+        constructing : {
+            value : false,
+            enumerable : true
+        },
+        result : {
+            value : loaderMetaLoader,
+            enumerable : true
+        },
+        secureSource : {
+            value : true,
+            enumerable : true
+        }
+    });
 
     Object.defineProperty(this, 'require', {
         value : require,
