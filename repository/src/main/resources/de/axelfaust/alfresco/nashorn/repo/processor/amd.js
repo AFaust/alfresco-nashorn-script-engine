@@ -1101,7 +1101,7 @@
 
     require.config = function amd__require_config(config)
     {
-        var configKeyFn, packageFn, mapFn, moduleId, moduleIds, module;
+        var configKeyFn, packageFn, mapFn, moduleId, moduleIds;
 
         if (!isObject(config))
         {
