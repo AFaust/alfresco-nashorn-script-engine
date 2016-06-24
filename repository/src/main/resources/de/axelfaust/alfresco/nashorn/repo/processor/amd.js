@@ -59,47 +59,53 @@
 
     ensureExecutionStateInit = function amd__ensureExecutionStateInit()
     {
-        var moduleId, moduleInit, listenerInit, initializedListeners;
+        var moduleId, moduleIds, moduleInit, listenerInit, initializedListeners;
 
         if (modules.length === 0)
         {
+            moduleIds = [];
             moduleInit = function amd__ensureExecutionStateInit_moduleInit(moduleId)
             {
-                var module;
-                if (isObject(moduleBackup[moduleId]))
-                {
-                    if (moduleBackup[moduleId].url in moduleByUrl)
-                    {
-                        modules[moduleId] = moduleByUrl[moduleBackup[moduleId].url];
-                    }
-                    else
-                    {
-                        // simply use backup-ed module as prototype
-                        // prevent prototype mutation by re-adding mutables locally
-                        module = Object.create(moduleBackup[moduleId], {
-                            initialized : {
-                                value : moduleBackup[moduleId].initialized,
-                                enumerable : true,
-                                writable : !moduleBackup[moduleId].initialized
-                            },
-                            constructing : {
-                                value : false,
-                                enumerable : true,
-                                writable : !moduleBackup[moduleId].initialized
-                            },
-                            result : {
-                                value : moduleBackup[moduleId].result,
-                                enumerable : true,
-                                writable : !moduleBackup[moduleId].initialized
-                            }
-                        });
+                var module, backedUpModule, normalizedId;
 
-                        modules[moduleId] = module;
-                        moduleByUrl[module.url] = module;
+                backedUpModule = moduleBackup[moduleId];
+                if (isObject(backedUpModule) && !(moduleId in modules))
+                {
+                    // simply use backup-ed module as prototype
+                    // prevent prototype mutation by re-adding mutables locally
+                    module = Object.create(backedUpModule, {
+                        initialized : {
+                            value : backedUpModule.initialized,
+                            enumerable : true,
+                            writable : !backedUpModule.initialized
+                        },
+                        constructing : {
+                            value : false,
+                            enumerable : true,
+                            writable : !backedUpModule.initialized
+                        },
+                        result : {
+                            value : backedUpModule.result,
+                            enumerable : true,
+                            writable : !backedUpModule.initialized
+                        }
+                    });
+
+                    moduleIds.push(module.id);
+                    modules[module.id] = module;
+                    moduleByUrl[module.url] = module;
+
+                    if (typeof module.loader === 'string'
+                            && !(module.id.indexOf(module.loader) === 0 && module.id.indexOf('!') === module.loader.length))
+                    {
+                        normalizedId = module.loader + '!' + module.id;
+                        modules[normalizedId] = module;
+                        moduleIds.push(normalizedId);
                     }
                 }
             };
             Object.keys(moduleBackup).forEach(moduleInit);
+            logger.trace('Restored registered modules {} from shared backup', JSON.stringify(moduleIds));
         }
 
         if (moduleListenersByModule.length === 0 && Object.keys(moduleListenersByModuleBackup).length > 0)
@@ -777,6 +783,7 @@
                             {
                                 module.result = module.factory.apply(this, resolvedDependencies);
                             }
+                            logger.trace('Instance/value for module "{}" initialized from factory', normalizedId);
                         }
                         module.initialized = true;
 
@@ -1257,7 +1264,7 @@
                 delete moduleListenersByModule[moduleId];
             }
         }
-        
+
         // re-init execution state from shared state
         ensureExecutionStateInit();
     };
@@ -1431,7 +1438,7 @@
 
     define = function amd__define()
     {
-        var id, dependencies, factory, idx, contextScriptUrl, contextModule, module;
+        var id, normalizedId, dependencies, factory, idx, contextScriptUrl, contextModule, module;
 
         ensureExecutionStateInit();
 
@@ -1456,9 +1463,18 @@
             }
         }
 
-        if (id === undefined && isObject(contextModule))
+        if (isObject(contextModule))
         {
-            id = contextModule.id;
+            if (id === undefined)
+            {
+                id = contextModule.id;
+            }
+
+            if (typeof contextModule.loader === 'string'
+                    && !(id.indexOf(contextModule.loader) === 0 && id.indexOf('!') !== contextModule.loader.length))
+            {
+                normalizedId = contextModule.loader + '!' + id;
+            }
         }
 
         if (dependencies === undefined)
@@ -1543,12 +1559,20 @@
         Object.freeze(dependencies);
 
         modules[id] = module;
+        if (typeof normalizedId === 'string')
+        {
+            modules[normalizedId] = module;
+        }
         moduleByUrl[contextScriptUrl] = module;
 
         // if still in initialisation add to backup
         if (NashornScriptProcessor.isInEngineContextInitialization())
         {
-            moduleBackup[id] = modules[id];
+            moduleBackup[id] = module;
+            if (typeof normalizedId === 'string')
+            {
+                moduleBackup[normalizedId] = module;
+            }
         }
     };
 
