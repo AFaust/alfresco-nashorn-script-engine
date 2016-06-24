@@ -16,7 +16,7 @@
     // internal fns
     isObject, ensureExecutionStateInit, getRestoreTaggedCallerFn, normalizeSimpleId, normalizeModuleId, mapModuleId, loadModule, getModule, checkAndFulfillModuleListeners, _load, SecureUseOnlyWrapper,
     // internal error subtype
-    UnavailableModuleError,
+    UnavailableModuleError, lazyErrorStackGetter,
     // Java utils
     UUID, NashornUtils, NashornScriptModel, NashornScriptProcessor, Throwable, URL, AlfrescoClasspathURLStreamHandler, streamHandler, logger,
     // meta loader module
@@ -38,12 +38,22 @@
     moduleListenersByModule = NashornScriptModel.newAssociativeContainer();
     executionState = NashornScriptModel.newAssociativeContainer();
 
-    // TODO Profiling shows constructor to be somewhat expensive - optimize to avoid e.g. up-front stack cost
+    lazyErrorStackGetter = function amd__lazyErrorStackGetter()
+    {
+        return this.stack;
+    };
+
     UnavailableModuleError = function amd__UnavailableModuleError()
     {
         var t = Error.apply(this, arguments);
-        this.stack = t.stack;
-        this.message = t.message;
+        Object.defineProperty(this, 'message', {
+            value : t.message,
+            enumerable : true
+        });
+        Object.defineProperty(this, 'stack', {
+            get : Function.prototype.bind.call(lazyErrorStackGetter, t),
+            enumerable : true
+        })
         return this;
     };
 
