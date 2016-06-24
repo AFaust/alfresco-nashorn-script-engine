@@ -1470,8 +1470,7 @@
                 id = contextModule.id;
             }
 
-            if (typeof contextModule.loader === 'string'
-                    && !(id.indexOf(contextModule.loader) === 0 && id.indexOf('!') !== contextModule.loader.length))
+            if (typeof contextModule.loader === 'string' && id.indexOf(contextModule.loader + '!') !== 0)
             {
                 normalizedId = contextModule.loader + '!' + id;
             }
@@ -1603,17 +1602,17 @@
                 logger.debug('Pre-loading module "{}"', normalizedModuleId);
                 loadModule(normalizedModuleId, true, contextScriptUrl);
 
-                if (normalizedModuleId in modules && typeof modules[normalizedModuleId].factory === 'function')
-                {
-                    getModule(normalizedModuleId, true, true, contextScriptUrl);
-                }
-                else if (normalizedModuleId.indexOf('!') !== -1)
+                if (normalizedModuleId.indexOf('!') !== -1)
                 {
                     simpleModuleId = normalizedModuleId.substring(normalizedModuleId.indexOf('!') + 1);
                     if (simpleModuleId in modules && typeof modules[simpleModuleId].factory === 'function')
                     {
                         getModule(simpleModuleId, true, true, contextScriptUrl);
                     }
+                }
+                else
+                {
+                    getModule(normalizedModuleId, true, true, contextScriptUrl);
                 }
             }
         }
