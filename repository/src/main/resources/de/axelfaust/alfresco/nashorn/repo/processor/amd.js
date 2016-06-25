@@ -13,29 +13,28 @@
     // Nashorn script loading utils
     nashornLoad = load, defaultScope = this,
     // internal fns
-    isObject, getRestoreTaggedCallerFn, normalizeSimpleId, normalizeModuleId, mapModuleId, loadModule, getModule, _load, SecureUseOnlyWrapper,
+    isObject, getRestoreTaggedCallerFn, normalizeModuleId, loadModule, getModule, _load, SecureUseOnlyWrapper,
     // internal error subtype
     UnavailableModuleError, lazyErrorStackGetter,
     // Java utils
-    UUID, NashornUtils, NashornScriptModel, NashornScriptProcessor, Throwable, URL, AlfrescoClasspathURLStreamHandler, streamHandler, logger,
-    // meta loader module
-    loaderMetaLoader,
+    NashornUtils, Throwable, URL, logger,
     // public fns
     require, define;
 
     DUMMY_MODULE = {};
     Object.freeze(DUMMY_MODULE);
 
-    UUID = Java.type('java.util.UUID');
     NashornUtils = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils');
-    NashornScriptModel = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel');
-    NashornScriptProcessor = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor');
     Throwable = Java.type('java.lang.Throwable');
     URL = Java.type('java.net.URL');
     logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.amd');
 
     // setup script aware data containers
-    executionState = NashornScriptModel.newAssociativeContainer();
+    (function amd__executionState__init()
+    {
+        var NashornScriptModel = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel');
+        executionState = NashornScriptModel.newAssociativeContainer();
+    }());
 
     lazyErrorStackGetter = function amd__lazyErrorStackGetter()
     {
@@ -69,19 +68,26 @@
 
     moduleRegistry = (function amd__moduleRegistry()
     {
-        var active, backup, internal, result;
+        var NashornScriptProcessor, active, backup, internal, result;
 
-        active = Object.create(null, {
-            modules : {
-                value : NashornScriptModel.newAssociativeContainer()
-            },
-            modulesByUrl : {
-                value : NashornScriptModel.newAssociativeContainer()
-            },
-            moduleListenersByModule : {
-                value : NashornScriptModel.newAssociativeContainer()
-            }
-        });
+        NashornScriptProcessor = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor');
+
+        (function amd__moduleRegistry__initActiveStruct()
+        {
+            var NashornScriptModel = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel');
+
+            active = Object.create(null, {
+                modules : {
+                    value : NashornScriptModel.newAssociativeContainer()
+                },
+                modulesByUrl : {
+                    value : NashornScriptModel.newAssociativeContainer()
+                },
+                moduleListenersByModule : {
+                    value : NashornScriptModel.newAssociativeContainer()
+                }
+            });
+        }());
 
         backup = Object.create(null, {
             modules : {
@@ -501,192 +507,85 @@
         return this;
     };
 
-    // TODO Outsource / delegate to Java code for potential performance improvements
-    mapModuleId = function amd__mapModuleId(moduleId, contextModuleId)
+    (function amd__normalizeModuleId__init()
     {
-        var result = moduleId, mapped = false, mapping, contextFragments, fragments, cmax, max, contextLookup, lookup;
+        var normalizeSimpleId, AMDUtils;
 
-        if (typeof contextModuleId === 'string')
+        AMDUtils = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.AMDUtils');
+
+        normalizeSimpleId = function amd__normalizeSimpleId(id, contextModule)
         {
-            contextFragments = contextModuleId.split('/');
+            var result;
 
-            for (cmax = contextFragments.length - 1; cmax > 0 && mapped === false; cmax -= 1)
+            if (typeof id !== 'string')
             {
-                contextLookup = contextFragments.slice(0, cmax).join('/');
-                if (mappings.hasOwnProperty(contextLookup))
+                throw new Error('Module ID was either not provided or is not a string');
+            }
+
+            result = AMDUtils.normalizeSimpleModuleId(id, isObject(contextModule) ? contextModule.id : null);
+            result = AMDUtils.mapModuleId(result, isObject(contextModule) ? contextModule.id : null, mappings);
+            logger.trace('Normalized simple id "{}" to "{}"', [ id, result ]);
+            return result;
+        };
+
+        normalizeModuleId = function amd__normalizeModuleId(id, contextModule, contextUrl, forceIsSecure)
+        {
+            var loaderName, realId, loader, normalizedId, isSecure, derivativeContextModule;
+            if (typeof id !== 'string')
+            {
+                throw new Error('Module ID was either not provided or is not a string');
+            }
+
+            logger.trace('Normalizing module id "{}"', id);
+
+            if (/^[^!]+!.+$/.test(id))
+            {
+                loaderName = id.substring(0, id.indexOf('!'));
+                realId = (id.length >= loaderName.length + 1) ? id.substring(id.indexOf('!') + 1) : '';
+
+                logger.trace('Retrieving loader "{}" for module "{}"', [ loaderName, id ]);
+
+                isSecure = forceIsSecure === true || (isObject(contextModule) && contextModule.secureSource === true);
+                loader = getModule(loaderName, true, isSecure, isObject(contextModule) ? contextModule.url : contextUrl);
+                if (loader === undefined || loader === null)
                 {
-                    mapping = mappings[contextLookup];
+                    throw new Error('No loader plugin named \'' + loaderName + '\' has been registered');
+                }
 
-                    for (max = fragments.length - 1; max > 0 && mapped === false; max -= 1)
-                    {
-                        lookup = fragments.slice(0, max).join('/');
-                        if (mapping.hasOwnProperty(lookup))
-                        {
-                            result = mapping[lookup];
-                            result += '/' + fragments.slice(max, fragments.length).join('/');
-                            mapped = true;
-
-                            logger.trace('Mapped module id {} to {} via mapping of package {}', [ moduleId, result, lookup ]);
+                if (typeof loader.normalize === 'function')
+                {
+                    logger.trace('Calling normalize-function of loader "{}"', loaderName);
+                    // protect against loader manipulating the contextModule by using a derivative
+                    derivativeContextModule = Object.create(contextModule, {
+                        initialized : {
+                            value : contextModule.initialized,
+                            enumerable : true
+                        },
+                        constructing : {
+                            value : false,
+                            enumerable : true
+                        },
+                        result : {
+                            value : contextModule.result,
+                            enumerable : true
                         }
-                    }
+                    });
+                    normalizedId = loaderName + '!' + loader.normalize(realId, normalizeSimpleId, derivativeContextModule);
                 }
-            }
-        }
-
-        if (mapped !== true && mappings.hasOwnProperty('*'))
-        {
-            mapping = mappings['*'];
-            fragments = moduleId.split('/');
-
-            for (max = fragments.length - 1; max > 0 && mapped === false; max -= 1)
-            {
-                lookup = fragments.slice(0, max).join('/');
-                if (mapping.hasOwnProperty(lookup))
+                else
                 {
-                    result = mapping[lookup];
-                    result += '/' + fragments.slice(max, fragments.length).join('/');
-                    mapped = true;
-
-                    logger.trace('Mapped module id {} to {} via asterisk mapping', [ moduleId, result ]);
+                    logger.trace('Loader "{}" does not define a normalize-function', loaderName);
+                    normalizedId = loaderName + '!' + normalizeSimpleId(realId, contextModule);
                 }
-            }
-        }
-
-        return result;
-    };
-
-    // TODO Outsource / delegate to Java code for potential performance improvements
-    normalizeSimpleId = function amd__normalizeSimpleId(id, contextModule)
-    {
-        var fragments, result, moduleFragments;
-
-        if (typeof id !== 'string')
-        {
-            throw new Error('Module ID was either not provided or is not a string');
-        }
-
-        logger.trace('Normalizing simple id "{}"', id);
-
-        fragments = id.replace(/\\/g, '/').split('/');
-
-        if (fragments[0] === '.' || fragments[0] === '..')
-        {
-            logger.trace('Simple id "{}" is in relative form', id);
-
-            if (!isObject(contextModule))
-            {
-                throw new Error('Module ID is relative but call to normalize was made outside of an active module context');
-            }
-
-            logger.trace('Simple id "{}" will be resolved against context module "{}"', [ id, contextModule.id ]);
-
-            moduleFragments = contextModule.id.split('/');
-            // always remove the actual module identifier
-            moduleFragments = moduleFragments.slice(0, moduleFragments.length - 1);
-            if (fragments[0] === '.')
-            {
-                fragments.shift();
-
-                if (fragments.length === 0)
-                {
-                    throw new Error('Module ID is relative with only a single sibling-level element');
-                }
-
-                fragments = moduleFragments.concat(fragments);
-                result = fragments.join('/');
             }
             else
             {
-                while (fragments[0] === '..')
-                {
-                    fragments.shift();
-
-                    if (fragments.length === 0)
-                    {
-                        throw new Error('Module ID is relative with only parent-level elements');
-                    }
-
-                    if (moduleFragments.length === 0)
-                    {
-                        throw new Error('Module ID is relative with too many parent-level elements for current module context');
-                    }
-
-                    moduleFragments.pop();
-                }
-
-                fragments = moduleFragments.concat(fragments);
-                result = fragments.join('/');
-            }
-        }
-        else
-        {
-            result = fragments.join('/');
-        }
-
-        result = mapModuleId(result, isObject(contextModule) ? contextModule.id : '');
-
-        logger.trace('Normalized simple id "{}" to "{}"', [ id, result ]);
-
-        return result;
-    };
-
-    normalizeModuleId = function amd__normalizeModuleId(id, contextModule, contextUrl, forceIsSecure)
-    {
-        var loaderName, realId, loader, normalizedId, isSecure, derivativeContextModule;
-        if (typeof id !== 'string')
-        {
-            throw new Error('Module ID was either not provided or is not a string');
-        }
-
-        logger.trace('Normalizing module id "{}"', id);
-
-        if (/^[^!]+!.+$/.test(id))
-        {
-            loaderName = id.substring(0, id.indexOf('!'));
-            realId = (id.length >= loaderName.length + 1) ? id.substring(id.indexOf('!') + 1) : '';
-
-            logger.trace('Retrieving loader "{}" for module "{}"', [ loaderName, id ]);
-
-            isSecure = forceIsSecure === true || (isObject(contextModule) && contextModule.secureSource === true);
-            loader = getModule(loaderName, true, isSecure, isObject(contextModule) ? contextModule.url : contextUrl);
-            if (loader === undefined || loader === null)
-            {
-                throw new Error('No loader plugin named \'' + loaderName + '\' has been registered');
+                normalizedId = normalizeSimpleId(id, contextModule);
             }
 
-            if (typeof loader.normalize === 'function')
-            {
-                logger.trace('Calling normalize-function of loader "{}"', loaderName);
-                // protect against loader manipulating the contextModule by using a derivative
-                derivativeContextModule = Object.create(contextModule, {
-                    initialized : {
-                        value : contextModule.initialized,
-                        enumerable : true
-                    },
-                    constructing : {
-                        value : false,
-                        enumerable : true
-                    },
-                    result : {
-                        value : contextModule.result,
-                        enumerable : true
-                    }
-                });
-                normalizedId = loaderName + '!' + loader.normalize(realId, normalizeSimpleId, derivativeContextModule);
-            }
-            else
-            {
-                logger.trace('Loader "{}" does not define a normalize-function', loaderName);
-                normalizedId = loaderName + '!' + normalizeSimpleId(realId, contextModule);
-            }
-        }
-        else
-        {
-            normalizedId = normalizeSimpleId(id, contextModule);
-        }
-
-        return normalizedId;
-    };
+            return normalizedId;
+        };
+    }());
 
     _load = function amd__load(value, normalizedId, loaderName, isSecureSource, overrideUrl)
     {
@@ -1130,21 +1029,6 @@
         return moduleResult;
     };
 
-    // need to select specific constructor to override basePath
-    AlfrescoClasspathURLStreamHandler = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLStreamHandler')['(java.lang.String)'];
-    streamHandler = new AlfrescoClasspathURLStreamHandler(null);
-
-    loaderMetaLoader = {
-        load : function amd__loaderMetaLoader__load(normalizedId, /* jshint unused: false */require, load)
-        {
-            var url = new URL('classpath', null, -1, 'de/axelfaust/alfresco/nashorn/repo/loaders/' + normalizedId, streamHandler);
-
-            logger.debug('Loading loader module {} from classpath', normalizedId);
-
-            load(url, true);
-        }
-    };
-
     require = function amd__require(dependencies, callback, errCallback)
     {
         var idx, args, implicitArgs, normalizedModuleId, module, contextScriptUrl, contextModule, isSecure, failOnMissingDependency, missingModule = false;
@@ -1254,92 +1138,97 @@
         }
     };
 
-    require.whenAvailable = function amd__require_whenAvailable(dependencies, callback)
+    (function amd__require__whenAvailable__init()
     {
-        var normalizedModuleId, contextScriptUrl, contextModule, isSecure, listener, idx;
+        var UUID = Java.type('java.util.UUID');
 
-        if (callback === undefined || callback === null)
+        require.whenAvailable = function amd__require__whenAvailable(dependencies, callback)
         {
-            throw new Error('No callback provided');
-        }
+            var normalizedModuleId, contextScriptUrl, contextModule, isSecure, listener, idx;
 
-        if (typeof callback !== 'function')
-        {
-            throw new Error('Callback is not a function');
-        }
-
-        moduleRegistry.initFromSharedState();
-
-        // skip this script to determine script URL of caller
-        contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
-        contextModule = moduleRegistry.getModuleByUrl(contextScriptUrl);
-
-        isSecure = isObject(contextModule) && contextModule.secureSource === true;
-
-        listener = Object.create(null, {
-            // just internal identifier
-            id : {
-                value : UUID.randomUUID().toString()
-            },
-            isSecure : {
-                value : isSecure,
-                enumerable : true
-            },
-            url : {
-                value : contextScriptUrl,
-                enumerable : true
-            },
-            callback : {
-                value : callback,
-                enumerable : true
-            },
-            resolved : {
-                value : [],
-                enumerable : true
-            },
-            dependencies : {
-                value : [],
-                enumerable : true
-            },
-            triggered : {
-                value : false,
-                enumerable : true,
-                writable : true
-            }
-        });
-
-        if (typeof dependencies === 'string')
-        {
-            normalizedModuleId = normalizeModuleId(dependencies, contextModule, contextScriptUrl);
-            listener.dependencies.push(normalizedModuleId);
-        }
-        else if (Array.isArray(dependencies))
-        {
-            for (idx = 0; idx < dependencies.length; idx += 1)
+            if (callback === undefined || callback === null)
             {
-                normalizedModuleId = normalizeModuleId(dependencies[idx], contextModule, contextScriptUrl);
+                throw new Error('No callback provided');
+            }
+
+            if (typeof callback !== 'function')
+            {
+                throw new Error('Callback is not a function');
+            }
+
+            moduleRegistry.initFromSharedState();
+
+            // skip this script to determine script URL of caller
+            contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
+            contextModule = moduleRegistry.getModuleByUrl(contextScriptUrl);
+
+            isSecure = isObject(contextModule) && contextModule.secureSource === true;
+
+            listener = Object.create(null, {
+                // just internal identifier
+                id : {
+                    value : UUID.randomUUID().toString()
+                },
+                isSecure : {
+                    value : isSecure,
+                    enumerable : true
+                },
+                url : {
+                    value : contextScriptUrl,
+                    enumerable : true
+                },
+                callback : {
+                    value : callback,
+                    enumerable : true
+                },
+                resolved : {
+                    value : [],
+                    enumerable : true
+                },
+                dependencies : {
+                    value : [],
+                    enumerable : true
+                },
+                triggered : {
+                    value : false,
+                    enumerable : true,
+                    writable : true
+                }
+            });
+
+            if (typeof dependencies === 'string')
+            {
+                normalizedModuleId = normalizeModuleId(dependencies, contextModule, contextScriptUrl);
                 listener.dependencies.push(normalizedModuleId);
             }
-        }
-        else
-        {
-            throw new Error('Invalid dependencies');
-        }
+            else if (Array.isArray(dependencies))
+            {
+                for (idx = 0; idx < dependencies.length; idx += 1)
+                {
+                    normalizedModuleId = normalizeModuleId(dependencies[idx], contextModule, contextScriptUrl);
+                    listener.dependencies.push(normalizedModuleId);
+                }
+            }
+            else
+            {
+                throw new Error('Invalid dependencies');
+            }
 
-        Object.freeze(listener.dependencies);
+            Object.freeze(listener.dependencies);
 
-        if (logger.traceEnabled)
-        {
-            logger.trace('Registered listener from url "{}" (secureSource: {}) for modules {}', [ contextScriptUrl, isSecure,
-                    JSON.stringify(listener.dependencies) ]);
-        }
-        else
-        {
-            logger.trace('Registered listener from url "{}" (secureSource: {})', [ contextScriptUrl, isSecure ]);
-        }
+            if (logger.traceEnabled)
+            {
+                logger.trace('Registered listener from url "{}" (secureSource: {}) for modules {}', [ contextScriptUrl, isSecure,
+                        JSON.stringify(listener.dependencies) ]);
+            }
+            else
+            {
+                logger.trace('Registered listener from url "{}" (secureSource: {})', [ contextScriptUrl, isSecure ]);
+            }
 
-        moduleRegistry.addModuleListener(listener);
-    };
+            moduleRegistry.addModuleListener(listener);
+        };
+    }());
 
     require.config = function amd__require_config(config)
     {
@@ -1800,8 +1689,6 @@
     define.amd = {};
 
     // freeze all the things
-    Object.freeze(loaderMetaLoader.load);
-    Object.freeze(loaderMetaLoader);
     Object.freeze(require.whenAvailable);
     Object.freeze(require.isSecureCallerScript);
     Object.freeze(require.getCallerScriptModuleId);
@@ -1814,6 +1701,55 @@
     Object.freeze(define.preload);
     Object.freeze(define.amd);
     Object.freeze(define);
+
+    (function amd__loaderMetaloader__init()
+    {
+        var URL, AlfrescoClasspathURLStreamHandler, streamHandler, loaderMetaLoader;
+
+        // need to select specific constructor to override basePath
+        URL = Java.type('java.net.URL');
+        AlfrescoClasspathURLStreamHandler = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLStreamHandler')['(java.lang.String)'];
+        streamHandler = new AlfrescoClasspathURLStreamHandler(null);
+
+        loaderMetaLoader = {
+            load : function amd__loaderMetaLoader__load(normalizedId, /* jshint unused: false */require, load)
+            {
+                var url = new URL('classpath', null, -1, 'de/axelfaust/alfresco/nashorn/repo/loaders/' + normalizedId, streamHandler);
+
+                logger.debug('Loading loader module {} from classpath', normalizedId);
+
+                load(url, true);
+            }
+        };
+        Object.freeze(loaderMetaLoader.load);
+        Object.freeze(loaderMetaLoader);
+        moduleRegistry.addModule(Object.create(null, {
+            id : {
+                value : 'loaderMetaLoader',
+                enumerable : true
+            },
+            url : {
+                value : NashornUtils.getCallerScriptURL(false, false),
+                enumerable : true
+            },
+            initialized : {
+                value : true,
+                enumerable : true
+            },
+            constructing : {
+                value : false,
+                enumerable : true
+            },
+            result : {
+                value : loaderMetaLoader,
+                enumerable : true
+            },
+            secureSource : {
+                value : true,
+                enumerable : true
+            }
+        }), 'loaderMetaLoader');
+    }());
 
     moduleRegistry.addModule(Object.create(null, {
         id : {
@@ -1868,33 +1804,6 @@
             enumerable : true
         }
     }), 'define');
-
-    moduleRegistry.addModule(Object.create(null, {
-        id : {
-            value : 'loaderMetaLoader',
-            enumerable : true
-        },
-        url : {
-            value : NashornUtils.getCallerScriptURL(false, false),
-            enumerable : true
-        },
-        initialized : {
-            value : true,
-            enumerable : true
-        },
-        constructing : {
-            value : false,
-            enumerable : true
-        },
-        result : {
-            value : loaderMetaLoader,
-            enumerable : true
-        },
-        secureSource : {
-            value : true,
-            enumerable : true
-        }
-    }), 'loaderMetaLoader');
 
     Object.defineProperty(this, 'require', {
         value : require,
