@@ -176,7 +176,7 @@ public class ExecutePost extends AbstractWebScript implements InitializingBean
             status.setCode(e instanceof WebScriptException ? ((WebScriptException) e).getStatus() : Status.STATUS_INTERNAL_SERVER_ERROR,
                     e.getMessage());
             status.setException(e);
-            this.addStatusToResultModel(requestModel, status);
+            this.addStatusToResultModel(resultModel, status);
         }
         finally
         {
