@@ -7,17 +7,15 @@
 {
     'use strict';
 
-    var moduleRegistry, executionState, DUMMY_MODULE,
+    var moduleRegistry, moduleManagement, DUMMY_MODULE,
     // core AMD config and backup state
     mappings = {}, packages = {},
-    // Nashorn script loading utils
-    nashornLoad = load, defaultScope = this,
     // internal fns
-    isObject, getRestoreTaggedCallerFn, normalizeModuleId, loadModule, getModule, _load, SecureUseOnlyWrapper,
+    isObject, normalizeModuleId, SecureUseOnlyWrapper,
     // internal error subtype
     UnavailableModuleError, lazyErrorStackGetter,
     // Java utils
-    NashornUtils, Throwable, URL, logger,
+    NashornUtils, Throwable, logger,
     // public fns
     require, define;
 
@@ -26,15 +24,7 @@
 
     NashornUtils = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils');
     Throwable = Java.type('java.lang.Throwable');
-    URL = Java.type('java.net.URL');
     logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.amd');
-
-    // setup script aware data containers
-    (function amd__executionState__init()
-    {
-        var NashornScriptModel = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel');
-        executionState = NashornScriptModel.newAssociativeContainer();
-    }());
 
     lazyErrorStackGetter = function amd__lazyErrorStackGetter()
     {
@@ -64,6 +54,220 @@
     {
         var result = o !== undefined && o !== null && Object.prototype.toString.call(o) === '[object Object]';
         return result;
+    };
+
+    SecureUseOnlyWrapper = function amd__SecureUseOnlyWrapper_constructor(module, url)
+    {
+        Object.defineProperty(this, 'wrapped', {
+            value : module,
+            enumerable : true
+        });
+
+        if (typeof url === 'string')
+        {
+            Object.defineProperty(this, 'url', {
+                value : url,
+                enumerable : true
+            });
+        }
+
+        Object.defineProperty(this, 'secureUseOnly', {
+            value : true,
+            enumerable : true
+        });
+
+        Object.freeze(this);
+
+        return this;
+    };
+
+    (function amd__normalizeModuleId__init()
+    {
+        var normalizeSimpleId, AMDUtils;
+
+        AMDUtils = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.AMDUtils');
+
+        normalizeSimpleId = function amd__normalizeSimpleId(id, contextModule)
+        {
+            var result;
+
+            if (typeof id !== 'string')
+            {
+                throw new Error('Module ID was either not provided or is not a string');
+            }
+
+            result = AMDUtils.normalizeSimpleModuleId(id, isObject(contextModule) ? contextModule.id : null);
+            result = AMDUtils.mapModuleId(result, isObject(contextModule) ? contextModule.id : null, mappings);
+            logger.trace('Normalized simple id "{}" to "{}"', [ id, result ]);
+            return result;
+        };
+
+        normalizeModuleId = function amd__normalizeModuleId(id, contextModule, contextUrl, forceIsSecure)
+        {
+            var loaderName, realId, loader, normalizedId, isSecure, derivativeContextModule;
+            if (typeof id !== 'string')
+            {
+                throw new Error('Module ID was either not provided or is not a string');
+            }
+
+            logger.trace('Normalizing module id "{}"', id);
+
+            if (/^[^!]+!.+$/.test(id))
+            {
+                loaderName = id.substring(0, id.indexOf('!'));
+                realId = (id.length >= loaderName.length + 1) ? id.substring(id.indexOf('!') + 1) : '';
+
+                logger.trace('Retrieving loader "{}" for module "{}"', [ loaderName, id ]);
+
+                isSecure = forceIsSecure === true || (isObject(contextModule) && contextModule.secureSource === true);
+                loader = moduleManagement.getModule(loaderName, true, isSecure, isObject(contextModule) ? contextModule.url : contextUrl);
+                if (loader === undefined || loader === null)
+                {
+                    throw new Error('No loader plugin named \'' + loaderName + '\' has been registered');
+                }
+
+                if (typeof loader.normalize === 'function')
+                {
+                    logger.trace('Calling normalize-function of loader "{}"', loaderName);
+                    // protect against loader manipulating the contextModule by using a derivative
+                    derivativeContextModule = Object.create(contextModule, {
+                        initialized : {
+                            value : contextModule.initialized,
+                            enumerable : true
+                        },
+                        constructing : {
+                            value : false,
+                            enumerable : true
+                        },
+                        result : {
+                            value : contextModule.result,
+                            enumerable : true
+                        }
+                    });
+                    normalizedId = loaderName + '!' + loader.normalize(realId, normalizeSimpleId, derivativeContextModule);
+                }
+                else
+                {
+                    logger.trace('Loader "{}" does not define a normalize-function', loaderName);
+                    normalizedId = loaderName + '!' + normalizeSimpleId(realId, contextModule);
+                }
+            }
+            else
+            {
+                normalizedId = normalizeSimpleId(id, contextModule);
+            }
+
+            return normalizedId;
+        };
+    }());
+
+    require = function amd__require(dependencies, callback, errCallback)
+    {
+        var idx, args, implicitArgs, normalizedModuleId, module, contextScriptUrl, contextModule, isSecure, failOnMissingDependency, missingModule = false;
+
+        moduleRegistry.initFromSharedState();
+
+        // skip this script to determine script URL of caller
+        contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
+        contextModule = moduleRegistry.getModuleByUrl(contextScriptUrl);
+
+        isSecure = isObject(contextModule) && contextModule.secureSource === true;
+
+        if (typeof dependencies === 'string')
+        {
+            logger.trace('Resolving single dependency "{}" for call to require(string)', dependencies);
+            // require(string)
+            normalizedModuleId = normalizeModuleId(dependencies, contextModule, contextScriptUrl);
+            // MUST fail if module is not yet defined or initialised
+            module = moduleManagement.getModule(normalizedModuleId, false, isSecure, contextScriptUrl);
+
+            return module;
+        }
+
+        if (Array.isArray(dependencies))
+        {
+            args = [];
+            implicitArgs = [];
+            failOnMissingDependency = typeof errCallback !== 'function';
+
+            logger.trace('Resolving {} dependencies for call to require(string[], function, function?)', dependencies.length);
+
+            for (idx = 0; idx < dependencies.length; idx += 1)
+            {
+                logger.trace('Resolving dependency "{}" for call to require(string[], function, function?)', dependencies[0]);
+                normalizedModuleId = normalizeModuleId(dependencies[idx], contextModule, contextScriptUrl);
+
+                try
+                {
+                    module = moduleManagement.getModule(normalizedModuleId, true, isSecure, contextScriptUrl);
+                }
+                catch (e)
+                {
+                    module = null;
+                    if (e.nashornException instanceof Throwable)
+                    {
+                        logger.trace('Failed to resolve dependency', e.nashornException);
+                    }
+                    else
+                    {
+                        logger.trace('Failed to resolve dependency - {}', e.message);
+                    }
+                    logger.debug('Failed to resolve dependency "{}" for call to require(string[], function, function?)', dependencies[idx]);
+
+                    // rethrow
+                    if (failOnMissingDependency === true || !(e instanceof UnavailableModuleError))
+                    {
+                        throw e;
+                    }
+                }
+
+                // TODO Find a way to bind callerScriptUrl context for provided modules to avoid repeated retrievals)
+                args.push(module);
+
+                // undefined / null are perfectly valid results of a module factory
+                // missingModule only triggers special handling if errCallback has been provided
+                if (module === undefined || module === null)
+                {
+                    logger.trace('Module "{}" in call to require(string[], function, function?) is undefined/null', normalizedModuleId);
+                    missingModule = true;
+                }
+
+                // only need to track implicit resolutions if we allow reoslution failures
+                if (failOnMissingDependency !== true)
+                {
+                    module = moduleRegistry.getModule(normalizedModuleId);
+                    if (isObject(module) && module !== DUMMY_MODULE)
+                    {
+                        implicitArgs.push(module.implicitResult);
+                    }
+                    else
+                    {
+                        implicitArgs.push(undefined);
+                    }
+
+                    logger.trace('Added implicit module result "{}" for call to require(string[], function, function?)',
+                            implicitArgs[implicitArgs.length - 1]);
+                }
+            }
+
+            if (missingModule === true && failOnMissingDependency !== true)
+            {
+                logger.debug('Calling errCallback for call to require(string[], function, function?)');
+                // signature is fn(dependencies[], moduleResolutions[], implicitResolutions[])
+                errCallback.call(this, dependencies, args, implicitArgs);
+            }
+            else if (typeof callback === 'function')
+            {
+                logger.debug('Calling standard callback for call to require(string[], function, function?)');
+                callback.apply(this, args);
+            }
+            else
+            {
+                throw new Error('No callback was provided');
+            }
+
+            return args;
+        }
     };
 
     moduleRegistry = (function amd__moduleRegistry()
@@ -307,7 +511,7 @@
                         handleDependencies = function amd__moduleRegistry__addModuleListener_handleDependencies(listener, dependency, idx,
                                 arr)
                         {
-                            var depModule = getModule(dependency, true, listener.isSecure, listener.url);
+                            var depModule = moduleManagement.getModule(dependency, true, listener.isSecure, listener.url);
                             arr[idx] = depModule;
                         };
 
@@ -422,7 +626,7 @@
                         handleDependencies = function amd__moduleRegistry__checkAndFulfillModuleListeners_handleDependencies(listener,
                                 dependency, idx, arr)
                         {
-                            var depModule = getModule(dependency, true, listener.isSecure, listener.url);
+                            var depModule = moduleManagement.getModule(dependency, true, listener.isSecure, listener.url);
                             arr[idx] = depModule;
                         };
 
@@ -470,673 +674,499 @@
         return result;
     }());
 
-    getRestoreTaggedCallerFn = function amd__getRestoreTaggedCallerFn(scriptUrl, taggerUrl)
+    moduleManagement = (function amd__moduleManagement__init()
     {
-        var originalScriptUrl = scriptUrl, taggerScriptUrl = taggerUrl;
+        var nashornLoad, defaultScope, URL, internal, result;
 
-        return function amd__require_tagCallerScript_restoreFn()
-        {
-            executionState.taggedCallerScriptUrl = originalScriptUrl;
+        nashornLoad = load;
+        defaultScope = this;
+        URL = Java.type('java.net.URL');
 
-            logger.debug('Script "{}" has reset the tagged script caller', taggerScriptUrl);
-        };
-    };
+        internal = Object
+                .create(
+                        null,
+                        {
+                            handleModuleLoadFromURL : {
+                                value : function amd__moduleManagement__handleModuleLoadFromURL(url, normalizedId, loaderName,
+                                        isSecureSource)
+                                {
+                                    var urlStr, module, customScope, implicitResult;
 
-    SecureUseOnlyWrapper = function amd__SecureUseOnlyWrapper_constructor(module, url)
-    {
-        Object.defineProperty(this, 'wrapped', {
-            value : module,
-            enumerable : true
-        });
+                                    urlStr = String(url);
 
-        if (typeof url === 'string')
-        {
-            Object.defineProperty(this, 'url', {
-                value : url,
-                enumerable : true
-            });
-        }
+                                    module = moduleRegistry.getModuleByUrl(urlStr);
+                                    if (isObject(module))
+                                    {
+                                        if (module.id === normalizedId)
+                                        {
+                                            throw new Error('Module \'' + normalizedId + '\' in script \'' + urlStr
+                                                    + '\' has already been loaded once - it should not have been loaded again');
+                                        }
 
-        Object.defineProperty(this, 'secureUseOnly', {
-            value : true,
-            enumerable : true
-        });
+                                        logger.trace('Remapping already loaded module "{}" to "{}" from url "{}"', [ module.id,
+                                                normalizedId, url ]);
+                                        moduleRegistry.addModule(module, normalizedId);
+                                    }
+                                    else
+                                    {
+                                        logger.debug('Loading module "{}" from url "{}" (secureSource: {})', [ normalizedId, url,
+                                                isSecureSource === true ]);
 
-        Object.freeze(this);
+                                        // minimal module for URL - just enough for context use
+                                        module = Object.create(null, {
+                                            id : {
+                                                value : normalizedId,
+                                                enumerable : true
+                                            },
+                                            url : {
+                                                value : urlStr,
+                                                enumerable : true
+                                            },
+                                            loader : {
+                                                value : loaderName,
+                                                enumerable : true
+                                            },
+                                            initialized : {
+                                                value : false,
+                                                enumerable : true
+                                            },
+                                            constructing : {
+                                                value : false,
+                                                enumerable : true
+                                            },
+                                            result : {
+                                                value : null,
+                                                enumerable : true
+                                            },
+                                            secureSource : {
+                                                value : isSecureSource === true,
+                                                enumerable : true
+                                            }
+                                        });
+                                        moduleRegistry.addModule(module);
 
-        return this;
-    };
+                                        // we load with custom scope to prevent pollution of the potentially shared global
+                                        customScope = Object.create(defaultScope);
 
-    (function amd__normalizeModuleId__init()
-    {
-        var normalizeSimpleId, AMDUtils;
+                                        require
+                                                .withoutTaggedCallerScript(function amd__moduleManagement__handleModuleLoadFromURL_nashornLoad()
+                                                {
+                                                    implicitResult = nashornLoad.call(customScope, url);
+                                                });
 
-        AMDUtils = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.AMDUtils');
+                                        // no module defined yet by requested module id
+                                        // may be a non-module script with implicit return value
+                                        module = moduleRegistry.getModule(normalizedId);
+                                        if (module === null)
+                                        {
+                                            // script may not define a module
+                                            // we store the result of script execution for require(dependencies[], successFn, errorFn)
+                                            logger.debug('Module "{}" from url "{}" yielded implicit result "{}"', [ normalizedId, url,
+                                                    implicitResult ]);
 
-        normalizeSimpleId = function amd__normalizeSimpleId(id, contextModule)
-        {
-            var result;
+                                            module = Object.create(null, {
+                                                id : {
+                                                    value : normalizedId,
+                                                    enumerable : true
+                                                },
+                                                loader : {
+                                                    value : loaderName,
+                                                    enumerable : true
+                                                },
+                                                url : {
+                                                    value : urlStr,
+                                                    enumerable : true
+                                                },
+                                                dependencies : {
+                                                    value : [],
+                                                    enumerable : true
+                                                },
+                                                initialized : {
+                                                    value : true,
+                                                    enumerable : true
+                                                },
+                                                constructing : {
+                                                    value : false,
+                                                    enumerable : true
+                                                },
+                                                result : {
+                                                    value : null,
+                                                    enumerable : true
+                                                },
+                                                implicitResult : {
+                                                    value : implicitResult,
+                                                    enumerable : true
+                                                },
+                                                secureSource : {
+                                                    value : isSecureSource === true,
+                                                    enumerable : true
+                                                }
+                                            });
 
-            if (typeof id !== 'string')
-            {
-                throw new Error('Module ID was either not provided or is not a string');
-            }
+                                            Object.freeze(module.dependencies);
 
-            result = AMDUtils.normalizeSimpleModuleId(id, isObject(contextModule) ? contextModule.id : null);
-            result = AMDUtils.mapModuleId(result, isObject(contextModule) ? contextModule.id : null, mappings);
-            logger.trace('Normalized simple id "{}" to "{}"', [ id, result ]);
-            return result;
-        };
-
-        normalizeModuleId = function amd__normalizeModuleId(id, contextModule, contextUrl, forceIsSecure)
-        {
-            var loaderName, realId, loader, normalizedId, isSecure, derivativeContextModule;
-            if (typeof id !== 'string')
-            {
-                throw new Error('Module ID was either not provided or is not a string');
-            }
-
-            logger.trace('Normalizing module id "{}"', id);
-
-            if (/^[^!]+!.+$/.test(id))
-            {
-                loaderName = id.substring(0, id.indexOf('!'));
-                realId = (id.length >= loaderName.length + 1) ? id.substring(id.indexOf('!') + 1) : '';
-
-                logger.trace('Retrieving loader "{}" for module "{}"', [ loaderName, id ]);
-
-                isSecure = forceIsSecure === true || (isObject(contextModule) && contextModule.secureSource === true);
-                loader = getModule(loaderName, true, isSecure, isObject(contextModule) ? contextModule.url : contextUrl);
-                if (loader === undefined || loader === null)
-                {
-                    throw new Error('No loader plugin named \'' + loaderName + '\' has been registered');
-                }
-
-                if (typeof loader.normalize === 'function')
-                {
-                    logger.trace('Calling normalize-function of loader "{}"', loaderName);
-                    // protect against loader manipulating the contextModule by using a derivative
-                    derivativeContextModule = Object.create(contextModule, {
-                        initialized : {
-                            value : contextModule.initialized,
-                            enumerable : true
-                        },
-                        constructing : {
-                            value : false,
-                            enumerable : true
-                        },
-                        result : {
-                            value : contextModule.result,
-                            enumerable : true
-                        }
-                    });
-                    normalizedId = loaderName + '!' + loader.normalize(realId, normalizeSimpleId, derivativeContextModule);
-                }
-                else
-                {
-                    logger.trace('Loader "{}" does not define a normalize-function', loaderName);
-                    normalizedId = loaderName + '!' + normalizeSimpleId(realId, contextModule);
-                }
-            }
-            else
-            {
-                normalizedId = normalizeSimpleId(id, contextModule);
-            }
-
-            return normalizedId;
-        };
-    }());
-
-    _load = function amd__load(value, normalizedId, loaderName, isSecureSource, overrideUrl)
-    {
-        var url, urlStr, module, implicitResult, currentlyTaggedCallerScriptUrl, customScope;
-
-        if (value !== undefined && value !== null)
-        {
-            if (value instanceof URL)
-            {
-                url = value;
-                urlStr = String(url);
-
-                module = moduleRegistry.getModuleByUrl(urlStr);
-                if (isObject(module))
-                {
-                    if (module.id === normalizedId)
-                    {
-                        throw new Error('Module \'' + normalizedId + '\' in script \'' + urlStr
-                                + '\' has already been loaded once - it should not have been loaded again');
-                    }
-
-                    logger.trace('Remapping already loaded module "{}" to "{}" from url "{}"', [ module.id, normalizedId, url ]);
-                    moduleRegistry.addModule(module, normalizedId);
-                }
-                else
-                {
-                    logger.debug('Loading module "{}" from url "{}" (secureSource: {})', [ normalizedId, url, isSecureSource === true ]);
-
-                    // minimal module for URL - just enough for context use
-                    module = Object.create(null, {
-                        id : {
-                            value : normalizedId,
-                            enumerable : true
-                        },
-                        url : {
-                            value : urlStr,
-                            enumerable : true
-                        },
-                        loader : {
-                            value : loaderName,
-                            enumerable : true
-                        },
-                        initialized : {
-                            value : false,
-                            enumerable : true
-                        },
-                        constructing : {
-                            value : false,
-                            enumerable : true
-                        },
-                        result : {
-                            value : null,
-                            enumerable : true
-                        },
-                        secureSource : {
-                            value : isSecureSource === true,
-                            enumerable : true
-                        }
-                    });
-                    moduleRegistry.addModule(module);
-
-                    // we load with custom scope to prevent pollution of the potentially shared global
-                    customScope = Object.create(defaultScope);
-
-                    currentlyTaggedCallerScriptUrl = executionState.taggedCallerScriptUrl;
-                    executionState.taggedCallerScriptUrl = null;
-
-                    try
-                    {
-                        implicitResult = nashornLoad.call(customScope, url);
-
-                        // reset
-                        executionState.taggedCallerScriptUrl = currentlyTaggedCallerScriptUrl;
-                    }
-                    catch (e)
-                    {
-                        // reset
-                        executionState.taggedCallerScriptUrl = currentlyTaggedCallerScriptUrl;
-
-                        throw e;
-                    }
-
-                    // no module defined yet by requested module id
-                    // may be a non-module script with implicit return value
-                    module = moduleRegistry.getModule(normalizedId);
-                    if (module === null)
-                    {
-                        // script may not define a module
-                        // we store the result of script execution for require(dependencies[], successFn, errorFn)
-                        logger.debug('Module "{}" from url "{}" yielded implicit result "{}"', [ normalizedId, url, implicitResult ]);
-
-                        module = Object.create(null, {
-                            id : {
-                                value : normalizedId,
-                                enumerable : true
+                                            moduleRegistry.addModule(module, normalizedId);
+                                        }
+                                    }
+                                }
                             },
-                            loader : {
-                                value : loaderName,
-                                enumerable : true
+                            handleModuleLoadPreResolved : {
+                                value : function amd__moduleManagement__handleModuleLoadPreResolved(value, normalizedId, loaderName,
+                                        isSecureSource, overrideUrl)
+                                {
+                                    var module;
+
+                                    logger.debug('Registering pre-resolved module "{}"', normalizedId);
+
+                                    module = Object.create(null, {
+                                        id : {
+                                            value : normalizedId,
+                                            enumerable : true
+                                        },
+                                        loader : {
+                                            value : loaderName,
+                                            enumerable : true
+                                        },
+                                        url : {
+                                            value : typeof overrideUrl === 'string' ? overrideUrl : null,
+                                            enumerable : true
+                                        },
+                                        dependencies : {
+                                            value : [],
+                                            enumerable : true
+                                        },
+                                        initialized : {
+                                            value : true,
+                                            enumerable : true
+                                        },
+                                        constructing : {
+                                            value : false,
+                                            enumerable : true
+                                        },
+                                        result : {
+                                            value : value,
+                                            enumerable : true
+                                        },
+                                        secureSource : {
+                                            value : isSecureSource === true,
+                                            enumerable : true
+                                        }
+                                    });
+
+                                    Object.freeze(module.dependencies);
+
+                                    moduleRegistry.addModule(module, normalizedId);
+                                }
                             },
-                            url : {
-                                value : urlStr,
-                                enumerable : true
+                            handleModuleLoad : {
+                                value : function amd__moduleManagement__handleModuleLoad(value, normalizedId, loaderName, isSecureSource,
+                                        overrideUrl)
+                                {
+                                    if (value !== undefined && value !== null)
+                                    {
+                                        if (value instanceof URL)
+                                        {
+                                            this.handleModuleLoadFromURL(value, normalizedId, loaderName, isSecureSource);
+                                        }
+                                        else
+                                        {
+                                            this.handleModuleLoadPreResolved(value, normalizedId, loaderName, isSecureSource, overrideUrl);
+                                        }
+                                    }
+                                }
                             },
-                            dependencies : {
-                                value : [],
-                                enumerable : true
+                            loadModuleViaLoader : {
+                                value : function amd__moduleManagement__loadModuleViaLoader(normalizedId, id, loaderName, callerSecure,
+                                        callerUrl)
+                                {
+                                    var loader, loaderModule;
+
+                                    logger.trace('Retrieving loader "{}" for module "{}"', [ loaderName, id ]);
+
+                                    loader = moduleManagement.getModule(loaderName, true, callerSecure, callerUrl);
+                                    loaderModule = moduleRegistry.getModule(loaderName);
+
+                                    if (typeof loader.load === 'function')
+                                    {
+                                        loader.load(id, require,
+                                                function amd__moduleManagement__loadModuleViaLoader_explicitLoaderCallback(value,
+                                                        isSecureSource, overrideUrl)
+                                                {
+                                                    if (loaderModule.secureSource === true || isSecureSource === false)
+                                                    {
+                                                        internal.handleModuleLoad(value, normalizedId, loaderName, isSecureSource,
+                                                                overrideUrl);
+                                                    }
+                                                    else
+                                                    {
+                                                        throw new Error('Insecure loader module \'' + loaderName
+                                                                + '\' cannot declare a loaded module as secure');
+                                                    }
+                                                });
+                                    }
+                                    else
+                                    {
+                                        throw new Error('Module \'' + loaderName + '\' is not a loader plugin');
+                                    }
+                                }
                             },
-                            initialized : {
-                                value : true,
-                                enumerable : true
+                            loadModuleDefinition : {
+                                value : function amd__moduleManagement__loadModuleDefinition(normalizedId, doLoad, callerSecure, callerUrl)
+                                {
+                                    var module;
+
+                                    module = moduleRegistry.getModule(normalizedId);
+                                    if (module === null && doLoad)
+                                    {
+                                        logger.debug('Module "{}" not defined yet - forcing load', normalizedId);
+
+                                        moduleManagement.loadModule(normalizedId, callerSecure, callerUrl);
+
+                                        module = moduleRegistry.getModule(normalizedId);
+                                        if (isObject(module))
+                                        {
+                                            logger.trace('Module "{}" defined by load', normalizedId);
+                                        }
+                                        else
+                                        {
+                                            logger.debug('Module "{}" not defined after explicit load', normalizedId);
+                                            // avoid repeated loads by caching missed-resolution
+                                            moduleRegistry.addModule(DUMMY_MODULE, normalizedId);
+
+                                            throw new UnavailableModuleError('Module \'' + normalizedId
+                                                    + '\' has not been defined yet and could not be loaded');
+                                        }
+                                    }
+                                    else if (isObject(module) && module !== DUMMY_MODULE)
+                                    {
+                                        logger.trace('Module "{}" already defined', normalizedId);
+                                    }
+                                    else
+                                    {
+                                        throw new UnavailableModuleError('Module \'' + normalizedId + '\' has not been defined');
+                                    }
+
+                                    return module;
+                                }
                             },
-                            constructing : {
-                                value : false,
-                                enumerable : true
+                            constructModuleResult : {
+                                value : function amd__moduleManagement__loadModuleResult(normalizedId, module)
+                                {
+                                    var moduleResult, isSecure, resolvedDependencies, idx, dependency;
+
+                                    if (typeof module.factory === 'function')
+                                    {
+                                        logger.debug('Module "{}" not initialised yet - forcing initialisation', normalizedId);
+
+                                        module.constructing = true;
+                                        try
+                                        {
+                                            if (module.dependencies.length === 0)
+                                            {
+                                                logger.trace('Module "{}" has no dependencies - calling factory', normalizedId);
+
+                                                module.result = module.factory();
+                                            }
+                                            else
+                                            {
+                                                isSecure = module.secureSource === true;
+
+                                                logger.trace('Resolving {} dependencies for call to factory of {}', [
+                                                        module.dependencies.length, normalizedId ]);
+                                                resolvedDependencies = [];
+                                                for (idx = 0; idx < module.dependencies.length; idx += 1)
+                                                {
+                                                    if (module.dependencies[idx] === 'exports')
+                                                    {
+                                                        logger
+                                                                .trace(
+                                                                        'Module "{}" uses "exports"-dependency to expose module during initialisation (avoiding circular dependency issues)',
+                                                                        normalizedId);
+                                                        module.result = {};
+                                                        resolvedDependencies.push(module.result);
+                                                    }
+                                                    else
+                                                    {
+                                                        logger.debug('Loading dependency "{}" for module "{}"', [ module.dependencies[idx],
+                                                                normalizedId ]);
+
+                                                        // TODO Find a way to bind module.url/callerScriptURL context for provided
+                                                        // modules to avoid repeated retrievals)
+                                                        dependency = moduleManagement.getModule(module.dependencies[idx], true, isSecure,
+                                                                module.url);
+
+                                                        resolvedDependencies.push(dependency);
+                                                    }
+                                                }
+
+                                                logger.trace('All dependencies of module "{}" resolved - calling factory', normalizedId);
+                                                if (module.result !== null)
+                                                {
+                                                    module.factory.apply(this, resolvedDependencies);
+                                                }
+                                                else
+                                                {
+                                                    module.result = module.factory.apply(this, resolvedDependencies);
+                                                }
+                                                logger.trace('Instance/value for module "{}" initialized from factory', normalizedId);
+                                            }
+                                            module.initialized = true;
+
+                                            // reset
+                                            module.constructing = false;
+                                        }
+                                        catch (e)
+                                        {
+                                            if (e.nashornException instanceof Throwable)
+                                            {
+                                                logger.info('Failed to instantiate module', e.nashornException);
+                                            }
+                                            else
+                                            {
+                                                logger.info('Failed to instantiate module - {}', e.message);
+                                            }
+
+                                            // reset
+                                            module.constructing = false;
+
+                                            throw e;
+                                        }
+
+                                        moduleResult = module.result;
+
+                                        moduleRegistry.checkAndFulfillModuleListeners(module);
+                                    }
+                                    else
+                                    {
+                                        throw new UnavailableModuleError('Module \'' + normalizedId
+                                                + '\' could not be loaded (no factory is available)');
+                                    }
+
+                                    return moduleResult;
+                                }
                             },
-                            result : {
-                                value : null,
-                                enumerable : true
-                            },
-                            implicitResult : {
-                                value : implicitResult,
-                                enumerable : true
-                            },
-                            secureSource : {
-                                value : isSecureSource === true,
-                                enumerable : true
+                            loadModuleResult : {
+                                value : function amd__moduleManagement__loadModuleResult(normalizedId, module, doLoad, callerSecure,
+                                        callerUrl)
+                                {
+                                    var moduleResult;
+
+                                    if (isObject(module) && module !== DUMMY_MODULE)
+                                    {
+                                        if (module.initialized === true)
+                                        {
+                                            logger.trace('Module "{}" already initialized', normalizedId);
+                                            moduleResult = module.result;
+
+                                            // special case where module was only defined to track implicit return values
+                                            // see _load
+                                            if (moduleResult === null && module.hasOwnProperty('implicitResult'))
+                                            {
+                                                throw new UnavailableModuleError('Module \'' + normalizedId + '\' could not be loaded');
+                                            }
+                                        }
+                                        else if (doLoad && module.constructing !== true)
+                                        {
+                                            require.withoutTaggedCallerScript(function amd__moduleManagement__loadModuleResult_construct()
+                                            {
+                                                moduleResult = internal.constructModuleResult(normalizedId, module, callerSecure, callerUrl);
+                                            });
+                                        }
+                                        else
+                                        {
+                                            throw new Error('Module \''
+                                                    + normalizedId
+                                                    + (module.constructing === true ? '\' is included in a circular dependency graph'
+                                                            : '\' has not been initialised'));
+                                        }
+                                    }
+                                    else
+                                    {
+                                        throw new UnavailableModuleError('Module \'' + normalizedId + '\' could not be loaded');
+                                    }
+
+                                    return moduleResult;
+                                }
                             }
                         });
 
-                        Object.freeze(module.dependencies);
-
-                        moduleRegistry.addModule(module, normalizedId);
-                    }
-                }
-            }
-            else
-            {
-                logger.debug('Registering pre-resolved module "{}"', normalizedId);
-
-                module = Object.create(null, {
-                    id : {
-                        value : normalizedId,
-                        enumerable : true
-                    },
-                    loader : {
-                        value : loaderName,
-                        enumerable : true
-                    },
-                    url : {
-                        value : typeof overrideUrl === 'string' ? overrideUrl : null,
-                        enumerable : true
-                    },
-                    dependencies : {
-                        value : [],
-                        enumerable : true
-                    },
-                    initialized : {
-                        value : true,
-                        enumerable : true
-                    },
-                    constructing : {
-                        value : false,
-                        enumerable : true
-                    },
-                    result : {
-                        value : value,
-                        enumerable : true
-                    },
-                    secureSource : {
-                        value : isSecureSource === true,
-                        enumerable : true
-                    }
-                });
-
-                Object.freeze(module.dependencies);
-
-                moduleRegistry.addModule(module, normalizedId);
-            }
-        }
-    };
-
-    loadModule = function amd__loadModule(normalizedId, callerSecure, callerUrl)
-    {
-        var id, loaderName, loader, loaderModule, idFragments, prospectivePackageName, length, packageConfig;
-
-        logger.debug('Loading module "{}"', normalizedId);
-
-        if (/^[^!]+!.+$/.test(normalizedId))
-        {
-            loaderName = normalizedId.substring(0, normalizedId.indexOf('!'));
-            id = normalizedId.substring(normalizedId.indexOf('!') + 1);
-
-            logger.trace('Retrieving loader "{}" for module "{}"', [ loaderName, id ]);
-
-            loader = getModule(loaderName, true, callerSecure, callerUrl);
-            loaderModule = moduleRegistry.getModule(loaderName);
-
-            if (typeof loader.load === 'function')
-            {
-                loader.load(id, require, function amd__loadModule_explicitLoaderCallback(value, isSecureSource, overrideUrl)
+        result = Object.create(null, {
+            loadModule : {
+                value : function amd__moduleManagement__loadModule(normalizedId, callerSecure, callerUrl)
                 {
-                    if (loaderModule.secureSource === true || isSecureSource === false)
+                    var loaderName, id, idFragments, length, prospectivePackageName, packageConfig;
+
+                    logger.debug('Loading module "{}"', normalizedId);
+
+                    if (/^[^!]+!.+$/.test(normalizedId))
                     {
-                        _load(value, normalizedId, loaderName, isSecureSource, overrideUrl);
+                        loaderName = normalizedId.substring(0, normalizedId.indexOf('!'));
+                        id = normalizedId.substring(normalizedId.indexOf('!') + 1);
+
+                        internal.loadModuleViaLoader(normalizedId, id, loaderName, callerSecure, callerUrl);
                     }
                     else
                     {
-                        throw new Error('Insecure loader module \'' + loaderName + '\' cannot declare a loaded module as secure');
-                    }
-                });
-            }
-            else
-            {
-                throw new Error('Module \'' + loaderName + '\' is not a loader plugin');
-            }
-        }
-        else
-        {
-            logger.trace('Resolving module "{}" against configured packages', normalizedId);
+                        logger.trace('Resolving module "{}" against configured packages', normalizedId);
 
-            idFragments = normalizedId.split('/');
-            for (length = idFragments.length - 1; length > 0; length -= 1)
-            {
-                prospectivePackageName = idFragments.slice(0, length).join('/');
-                if (packages.hasOwnProperty(prospectivePackageName))
-                {
-                    packageConfig = packages[prospectivePackageName];
-                    break;
-                }
-            }
-
-            if (isObject(packageConfig))
-            {
-                loaderName = packageConfig.loader;
-                id = idFragments.slice(length).join('/');
-                if (packageConfig.hasOwnProperty('location'))
-                {
-                    id = packageConfig.location + '/' + id;
-                }
-
-                logger.trace('Retrieving loader "{}" for module "{}"', [ loaderName, id ]);
-
-                loader = getModule(loaderName, true, callerSecure, callerUrl);
-
-                if (typeof loader.load === 'function')
-                {
-                    loader.load(id, require, function amd__loadModule_packageLoaderCallback(value, isSecureSource)
-                    {
-                        if (loader.secureSource === true || isSecureSource === false)
+                        idFragments = normalizedId.split('/');
+                        for (length = idFragments.length - 1; length > 0; length -= 1)
                         {
-                            _load(value, normalizedId, loaderName, isSecureSource);
+                            prospectivePackageName = idFragments.slice(0, length).join('/');
+                            if (packages.hasOwnProperty(prospectivePackageName))
+                            {
+                                packageConfig = packages[prospectivePackageName];
+                                break;
+                            }
+                        }
+
+                        if (isObject(packageConfig))
+                        {
+                            loaderName = packageConfig.loader;
+                            id = idFragments.slice(length).join('/');
+                            if (packageConfig.hasOwnProperty('location'))
+                            {
+                                id = packageConfig.location + '/' + id;
+                            }
+
+                            internal.loadModuleViaLoader(loaderName + '!' + id, id, loaderName, callerSecure, callerUrl);
                         }
                         else
                         {
-                            throw new Error('Insecure loader module \'' + loaderName + '\' cannot declare a loaded module as secure');
+                            throw new Error('Module \'' + normalizedId + '\' does not belong to any configured package - unable to load');
                         }
-                    });
-                }
-                else
-                {
-                    throw new Error('Module \'' + loaderName + '\' is not a loader plugin');
-                }
-            }
-            else
-            {
-                throw new Error('Module \'' + normalizedId + '\' does not belong to any configured package - unable to load');
-            }
-        }
-    };
-
-    // TODO profiling shows method to be somewhat expensive - optimize e.g. by splitting into smaller, better optimizable (and profileable)
-    // fragments
-    getModule = function amd__getModule(normalizedId, doLoad, callerSecure, callerUrl)
-    {
-        var module, isSecure, moduleResult, dependency, resolvedDependencies, idx, currentlyTaggedCallerScriptUrl;
-
-        logger.debug('Retrieving module "{}" (force load: {})', [ normalizedId, doLoad ]);
-
-        module = moduleRegistry.getModule(normalizedId);
-        if (module === null && doLoad)
-        {
-            logger.debug('Module "{}" not defined yet - forcing load', normalizedId);
-
-            loadModule(normalizedId, callerSecure, callerUrl);
-
-            module = moduleRegistry.getModule(normalizedId);
-            if (isObject(module))
-            {
-                logger.trace('Module "{}" defined by load', normalizedId);
-            }
-            else
-            {
-                logger.debug('Module "{}" not defined after explicit load', normalizedId);
-                // avoid repeated loads by caching missed-resolution
-                moduleRegistry.addModule(DUMMY_MODULE, normalizedId);
-
-                throw new UnavailableModuleError('Module \'' + normalizedId + '\' has not been defined yet and could not be loaded');
-            }
-        }
-        else if (isObject(module) && module !== DUMMY_MODULE)
-        {
-            logger.trace('Module "{}" already defined', normalizedId);
-        }
-        else
-        {
-            throw new UnavailableModuleError('Module \'' + normalizedId + '\' has not been defined');
-        }
-
-        if (isObject(module) && module !== DUMMY_MODULE)
-        {
-            if (module.initialized === true)
-            {
-                logger.trace('Module "{}" already initialized', normalizedId);
-                moduleResult = module.result;
-
-                // special case where module was only defined to track implicit return values
-                // see _load
-                if (moduleResult === null && module.hasOwnProperty('implicitResult'))
-                {
-                    throw new UnavailableModuleError('Module \'' + normalizedId + '\' could not be loaded');
-                }
-            }
-            else if (doLoad && module.constructing !== true)
-            {
-                if (typeof module.factory === 'function')
-                {
-                    logger.debug('Module "{}" not initialised yet - forcing initialisation', normalizedId);
-
-                    // reset tagged caller script for call to factory
-                    currentlyTaggedCallerScriptUrl = executionState.taggedCallerScriptUrl;
-                    executionState.taggedCallerScriptUrl = null;
-
-                    module.constructing = true;
-                    try
-                    {
-                        if (module.dependencies.length === 0)
-                        {
-                            logger.trace('Module "{}" has no dependencies - calling factory', normalizedId);
-
-                            module.result = module.factory();
-                        }
-                        else
-                        {
-                            isSecure = module.secureSource === true;
-
-                            logger.trace('Resolving {} dependencies for call to factory of {}',
-                                    [ module.dependencies.length, normalizedId ]);
-                            resolvedDependencies = [];
-                            for (idx = 0; idx < module.dependencies.length; idx += 1)
-                            {
-                                if (module.dependencies[idx] === 'exports')
-                                {
-                                    logger
-                                            .trace(
-                                                    'Module "{}" uses "exports"-dependency to expose module during initialisation (avoiding circular dependency issues)',
-                                                    normalizedId);
-                                    module.result = {};
-                                    resolvedDependencies.push(module.result);
-                                }
-                                else
-                                {
-                                    logger.debug('Loading dependency "{}" for module "{}"', [ module.dependencies[idx], normalizedId ]);
-
-                                    // TODO Find a way to bind module.url/callerScriptURL context for provided modules to avoid repeated
-                                    // retrievals)
-                                    dependency = getModule(module.dependencies[idx], true, isSecure, module.url);
-
-                                    resolvedDependencies.push(dependency);
-                                }
-                            }
-
-                            logger.trace('All dependencies of module "{}" resolved - calling factory', normalizedId);
-                            if (module.result !== null)
-                            {
-                                module.factory.apply(this, resolvedDependencies);
-                            }
-                            else
-                            {
-                                module.result = module.factory.apply(this, resolvedDependencies);
-                            }
-                            logger.trace('Instance/value for module "{}" initialized from factory', normalizedId);
-                        }
-                        module.initialized = true;
-
-                        // reset
-                        module.constructing = false;
-
-                        executionState.taggedCallerScriptUrl = currentlyTaggedCallerScriptUrl;
-                    }
-                    catch (e)
-                    {
-                        if (e.nashornException instanceof Throwable)
-                        {
-                            logger.info('Failed to instantiate module', e.nashornException);
-                        }
-                        else
-                        {
-                            logger.info('Failed to instantiate module - {}', e.message);
-                        }
-
-                        // reset
-                        module.constructing = false;
-
-                        executionState.taggedCallerScriptUrl = currentlyTaggedCallerScriptUrl;
-
-                        throw e;
-                    }
-
-                    moduleResult = module.result;
-
-                    moduleRegistry.checkAndFulfillModuleListeners(module);
-                }
-                else
-                {
-                    throw new UnavailableModuleError('Module \'' + normalizedId + '\' could not be loaded (no factory is available)');
-                }
-            }
-            else
-            {
-                throw new Error('Module \'' + normalizedId
-                        + (module.constructing === true ? '\' is included in a circular dependency graph' : '\' has not been initialised'));
-            }
-        }
-        else
-        {
-            throw new UnavailableModuleError('Module \'' + normalizedId + '\' could not be loaded');
-        }
-
-        // TODO Refactor with check for wrapper (when we have introduced the generic module result wrapper)
-        if (callerSecure !== true && isObject(moduleResult) && ('secureUseOnly' in moduleResult) && moduleResult.secureUseOnly === true)
-        {
-            throw new Error('Access to module \'' + normalizedId + '\' is not allowed for unsecure caller \'' + callerUrl + '\'');
-        }
-
-        if (moduleResult instanceof SecureUseOnlyWrapper)
-        {
-            moduleResult = moduleResult.wrapped;
-        }
-
-        return moduleResult;
-    };
-
-    require = function amd__require(dependencies, callback, errCallback)
-    {
-        var idx, args, implicitArgs, normalizedModuleId, module, contextScriptUrl, contextModule, isSecure, failOnMissingDependency, missingModule = false;
-
-        moduleRegistry.initFromSharedState();
-
-        // skip this script to determine script URL of caller
-        contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
-        contextModule = moduleRegistry.getModuleByUrl(contextScriptUrl);
-
-        isSecure = isObject(contextModule) && contextModule.secureSource === true;
-
-        if (typeof dependencies === 'string')
-        {
-            logger.trace('Resolving single dependency "{}" for call to require(string)', dependencies);
-            // require(string)
-            normalizedModuleId = normalizeModuleId(dependencies, contextModule, contextScriptUrl);
-            // MUST fail if module is not yet defined or initialised
-            module = getModule(normalizedModuleId, false, isSecure, contextScriptUrl);
-
-            return module;
-        }
-
-        if (Array.isArray(dependencies))
-        {
-            args = [];
-            implicitArgs = [];
-            failOnMissingDependency = typeof errCallback !== 'function';
-
-            logger.trace('Resolving {} dependencies for call to require(string[], function, function?)', dependencies.length);
-
-            for (idx = 0; idx < dependencies.length; idx += 1)
-            {
-                logger.trace('Resolving dependency "{}" for call to require(string[], function, function?)', dependencies[0]);
-                normalizedModuleId = normalizeModuleId(dependencies[idx], contextModule, contextScriptUrl);
-
-                try
-                {
-                    module = getModule(normalizedModuleId, true, isSecure, contextScriptUrl);
-                }
-                catch (e)
-                {
-                    module = null;
-                    if (e.nashornException instanceof Throwable)
-                    {
-                        logger.trace('Failed to resolve dependency', e.nashornException);
-                    }
-                    else
-                    {
-                        logger.trace('Failed to resolve dependency - {}', e.message);
-                    }
-                    logger.debug('Failed to resolve dependency "{}" for call to require(string[], function, function?)', dependencies[idx]);
-
-                    // rethrow
-                    if (failOnMissingDependency === true || !(e instanceof UnavailableModuleError))
-                    {
-                        throw e;
                     }
                 }
-
-                // TODO Find a way to bind callerScriptUrl context for provided modules to avoid repeated retrievals)
-                args.push(module);
-
-                // undefined / null are perfectly valid results of a module factory
-                // missingModule only triggers special handling if errCallback has been provided
-                if (module === undefined || module === null)
+            },
+            getModule : {
+                value : function amd__moduleManagement__getModule(normalizedId, doLoad, callerSecure, callerUrl)
                 {
-                    logger.trace('Module "{}" in call to require(string[], function, function?) is undefined/null', normalizedModuleId);
-                    missingModule = true;
-                }
+                    var module, moduleResult;
+                    logger.debug('Retrieving module "{}" (force load: {})', [ normalizedId, doLoad ]);
 
-                // only need to track implicit resolutions if we allow reoslution failures
-                if (failOnMissingDependency !== true)
-                {
-                    module = moduleRegistry.getModule(normalizedModuleId);
-                    if (isObject(module) && module !== DUMMY_MODULE)
+                    module = internal.loadModuleDefinition(normalizedId, doLoad, callerSecure, callerUrl);
+                    moduleResult = internal.loadModuleResult(normalizedId, module, doLoad, callerSecure, callerUrl);
+
+                    // TODO Refactor with check for wrapper (when we have introduced the generic module result wrapper)
+                    if (callerSecure !== true && isObject(moduleResult) && ('secureUseOnly' in moduleResult)
+                            && moduleResult.secureUseOnly === true)
                     {
-                        implicitArgs.push(module.implicitResult);
-                    }
-                    else
-                    {
-                        implicitArgs.push(undefined);
+                        throw new Error('Access to module \'' + normalizedId + '\' is not allowed for unsecure caller \'' + callerUrl
+                                + '\'');
                     }
 
-                    logger.trace('Added implicit module result "{}" for call to require(string[], function, function?)',
-                            implicitArgs[implicitArgs.length - 1]);
+                    if (moduleResult instanceof SecureUseOnlyWrapper)
+                    {
+                        moduleResult = moduleResult.wrapped;
+                    }
+
+                    return moduleResult;
                 }
             }
+        });
 
-            if (missingModule === true && failOnMissingDependency !== true)
-            {
-                logger.debug('Calling errCallback for call to require(string[], function, function?)');
-                // signature is fn(dependencies[], moduleResolutions[], implicitResolutions[])
-                errCallback.call(this, dependencies, args, implicitArgs);
-            }
-            else if (typeof callback === 'function')
-            {
-                logger.debug('Calling standard callback for call to require(string[], function, function?)');
-                callback.apply(this, args);
-            }
-            else
-            {
-                throw new Error('No callback was provided');
-            }
-
-            return args;
-        }
-    };
+        return result;
+    }.call(this));
 
     (function amd__require__whenAvailable__init()
     {
@@ -1359,135 +1389,129 @@
         moduleRegistry.updateSharedState();
     };
 
-    require.isSecureCallerScript = function amd__require_isSecureCallerScript(suppressTaggedCaller)
+    (function amd__callerTagging__init()
     {
-        var amdScriptUrl, baseUrl, contextScriptUrl, contextModule, isSecure;
+        var NashornScriptModel, executionState, getRestoreTaggedCallerFn;
 
-        amdScriptUrl = NashornUtils.getCallerScriptURL(false, false);
+        NashornScriptModel = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel');
+        executionState = NashornScriptModel.newAssociativeContainer();
 
-        // skip this and the caller script to determine script URL of callers caller
-        if (suppressTaggedCaller === true)
+        getRestoreTaggedCallerFn = function amd__callerTagging__getRestoreTaggedCallerFn(scriptUrl, taggerUrl)
         {
-            contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
-        }
-        else
-        {
-            contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
-        }
-        contextModule = moduleRegistry.getModuleByUrl(contextScriptUrl);
+            var originalScriptUrl = scriptUrl, taggerScriptUrl = taggerUrl;
 
-        if (isObject(contextModule))
-        {
-            isSecure = contextModule.secureSource === true;
-        }
-        else
-        {
-            // no module = insecure by default unless caller is from this script package
-            baseUrl = amdScriptUrl.substring(0, amdScriptUrl.length - 'amd.js'.length);
-            isSecure = contextScriptUrl.substring(0, baseUrl.length) === baseUrl;
-        }
-
-        logger.trace('Determined script "{}" to be secure: {}', [ contextScriptUrl, isSecure ]);
-
-        return isSecure;
-    };
-
-    require.getCallerScriptURL = function amd__require_getCallerScriptURL(suppressTaggedCaller)
-    {
-        var contextScriptUrl;
-
-        // skip this and the caller script to determine script URL of callers caller
-        if (suppressTaggedCaller === true)
-        {
-            contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
-        }
-        else
-        {
-            contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
-        }
-
-        return contextScriptUrl;
-    };
-
-    require.getCallerScriptModuleId = function amd__require_getCallerScriptModuleId(suppressTaggedCaller)
-    {
-        var contextScriptUrl, contextModule, moduleId;
-
-        if (suppressTaggedCaller === true)
-        {
-            contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
-        }
-        else
-        {
-            contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
-        }
-        contextModule = moduleRegistry.getModuleByUrl(contextScriptUrl);
-
-        if (isObject(contextModule))
-        {
-            moduleId = contextModule.id;
-
-            if (moduleId.indexOf(contextModule.loader + '!') === 0)
+            return function amd__require_tagCallerScript_restoreFn()
             {
-                moduleId = moduleId.substring(moduleId.indexOf('!') + 1);
+                executionState.taggedCallerScriptUrl = originalScriptUrl;
+
+                logger.debug('Script "{}" has reset the tagged script caller', taggerScriptUrl);
+            };
+        };
+
+        require.isSecureCallerScript = function amd__require__isSecureCallerScript(suppressTaggedCaller)
+        {
+            var amdScriptUrl, baseUrl, contextScriptUrl, contextModule, isSecure;
+
+            amdScriptUrl = NashornUtils.getCallerScriptURL(false, false);
+
+            // skip this and the caller script to determine script URL of callers caller
+            if (suppressTaggedCaller === true)
+            {
+                contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
             }
-        }
+            else
+            {
+                contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
+            }
+            contextModule = moduleRegistry.getModuleByUrl(contextScriptUrl);
 
-        return moduleId;
-    };
+            if (isObject(contextModule))
+            {
+                isSecure = contextModule.secureSource === true;
+            }
+            else
+            {
+                // no module = insecure by default unless caller is from this script package
+                baseUrl = amdScriptUrl.substring(0, amdScriptUrl.length - 'amd.js'.length);
+                isSecure = contextScriptUrl.substring(0, baseUrl.length) === baseUrl;
+            }
 
-    require.getCallerScriptModuleLoader = function amd__require_getCallerScriptModuleLoader(suppressTaggedCaller)
-    {
-        var contextScriptUrl, contextModule, moduleLoader;
+            logger.trace('Determined script "{}" to be secure: {}', [ contextScriptUrl, isSecure ]);
 
-        if (suppressTaggedCaller === true)
+            return isSecure;
+        };
+
+        require.getCallerScriptURL = function amd__require__getCallerScriptURL(suppressTaggedCaller)
         {
-            contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
-        }
-        else
+            var contextScriptUrl;
+
+            // skip this and the caller script to determine script URL of callers caller
+            if (suppressTaggedCaller === true)
+            {
+                contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
+            }
+            else
+            {
+                contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
+            }
+
+            return contextScriptUrl;
+        };
+
+        require.getCallerScriptModuleId = function amd__require__getCallerScriptModuleId(suppressTaggedCaller)
         {
-            contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
-        }
-        contextModule = moduleRegistry.getModuleByUrl(contextScriptUrl);
+            var contextScriptUrl, contextModule, moduleId;
 
-        if (isObject(contextModule))
+            if (suppressTaggedCaller === true)
+            {
+                contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
+            }
+            else
+            {
+                contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
+            }
+            contextModule = moduleRegistry.getModuleByUrl(contextScriptUrl);
+
+            if (isObject(contextModule))
+            {
+                moduleId = contextModule.id;
+
+                if (moduleId.indexOf(contextModule.loader + '!') === 0)
+                {
+                    moduleId = moduleId.substring(moduleId.indexOf('!') + 1);
+                }
+            }
+
+            return moduleId;
+        };
+
+        require.getCallerScriptModuleLoader = function amd__require__getCallerScriptModuleLoader(suppressTaggedCaller)
         {
-            moduleLoader = contextModule.loader;
-        }
+            var contextScriptUrl, contextModule, moduleLoader;
 
-        return moduleLoader;
-    };
+            if (suppressTaggedCaller === true)
+            {
+                contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
+            }
+            else
+            {
+                contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
+            }
+            contextModule = moduleRegistry.getModuleByUrl(contextScriptUrl);
 
-    require.tagCallerScript = function amd__require_tagCallerScript(untaggedOnly)
-    {
-        var restoreFn, contextScriptUrl, actualCaller;
+            if (isObject(contextModule))
+            {
+                moduleLoader = contextModule.loader;
+            }
 
-        actualCaller = NashornUtils.getCallerScriptURL(true, true);
+            return moduleLoader;
+        };
 
-        restoreFn = getRestoreTaggedCallerFn(executionState.taggedCallerScriptUrl, actualCaller);
-        if (untaggedOnly === true)
+        require.tagCallerScript = function amd__require__tagCallerScript(untaggedOnly)
         {
-            contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
-        }
-        else
-        {
-            contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
-        }
-        executionState.taggedCallerScriptUrl = contextScriptUrl;
+            var restoreFn, contextScriptUrl, actualCaller;
 
-        logger.debug('Script "{}" has tagged script caller as "{}"', [ actualCaller, contextScriptUrl ]);
-
-        return restoreFn;
-    };
-
-    require.withTaggedCallerScript = function amd__require_withTaggedCallerScript(callback, untaggedOnly)
-    {
-        var result, restoreFn, contextScriptUrl, actualCaller;
-
-        actualCaller = NashornUtils.getCallerScriptURL(true, true);
-
-        if (typeof callback === 'function')
-        {
+            actualCaller = NashornUtils.getCallerScriptURL(true, true);
 
             restoreFn = getRestoreTaggedCallerFn(executionState.taggedCallerScriptUrl, actualCaller);
             if (untaggedOnly === true)
@@ -1500,31 +1524,95 @@
             }
             executionState.taggedCallerScriptUrl = contextScriptUrl;
 
-            logger.debug('Script "{}" is executing function with tagged script caller "{}"', [ actualCaller, contextScriptUrl ]);
+            logger.debug('Script "{}" has tagged script caller as "{}"', [ actualCaller, contextScriptUrl ]);
 
-            try
-            {
-                result = callback();
+            return restoreFn;
+        };
 
-                restoreFn();
-            }
-            catch (e)
-            {
-                restoreFn();
-
-                throw e;
-            }
-        }
-        else
+        require.withTaggedCallerScript = function amd__require__withTaggedCallerScript(callback, untaggedOnly)
         {
-            logger
-                    .info(
-                            'Script "{}" attempted to execute function with a tagged caller script URL, but provided no callback function to execute',
-                            actualCaller);
-        }
+            var result, restoreFn, contextScriptUrl, actualCaller;
 
-        return result;
-    };
+            actualCaller = NashornUtils.getCallerScriptURL(true, true);
+
+            if (typeof callback === 'function')
+            {
+
+                restoreFn = getRestoreTaggedCallerFn(executionState.taggedCallerScriptUrl, actualCaller);
+                if (untaggedOnly === true)
+                {
+                    contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
+                }
+                else
+                {
+                    contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
+                }
+                executionState.taggedCallerScriptUrl = contextScriptUrl;
+
+                logger.debug('Script "{}" is executing function with tagged script caller "{}"', [ actualCaller, contextScriptUrl ]);
+
+                try
+                {
+                    result = callback();
+
+                    restoreFn();
+                }
+                catch (e)
+                {
+                    restoreFn();
+
+                    throw e;
+                }
+            }
+            else
+            {
+                logger
+                        .info(
+                                'Script "{}" attempted to execute function with a tagged caller script URL, but provided no callback function to execute',
+                                actualCaller);
+            }
+
+            return result;
+        };
+
+        require.withoutTaggedCallerScript = function amd__require__withoutTaggedCallerScript(callback)
+        {
+            var result, restoreFn, actualCaller;
+
+            actualCaller = NashornUtils.getCallerScriptURL(true, true);
+
+            if (typeof callback === 'function')
+            {
+
+                restoreFn = getRestoreTaggedCallerFn(executionState.taggedCallerScriptUrl, actualCaller);
+                executionState.taggedCallerScriptUrl = null;
+
+                logger.debug('Script "{}" is executing function without tagged script caller', [ actualCaller ]);
+
+                try
+                {
+                    result = callback();
+
+                    restoreFn();
+                }
+                catch (e)
+                {
+                    restoreFn();
+
+                    throw e;
+                }
+            }
+            else
+            {
+                logger
+                        .info(
+                                'Script "{}" attempted to execute function without a tagged caller script URL, but provided no callback function to execute',
+                                actualCaller);
+            }
+
+            return result;
+        };
+    }());
 
     define = function amd__define()
     {
@@ -1676,7 +1764,7 @@
             if (!isObject(module) || module === DUMMY_MODULE)
             {
                 logger.debug('Pre-loading module "{}"', normalizedModuleId);
-                loadModule(normalizedModuleId, true, contextScriptUrl);
+                moduleManagement.loadModule(normalizedModuleId, true, contextScriptUrl);
             }
         }
         else
