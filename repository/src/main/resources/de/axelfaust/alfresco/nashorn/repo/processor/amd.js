@@ -950,7 +950,7 @@
                                 }
                             },
                             constructModuleResult : {
-                                value : function amd__moduleManagement__loadModuleResult(normalizedId, module)
+                                value : function amd__moduleManagement__constructModuleResult(normalizedId, module)
                                 {
                                     var moduleResult, isSecure, resolvedDependencies, idx, dependency;
 
