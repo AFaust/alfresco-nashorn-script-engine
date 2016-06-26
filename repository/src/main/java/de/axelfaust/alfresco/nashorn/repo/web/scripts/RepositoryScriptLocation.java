@@ -52,6 +52,14 @@ public class RepositoryScriptLocation implements ScriptLocation, AMDLoadableScri
     }
 
     /**
+     * @return the content
+     */
+    public ScriptContent getContent()
+    {
+        return this.content;
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override

@@ -280,7 +280,7 @@
         {
             var NashornScriptModel = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel');
 
-            active = Object.create(null, {
+            active = Object.create(Object.prototype, {
                 modules : {
                     value : NashornScriptModel.newAssociativeContainer()
                 },
@@ -293,7 +293,7 @@
             });
         }());
 
-        backup = Object.create(null, {
+        backup = Object.create(Object.prototype, {
             modules : {
                 value : {}
             },
@@ -302,7 +302,7 @@
             }
         });
 
-        internal = Object.create(null, {
+        internal = Object.create(Object.prototype, {
             initModulesFromSharedState : {
                 value : function amd__moduleRegistry__initModulesFromSharedState()
                 {
@@ -480,7 +480,7 @@
             }
         });
 
-        result = Object.create(null, {
+        result = Object.create(Object.prototype, {
 
             getModuleListeners : {
                 value : function amd__moduleRegistry__getModuleListeners(moduleId)
@@ -713,7 +713,7 @@
                                                 isSecureSource === true ]);
 
                                         // minimal module for URL - just enough for context use
-                                        module = Object.create(null, {
+                                        module = Object.create(Object.prototype, {
                                             id : {
                                                 value : normalizedId,
                                                 enumerable : true
@@ -764,7 +764,7 @@
                                             logger.debug('Module "{}" from url "{}" yielded implicit result "{}"', [ normalizedId, url,
                                                     implicitResult ]);
 
-                                            module = Object.create(null, {
+                                            module = Object.create(Object.prototype, {
                                                 id : {
                                                     value : normalizedId,
                                                     enumerable : true
@@ -818,7 +818,7 @@
 
                                     logger.debug('Registering pre-resolved module "{}"', normalizedId);
 
-                                    module = Object.create(null, {
+                                    module = Object.create(Object.prototype, {
                                         id : {
                                             value : normalizedId,
                                             enumerable : true
@@ -1069,7 +1069,8 @@
                                         {
                                             require.withoutTaggedCallerScript(function amd__moduleManagement__loadModuleResult_construct()
                                             {
-                                                moduleResult = internal.constructModuleResult(normalizedId, module, callerSecure, callerUrl);
+                                                moduleResult = internal
+                                                        .constructModuleResult(normalizedId, module, callerSecure, callerUrl);
                                             });
                                         }
                                         else
@@ -1090,7 +1091,7 @@
                             }
                         });
 
-        result = Object.create(null, {
+        result = Object.create(Object.prototype, {
             loadModule : {
                 value : function amd__moduleManagement__loadModule(normalizedId, callerSecure, callerUrl)
                 {
@@ -1129,7 +1130,7 @@
                                 id = packageConfig.location + '/' + id;
                             }
 
-                            internal.loadModuleViaLoader(loaderName + '!' + id, id, loaderName, callerSecure, callerUrl);
+                            internal.loadModuleViaLoader(normalizedId, id, loaderName, callerSecure, callerUrl);
                         }
                         else
                         {
@@ -1194,7 +1195,7 @@
 
             isSecure = isObject(contextModule) && contextModule.secureSource === true;
 
-            listener = Object.create(null, {
+            listener = Object.create(Object.prototype, {
                 // just internal identifier
                 id : {
                     value : UUID.randomUUID().toString()
@@ -1533,7 +1534,7 @@
         {
             var result, restoreFn, contextScriptUrl, actualCaller;
 
-            actualCaller = NashornUtils.getCallerScriptURL(true, true);
+            actualCaller = NashornUtils.getCallerScriptURL(true, false);
 
             if (typeof callback === 'function')
             {
@@ -1549,7 +1550,8 @@
                 }
                 executionState.taggedCallerScriptUrl = contextScriptUrl;
 
-                logger.debug('Script "{}" is executing function with tagged script caller "{}"', [ actualCaller, contextScriptUrl ]);
+                logger.debug('Script "{}" is executing function "{}" with tagged script caller "{}"', [ actualCaller, callback.name,
+                        contextScriptUrl ]);
 
                 try
                 {
@@ -1579,7 +1581,7 @@
         {
             var result, restoreFn, actualCaller;
 
-            actualCaller = NashornUtils.getCallerScriptURL(true, true);
+            actualCaller = NashornUtils.getCallerScriptURL(true, false);
 
             if (typeof callback === 'function')
             {
@@ -1587,7 +1589,7 @@
                 restoreFn = getRestoreTaggedCallerFn(executionState.taggedCallerScriptUrl, actualCaller);
                 executionState.taggedCallerScriptUrl = null;
 
-                logger.debug('Script "{}" is executing function without tagged script caller', [ actualCaller ]);
+                logger.debug('Script "{}" is executing function "{}" without tagged script caller', [ actualCaller, callback.name ]);
 
                 try
                 {
@@ -1691,7 +1693,7 @@
                     isObject(contextModule) ? contextModule.secureSource : false ]);
         }
 
-        module = Object.create(null, {
+        module = Object.create(Object.prototype, {
             id : {
                 value : id,
                 enumerable : true
@@ -1811,7 +1813,7 @@
         };
         Object.freeze(loaderMetaLoader.load);
         Object.freeze(loaderMetaLoader);
-        moduleRegistry.addModule(Object.create(null, {
+        moduleRegistry.addModule(Object.create(Object.prototype, {
             id : {
                 value : 'loaderMetaLoader',
                 enumerable : true
@@ -1839,7 +1841,7 @@
         }), 'loaderMetaLoader');
     }());
 
-    moduleRegistry.addModule(Object.create(null, {
+    moduleRegistry.addModule(Object.create(Object.prototype, {
         id : {
             value : 'require',
             enumerable : true
@@ -1866,7 +1868,7 @@
         }
     }), 'require');
 
-    moduleRegistry.addModule(Object.create(null, {
+    moduleRegistry.addModule(Object.create(Object.prototype, {
         id : {
             value : 'define',
             enumerable : true
