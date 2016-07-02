@@ -229,34 +229,33 @@ public class ClasspathScriptFile implements ScriptFile
     public InputStream getInputStream()
     {
         InputStream is;
-        if (this.exists)
+
+        if (this.byteBuffer == null)
         {
-            if (this.byteBuffer == null)
+            synchronized (this)
             {
-                synchronized (this)
+                if (this.byteBuffer == null)
                 {
-                    if (this.byteBuffer == null)
-                    {
-                        this.cacheScriptFile();
-                    }
+                    this.cacheScriptFile();
                 }
             }
-
-            if (this.byteBuffer == null)
-            {
-                throw new ScriptException("Script can't be loaded");
-            }
-
-            is = new ByteBufferInputStream(this.byteBuffer);
         }
-        else
+
+        if (this.byteBuffer == null)
         {
             throw new ScriptException("Script can't be loaded");
         }
 
+        is = new ByteBufferInputStream(this.byteBuffer);
+
         return is;
     }
 
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
     public synchronized void reset()
     {
         this.exists = this.existsInJarFile = false;
@@ -269,7 +268,7 @@ public class ClasspathScriptFile implements ScriptFile
         this.size = -1;
     }
 
-    protected void cacheScriptFile()
+    protected synchronized void cacheScriptFile()
     {
         try
         {

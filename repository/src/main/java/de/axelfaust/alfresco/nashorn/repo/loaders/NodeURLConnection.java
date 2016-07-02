@@ -136,6 +136,7 @@ public class NodeURLConnection extends URLConnection
             throw new IOException("Node has no content");
         }
 
+        // TODO Need to compensate StrictScriptEnforcingSourceInputStream adding to script content to support Nashorn cache
         final InputStream contentInputStream = reader.getContentInputStream();
         final InputStream result;
         if (reader.getEncoding() != null)

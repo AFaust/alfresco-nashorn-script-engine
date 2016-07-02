@@ -5,10 +5,10 @@
  * loader plugin for all script use cases.
  * 
  * @requires module:require
- * @requires module:args!_RepositoryNashornScriptProcessor_scriptContent
+ * @requires module:args!_RepositoryNashornScriptProcessor_RepositoryScriptLocation
  * @author Axel Faust
  */
-define([ 'require', 'args!_RepositoryNashornScriptProcessor_scriptContent' ], function webscript_runner__factory(require, scriptContent)
+define([ 'require', 'args!_RepositoryNashornScriptProcessor_RepositoryScriptLocation' ], function webscript_runner__factory(require, scriptContent)
 {
     'use strict';
 

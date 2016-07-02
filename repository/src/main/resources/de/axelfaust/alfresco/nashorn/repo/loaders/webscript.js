@@ -1,97 +1,72 @@
 /* globals -require */
 /* globals SimpleLogger: false */
-define(
-        'webscript',
-        [ 'spring!webscripts.searchpath', 'spring!nodeService', 'spring!contentService', 'spring!retryingTransactionHelper', 'nashorn!Java' ],
-        function webscript_loader(searchPath, nodeService, contentService, retryingTransactionHelper, Java)
+define('webscript', [ 'spring!de.axelfaust.alfresco.nashorn.repo-webscriptURLStreamHandler', 'nashorn!Java' ], function webscript_loader(
+        webscriptURLStreamHandler, Java)
+{
+    'use strict';
+    var logger, loader, URL;
+
+    URL = Java.type('java.net.URL');
+    logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.webscript');
+
+    /**
+     * This loader module provides the capability to load web scripts as AMD modules, using the Surf web script loader as the lookup
+     * backend.
+     * 
+     * @exports webscript
+     * @author Axel Faust
+     */
+    loader = {
+        /**
+         * Loads a script located within the web script lookup paths from a normalized module ID.
+         * 
+         * @instance
+         * @param {string}
+         *            normalizedId - the normalized ID of the module to load
+         * @param {function}
+         *            require - the context-sensitive require function
+         * @param {function}
+         *            load - the callback to load either a pre-built object as the module result or a script defining a module from a script
+         *            URL
+         */
+        load : function webscript_loader__load(normalizedId, require, load)
         {
-            'use strict';
-            var scriptLoader, apiStores, logger, idx, max, storeLoader, storeLoaders = [], suffixes = [ '', '.nashornjs', '.js' ], loader, URL, WebScriptURLStreamHandler, MultiScriptLoader;
+            var script = null, url;
 
-            URL = Java.type('java.net.URL');
-            WebScriptURLStreamHandler = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.WebScriptURLStreamHandler');
-            MultiScriptLoader = Java.type('org.springframework.extensions.webscripts.MultiScriptLoader');
-
-            apiStores = searchPath.stores;
-            logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.webscript');
-
-            for (idx = 0, max = apiStores.length; idx < max; idx++)
+            // avoid repeated script resolution when already provided (especially since resolution may query DB)
+            require([ 'args!_RepositoryNashornScriptProcessor_RepositoryScriptLocation' ], function webscript_loader__load_callback(scriptLocation)
             {
-                storeLoader = apiStores[idx].scriptLoader;
-                if (storeLoader === null)
+                if (scriptLocation.scriptModuleId === normalizedId)
                 {
-                    throw new Error('Unable to retrieve script loader for Web Script store ' + apiStores[idx].basePath);
+                    logger.trace('Currently part of web script execution and requested module ID matches pre-resolved web script');
+                    script = scriptLocation.content;
                 }
-                storeLoaders.push(storeLoader);
+            }, function webscript_loader__load_errCallback()
+            {
+                logger.trace('Currently not part of "real" web script execution');
+            });
+
+            if (script === null)
+            {
+                script = webscriptURLStreamHandler.resolveScriptContent(normalizedId);
             }
 
-            scriptLoader = new MultiScriptLoader(Java.to(storeLoaders, 'org.springframework.extensions.webscripts.ScriptLoader[]'));
+            if (script !== null)
+            {
+                logger.trace('Script stores contains a script {} for module id {}', [ script, normalizedId ]);
+                url = new URL('webscript', null, -1, normalizedId, webscriptURLStreamHandler);
+                webscriptURLStreamHandler.bindScriptContent(url, script);
+                load(url, script.isSecure());
+            }
+            else
+            {
+                logger.trace('Script stores do not contain a script for module id {}', normalizedId);
+            }
+        }
+    };
 
-            /**
-             * This loader module provides the capability to load web scripts as AMD modules, using the Surf web script loader as the lookup
-             * backend.
-             * 
-             * @exports webscript
-             * @author Axel Faust
-             */
-            loader = {
-                /**
-                 * Loads a script located within the web script lookup paths from a normalized module ID.
-                 * 
-                 * @instance
-                 * @param {string}
-                 *            normalizedId - the normalized ID of the module to load
-                 * @param {function}
-                 *            require - the context-sensitive require function
-                 * @param {function}
-                 *            load - the callback to load either a pre-built object as the module result or a script defining a module from
-                 *            a script URL
-                 */
-                load : function webscript_loader__load(normalizedId, require, load)
-                {
-                    var script = null, url;
+    Object.freeze(loader.load);
+    Object.freeze(loader);
 
-                    // avoid repeated script resolution when already provided (especially since resolution may query DB) 
-                    require([ 'args!_RepositoryNashornScriptProcessor_scriptContent' ], function webscript_loader__load_callback(
-                            scriptContent)
-                    {
-                        if (scriptContent.scriptModuleId === normalizedId)
-                        {
-                            logger.trace('Currently part of web script execution and requested module ID matches pre-resolved web script');
-                            script = scriptContent;
-                        }
-                    }, function webscript_loader__load_errCallback()
-                    {
-                        logger.trace('Currently not part of "real" web script execution');
-                    });
-
-                    if (script === null)
-                    {
-                        suffixes.forEach(function webscript_loader__load_forEachSuffix(suffix)
-                        {
-                            if (script === null)
-                            {
-                                script = scriptLoader.getScript(normalizedId + suffix);
-                            }
-                        });
-                    }
-
-                    if (script !== null)
-                    {
-                        logger.trace('Script stores contains a script {} for module id {}', [ script, normalizedId ]);
-                        url = new URL('webscript', null, -1, normalizedId, new WebScriptURLStreamHandler(script.content, nodeService,
-                                contentService, retryingTransactionHelper));
-                        load(url, script.isSecure());
-                    }
-                    else
-                    {
-                        logger.trace('Script stores do not contain a script for module id {}', normalizedId);
-                    }
-                }
-            };
-
-            Object.freeze(loader.load);
-            Object.freeze(loader);
-
-            return loader;
-        });
+    return loader;
+});

@@ -36,6 +36,8 @@ public class AlfrescoClasspathURLStreamHandler extends URLStreamHandler implemen
         ResettableScriptProcessorElement
 {
 
+    private static final List<String> SUFFIX_PRECEDENCE_LIST = Arrays.asList(null, ".nashornjs", ".js");
+
     protected Registry registry;
 
     protected String basePath;
@@ -106,18 +108,18 @@ public class AlfrescoClasspathURLStreamHandler extends URLStreamHandler implemen
      * {@inheritDoc}
      */
     @Override
-    protected URLConnection openConnection(final URL u) throws IOException
+    protected URLConnection openConnection(final URL url) throws IOException
     {
         final String script;
-        final boolean allowExtension = "extensible-classpath".equals(u.getProtocol());
-        final boolean allowBase = !"raw-classpath".equals(u.getProtocol());
+        final boolean allowExtension = "extensible-classpath".equals(url.getProtocol());
+        final boolean allowBase = !"raw-classpath".equals(url.getProtocol());
         if (allowBase && this.basePath != null && !this.basePath.trim().isEmpty())
         {
-            script = this.basePath + "/" + u.getPath();
+            script = this.basePath + "/" + url.getPath();
         }
         else
         {
-            script = u.getPath();
+            script = url.getPath();
         }
 
         final List<String> precendenceChain = this.getOrCreatePrecedenceChain(script, allowExtension);
@@ -134,14 +136,14 @@ public class AlfrescoClasspathURLStreamHandler extends URLStreamHandler implemen
 
             if (scriptFile.exists(false))
             {
-                con = new ScriptFileURLConnection(u, scriptFile);
+                con = new ScriptFileURLConnection(url, scriptFile);
                 break;
             }
         }
 
         if (con == null)
         {
-            throw new IOException("Script " + u + " does not exist");
+            throw new IOException("Script " + url + " does not exist");
         }
 
         return con;
@@ -166,7 +168,7 @@ public class AlfrescoClasspathURLStreamHandler extends URLStreamHandler implemen
                 final int basePathLength = this.basePath != null ? this.basePath.trim().length() : 0;
                 final int extensionPathLength = allowExtension && this.extensionPath != null ? this.extensionPath.trim().length() : 0;
 
-                for (final String suffix : Arrays.asList(null, ".nashornjs", ".js"))
+                for (final String suffix : SUFFIX_PRECEDENCE_LIST)
                 {
                     if (suffix != null)
                     {

@@ -53,4 +53,11 @@
         <property name="basePath" value="alfresco" />
         <property name="extensionPath" value="extension" />
     </bean>
+    
+    <bean id="${project.artifactId}-webscriptURLStreamHandler" class="${project.artifactId}.loaders.WebScriptURLStreamHandler">
+        <property name="registry" ref="${project.artifactId}-nashornJavaScriptProcessor" />
+        <property name="nodeService" ref="NodeService" />
+        <property name="retryingTransactionHelper" ref="retryingTransactionHelper" />
+        <property name="searchPath" ref="webscripts.searchpath" />
+    </bean>
 </beans>

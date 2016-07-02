@@ -270,6 +270,7 @@ public class NodeURLHandler extends URLStreamHandler
             contentNodeAndProperty = this.resolveToContentNode(moduleId);
         }
 
+        // TODO Refactor to use standard ScriptFileURLConnection and sub-class of AbstractNodeScriptFile
         URLConnection con = null;
         if (contentNodeAndProperty != null)
         {

@@ -41,7 +41,7 @@ public class RepositoryNashornScriptProcessor implements ScriptProcessor, Initia
 
     protected static final String RUNNER_CLASSPATH = "de/axelfaust/alfresco/nashorn/repo/webscripts/webscript-runner.js";
 
-    protected static final String MODEL_KEY_SCRIPT_CONTENT = "_RepositoryNashornScriptProcessor_scriptContent";
+    protected static final String MODEL_KEY_SCRIPT_LOCATION = "_RepositoryNashornScriptProcessor_RepositoryScriptLocation";
 
     protected ScriptService scriptService;
 
@@ -116,21 +116,21 @@ public class RepositoryNashornScriptProcessor implements ScriptProcessor, Initia
     {
         final Map<String, Object> effectiveModel = model != null ? model : new HashMap<String, Object>();
 
-        if (effectiveModel.containsKey(MODEL_KEY_SCRIPT_CONTENT))
+        if (effectiveModel.containsKey(MODEL_KEY_SCRIPT_LOCATION))
         {
             LOGGER.warn(
                     "Script model already contains a variable called {} - overriding value {} to hook in the actual web script content",
-                    MODEL_KEY_SCRIPT_CONTENT, effectiveModel.get(MODEL_KEY_SCRIPT_CONTENT));
+                    MODEL_KEY_SCRIPT_LOCATION, effectiveModel.get(MODEL_KEY_SCRIPT_LOCATION));
         }
 
-        effectiveModel.put(MODEL_KEY_SCRIPT_CONTENT, new RepositoryScriptLocation(location));
+        effectiveModel.put(MODEL_KEY_SCRIPT_LOCATION, new RepositoryScriptLocation(location));
         try
         {
             return this.scriptService.executeScript("nashorn", RUNNER_CLASSPATH, effectiveModel);
         }
         finally
         {
-            effectiveModel.remove(MODEL_KEY_SCRIPT_CONTENT);
+            effectiveModel.remove(MODEL_KEY_SCRIPT_LOCATION);
         }
     }
 
