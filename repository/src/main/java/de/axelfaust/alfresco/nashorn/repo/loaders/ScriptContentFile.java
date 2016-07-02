@@ -80,7 +80,7 @@ public class ScriptContentFile implements ScriptFile
     public long getLastModified(final boolean force)
     {
         // no way to determine lastModified
-        return -1;
+        return System.currentTimeMillis();
     }
 
     /**
