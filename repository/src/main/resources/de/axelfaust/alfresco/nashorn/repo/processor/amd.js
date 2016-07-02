@@ -2,6 +2,7 @@
 /* globals -define */
 /* globals Java: false */
 /* globals SimpleLogger: false */
+/* globals applicationContext: false */
 /* globals load: false */
 (function amd()
 {
@@ -12,10 +13,8 @@
     mappings = {}, packages = {},
     // internal fns
     isObject, normalizeModuleId, SecureUseOnlyWrapper,
-    // internal error subtype
-    UnavailableModuleError, lazyErrorStackGetter,
     // Java utils
-    NashornUtils, Throwable, logger,
+    NashornUtils, Throwable, AMDUnavailableModuleException, logger,
     // public fns
     require, define;
 
@@ -24,31 +23,8 @@
 
     NashornUtils = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils');
     Throwable = Java.type('java.lang.Throwable');
+    AMDUnavailableModuleException = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.AMDUnavailableModuleException');
     logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.amd');
-
-    lazyErrorStackGetter = function amd__lazyErrorStackGetter()
-    {
-        return this.stack;
-    };
-
-    UnavailableModuleError = function amd__UnavailableModuleError()
-    {
-        var t = Error.apply(this, arguments);
-        Object.defineProperty(this, 'message', {
-            value : t.message,
-            enumerable : true
-        });
-        // use lazy getter to avoid construction time cost for stacktrace traversal inherent in 'stack' initialization
-        Object.defineProperty(this, 'stack', {
-            get : Function.prototype.bind.call(lazyErrorStackGetter, t),
-            enumerable : true
-        });
-        return this;
-    };
-
-    UnavailableModuleError.prototype = Object.create(Error.prototype);
-    UnavailableModuleError.prototype.name = 'UnavailableModuleError';
-    UnavailableModuleError.prototype.constructor = UnavailableModuleError;
 
     isObject = function amd__isObject(o)
     {
@@ -215,7 +191,7 @@
                     logger.debug('Failed to resolve dependency "{}" for call to require(string[], function, function?)', dependencies[idx]);
 
                     // rethrow
-                    if (failOnMissingDependency === true || !(e instanceof UnavailableModuleError))
+                    if (failOnMissingDependency === true || !(e instanceof AMDUnavailableModuleException))
                     {
                         throw e;
                     }
@@ -933,7 +909,7 @@
                                             // avoid repeated loads by caching missed-resolution
                                             moduleRegistry.addModule(DUMMY_MODULE, normalizedId);
 
-                                            throw new UnavailableModuleError('Module \'' + normalizedId
+                                            throw new AMDUnavailableModuleException('Module \'' + normalizedId
                                                     + '\' has not been defined yet and could not be loaded');
                                         }
                                     }
@@ -943,7 +919,7 @@
                                     }
                                     else
                                     {
-                                        throw new UnavailableModuleError('Module \'' + normalizedId + '\' has not been defined');
+                                        throw new AMDUnavailableModuleException('Module \'' + normalizedId + '\' has not been defined');
                                     }
 
                                     return module;
@@ -1038,7 +1014,7 @@
                                     }
                                     else
                                     {
-                                        throw new UnavailableModuleError('Module \'' + normalizedId
+                                        throw new AMDUnavailableModuleException('Module \'' + normalizedId
                                                 + '\' could not be loaded (no factory is available)');
                                     }
 
@@ -1062,7 +1038,8 @@
                                             // see _load
                                             if (moduleResult === null && module.hasOwnProperty('implicitResult'))
                                             {
-                                                throw new UnavailableModuleError('Module \'' + normalizedId + '\' could not be loaded');
+                                                throw new AMDUnavailableModuleException('Module \'' + normalizedId
+                                                        + '\' could not be loaded');
                                             }
                                         }
                                         else if (doLoad && module.constructing !== true)
@@ -1083,7 +1060,7 @@
                                     }
                                     else
                                     {
-                                        throw new UnavailableModuleError('Module \'' + normalizedId + '\' could not be loaded');
+                                        throw new AMDUnavailableModuleException('Module \'' + normalizedId + '\' could not be loaded');
                                     }
 
                                     return moduleResult;
@@ -1794,17 +1771,34 @@
 
     (function amd__loaderMetaloader__init()
     {
-        var URL, AlfrescoClasspathURLStreamHandler, streamHandler, loaderMetaLoader;
+        var URL, streamHandler, loaderMetaLoader;
 
         // need to select specific constructor to override basePath
         URL = Java.type('java.net.URL');
-        AlfrescoClasspathURLStreamHandler = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLStreamHandler')['(java.lang.String)'];
-        streamHandler = new AlfrescoClasspathURLStreamHandler(null);
+        // applicationContext only set during engine setup
+        streamHandler = applicationContext ? applicationContext.getBean('de.axelfaust.alfresco.nashorn.repo-classpathURLStreamHandler')
+                : null;
+
+        if (streamHandler === null)
+        {
+            streamHandler = (function()
+            {
+                var AlfrescoClasspathURLStreamHandler;
+
+                AlfrescoClasspathURLStreamHandler = Java
+                        .type('de.axelfaust.alfresco.nashorn.repo.loaders.AlfrescoClasspathURLStreamHandler');
+                streamHandler = new AlfrescoClasspathURLStreamHandler();
+                streamHandler.basePath = 'alfresco';
+                streamHandler.extensionPath = 'extension';
+                
+                return streamHandler;
+            }());
+        }
 
         loaderMetaLoader = {
             load : function amd__loaderMetaLoader__load(normalizedId, /* jshint unused: false */require, load)
             {
-                var url = new URL('classpath', null, -1, 'de/axelfaust/alfresco/nashorn/repo/loaders/' + normalizedId, streamHandler);
+                var url = new URL('raw-classpath', null, -1, 'de/axelfaust/alfresco/nashorn/repo/loaders/' + normalizedId, streamHandler);
 
                 logger.debug('Loading loader module {} from classpath', normalizedId);
 

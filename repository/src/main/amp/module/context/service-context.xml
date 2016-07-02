@@ -12,10 +12,10 @@
             <list>
                 <!-- scripting is not configurable -->
                 <value>-scripting=false</value>
-                
+
                 <value>-strict=${nashornJavaScriptProcessor.nashorn.flag.strict}</value>
                 <value>--const-as-var=${nashornJavaScriptProcessor.nashorn.flag.constAsVar}</value>
-                
+
                 <value>-doe=true</value>
                 <value>-pcc=${nashornJavaScriptProcessor.nashorn.flag.persistentScriptCache}</value>
                 <value>-ot=${nashornJavaScriptProcessor.nashorn.flag.optimisticTypes}</value>
@@ -46,5 +46,11 @@
 
     <bean id="baseNashornJavaScriptExtension" abstract="true" init-method="register">
         <property name="processor" ref="${project.artifactId}-nashornJavaScriptProcessor" />
+    </bean>
+
+    <bean id="${project.artifactId}-classpathURLStreamHandler" class="${project.artifactId}.loaders.AlfrescoClasspathURLStreamHandler">
+        <property name="registry" ref="${project.artifactId}-nashornJavaScriptProcessor" />
+        <property name="basePath" value="alfresco" />
+        <property name="extensionPath" value="extension" />
     </bean>
 </beans>

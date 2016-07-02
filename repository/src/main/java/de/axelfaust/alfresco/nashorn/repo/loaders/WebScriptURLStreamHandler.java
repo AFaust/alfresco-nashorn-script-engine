@@ -77,7 +77,7 @@ public class WebScriptURLStreamHandler extends URLStreamHandler
             final String pathDescription = WebScriptURLStreamHandler.this.scriptContent.getPathDescription();
             if (pathDescription.startsWith(CLASSPATH_PATH_DESCRIPTION_PREFIX))
             {
-                connection = new AlfrescoClasspathURLConnection(new URL("classpath", null, -1,
+                connection = new AlfrescoClasspathURLConnection(new URL("raw-classpath", null, -1,
                         pathDescription.substring(CLASSPATH_PATH_DESCRIPTION_PREFIX.length()), this), null, false, null);
             }
             else
@@ -93,6 +93,7 @@ public class WebScriptURLStreamHandler extends URLStreamHandler
         NodeRef result;
         try
         {
+            // TODO Cache field for better performance
             final Field nodeRefField = this.scriptContent.getClass().getDeclaredField("nodeRef");
             nodeRefField.setAccessible(true);
             result = (NodeRef) nodeRefField.get(this.scriptContent);

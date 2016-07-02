@@ -17,13 +17,16 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.alfresco.util.Pair;
 import org.alfresco.util.TempFileProvider;
@@ -39,17 +42,33 @@ import org.springframework.util.ResourceUtils;
  * small scripts, such as would be the case in an AMD module system scenario.
  *
  * @author Axel Faust
+ * @deprecated Resolution / caching now handled in {@link AlfrescoClasspathURLStreamHandler} and {@link ClasspathScriptFile}, with
+ *             connection being generic instances of {@link ScriptFileURLConnection}
  */
+@Deprecated
 public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnection
 {
+
+    private static final String CLASSPATH_CACHE_KIND = "classpath";
 
     private static final String TMP_DIRECTORY = "Alfresco-Nashorn-ScriptsFromJARs";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AlfrescoClasspathURLConnection.class);
 
-    protected static final Map<URL, File> EXTRACTED_JAR_SCRIPTS = new HashMap<URL, File>();
+    // TODO Consolidate caches into one structure & map by path variants (String + Path) so we can reset by various conditions
+    protected static final Map<URL, File> EXTRACTED_JAR_SCRIPTS = new ConcurrentHashMap<URL, File>();
 
-    protected static final Map<URL, File> RESOLVED_SCRIPT_FILES = new HashMap<URL, File>();
+    protected static final Map<URL, File> RESOLVED_SCRIPT_FILES = new ConcurrentHashMap<URL, File>();
+
+    static
+    {
+        // don't need to reset the extracted JAR scripts (JARs aren't modified at runtime)
+        registerCacheResetHandler(() -> RESOLVED_SCRIPT_FILES.clear());
+        registerCacheKindResetHandler(CLASSPATH_CACHE_KIND, () -> RESOLVED_SCRIPT_FILES.clear());
+    }
+
+    // TODO use a watch service to detect modifications (deletions require full reset)
+    protected static final Map<Path, Pair<Long, Long>> SCRIPT_FILE_ATTRIBUTES = new HashMap<Path, Pair<Long, Long>>();
 
     protected transient ClassPathResource resource;
 
@@ -133,7 +152,8 @@ public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnec
             this.ensureScriptExists();
             if (this.file != null)
             {
-                this.contentLength = this.file.length();
+                final Pair<Long, Long> scriptFileAttributes = getScriptFileAttributes(this.file);
+                this.contentLength = scriptFileAttributes != null ? scriptFileAttributes.getSecond().longValue() : this.file.length();
             }
             else
             {
@@ -162,19 +182,19 @@ public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnec
             this.ensureScriptExists();
             if (this.file != null)
             {
-                // TODO Optimize - Instead of checking with the file system each time, can't we just monitor for changes?
-                this.contentLength = this.file.lastModified();
+                final Pair<Long, Long> scriptFileAttributes = getScriptFileAttributes(this.file);
+                this.lastModified = scriptFileAttributes != null ? scriptFileAttributes.getFirst().longValue() : this.file.lastModified();
             }
             else
             {
                 try
                 {
-                    this.contentLength = this.resource.lastModified();
+                    this.lastModified = this.resource.lastModified();
                 }
                 catch (final IOException ioex)
                 {
                     LOGGER.debug("Error getting lastModified from classpath resource", ioex);
-                    this.contentLength = Long.MAX_VALUE;
+                    this.lastModified = 0;
                 }
             }
         }
@@ -191,10 +211,12 @@ public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnec
         this.connect();
         this.ensureScriptExists();
 
+        // TODO Need to compensate StrictScriptEnforcingSourceInputStream adding to script content to support Nashorn cache
         // this assumes UTF-8
         final InputStream result;
         if (this.file != null)
         {
+            // TODO use memory mapping
             result = new StrictScriptEnforcingSourceInputStream(new FileInputStream(this.file));
         }
         else
@@ -203,6 +225,30 @@ public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnec
         }
 
         return result;
+    }
+
+    protected static Pair<Long, Long> getScriptFileAttributes(final File file)
+    {
+        Pair<Long, Long> attributes;
+        final Path path = file.toPath();
+        // TODO use a watch service to detect modifications (deletions require full reset)
+        attributes = SCRIPT_FILE_ATTRIBUTES.get(path);
+        if (attributes == null)
+        {
+            try
+            {
+                final BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
+                attributes = new Pair<Long, Long>(Long.valueOf(attrs.lastModifiedTime().toMillis()), Long.valueOf(attrs.size()));
+                SCRIPT_FILE_ATTRIBUTES.put(path, attributes);
+            }
+            catch (final IOException io)
+            {
+                LOGGER.warn("Error reading file attributes", io);
+                attributes = null;
+            }
+        }
+
+        return attributes;
     }
 
     /**
@@ -305,18 +351,18 @@ public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnec
             URL testURL;
 
             // we save some of the getURL cost by caching resolution (reset via script processor)
-            testURL = getCachedResolution("classpath", path);
+            testURL = getCachedResolution(CLASSPATH_CACHE_KIND, path);
             if (testURL == null)
             {
                 testURL = testResource.getURL();
                 // equivalent to exists()
                 if (testURL != null)
                 {
-                    registerCachedResolution("classpath", path, testURL);
+                    registerCachedResolution(CLASSPATH_CACHE_KIND, path, testURL);
                 }
                 else
                 {
-                    registerCachedResolution("classpath", path, SENTINEL);
+                    registerCachedResolution(CLASSPATH_CACHE_KIND, path, SENTINEL);
                 }
             }
 
@@ -325,7 +371,7 @@ public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnec
                 if (ResourceUtils.isJarURL(testURL))
                 {
                     File extractedJARScript = EXTRACTED_JAR_SCRIPTS.get(testURL);
-                    if (extractedJARScript == null || !extractedJARScript.exists())
+                    if (extractedJARScript == null)
                     {
                         // we extract JAR-contained scripts once to avoid unpack overhead
                         // as well as cost for lastModified/contentLength access via ClassPathResource
@@ -346,7 +392,7 @@ public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnec
                     // avoid repeated resolution costs
                     // again we want file to avoid cost for lastModified/contentLength via ClassPathResource
                     File file = RESOLVED_SCRIPT_FILES.get(testURL);
-                    if (ResourceUtils.isFileURL(testURL))
+                    if (file == null && ResourceUtils.isFileURL(testURL))
                     {
                         try
                         {
@@ -370,7 +416,7 @@ public class AlfrescoClasspathURLConnection extends CacheableResolutionURLConnec
             // expected possibility
             LOGGER.trace("IOException during getURL", ioEx);
 
-            registerCachedResolution("classpath", path, SENTINEL);
+            registerCachedResolution(CLASSPATH_CACHE_KIND, path, SENTINEL);
         }
 
         return resolved;

@@ -132,6 +132,8 @@ public class SimpleScriptTestCase extends TestCase implements ScriptContextReusi
 
             // self reference
             globalBindings.put("context", scriptContext);
+            // just define it as null so strict scripts that expect to be called during engine init don't fail
+            globalBindings.put("applicationContext", null);
 
             contextByFile.put(scriptFile, scriptContext);
         }

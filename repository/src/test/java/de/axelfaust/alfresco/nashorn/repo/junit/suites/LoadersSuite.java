@@ -17,13 +17,14 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
 
+import de.axelfaust.alfresco.nashorn.repo.junit.tests.loaders.ClasspathScriptFileTests;
 import de.axelfaust.alfresco.nashorn.repo.junit.tests.loaders.StrictScriptEnforcingSourceInputStreamTests;
 
 /**
  * @author Axel Faust
  */
 @RunWith(Suite.class)
-@SuiteClasses({ StrictScriptEnforcingSourceInputStreamTests.class })
+@SuiteClasses({ StrictScriptEnforcingSourceInputStreamTests.class, ClasspathScriptFileTests.class })
 public class LoadersSuite
 {
     // intentionally empty

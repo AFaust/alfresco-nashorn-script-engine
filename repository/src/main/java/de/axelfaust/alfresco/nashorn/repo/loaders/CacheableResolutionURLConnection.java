@@ -35,9 +35,21 @@ import org.alfresco.util.ParameterCheck;
  */
 public abstract class CacheableResolutionURLConnection extends URLConnection
 {
+
     // TODO Expose cached resolutions and sentinels via admin console tool
 
+    @FunctionalInterface
+    protected static interface CacheReset
+    {
+
+        public void resetCache();
+    }
+
     private static final Map<Pair<String, String>, URL> CACHED_RESOLUTION = new HashMap<Pair<String, String>, URL>();
+
+    private static final Collection<CacheReset> CACHE_RESET_HANDLERS = new ArrayList<CacheReset>();
+
+    private static final Map<String, CacheReset> CACHE_KIND_RESET_HANDLERS = new HashMap<String, CacheReset>();
 
     private static final ReentrantReadWriteLock RESOLUTION_LOCK = new ReentrantReadWriteLock(true);
 
@@ -75,6 +87,8 @@ public abstract class CacheableResolutionURLConnection extends URLConnection
         {
             RESOLUTION_LOCK.writeLock().unlock();
         }
+
+        CACHE_RESET_HANDLERS.forEach(x -> x.resetCache());
     }
 
     /**
@@ -123,6 +137,11 @@ public abstract class CacheableResolutionURLConnection extends URLConnection
         finally
         {
             RESOLUTION_LOCK.writeLock().unlock();
+        }
+
+        if(CACHE_KIND_RESET_HANDLERS.containsKey(cacheKind))
+        {
+            CACHE_KIND_RESET_HANDLERS.get(cacheKind).resetCache();
         }
     }
 
@@ -218,5 +237,15 @@ public abstract class CacheableResolutionURLConnection extends URLConnection
         {
             RESOLUTION_LOCK.readLock().unlock();
         }
+    }
+
+    protected static void registerCacheResetHandler(final CacheReset handler)
+    {
+        CACHE_RESET_HANDLERS.add(handler);
+    }
+
+    protected static void registerCacheKindResetHandler(final String cacheKind, final CacheReset handler)
+    {
+        CACHE_KIND_RESET_HANDLERS.put(cacheKind, handler);
     }
 }

@@ -18,6 +18,7 @@ import java.io.Reader;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -58,14 +59,14 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.core.io.Resource;
 
-import de.axelfaust.alfresco.nashorn.repo.loaders.CacheableResolutionURLConnection;
 import de.axelfaust.alfresco.nashorn.repo.loaders.CallerProvidedURLConnection;
 
 /**
  * @author Axel Faust
  */
 @SuppressWarnings("restriction")
-public class NashornScriptProcessor extends BaseProcessor implements ScriptProcessor, InitializingBean, ApplicationContextAware
+public class NashornScriptProcessor extends BaseProcessor implements ScriptProcessor, InitializingBean, ApplicationContextAware,
+        ResettableScriptProcessorElement.Registry
 {
 
     public static final List<String> NASHORN_GLOBAL_PROPERTIES_TO_ALWAYS_REMOVE = Collections.unmodifiableList(Arrays.asList("load",
@@ -113,6 +114,8 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
     protected AMDScriptRunner amdRunner;
 
     protected final ReentrantReadWriteLock initialisationStateLock = new ReentrantReadWriteLock(true);
+
+    protected final List<ResettableScriptProcessorElement> resettableProcessorElements = new ArrayList<ResettableScriptProcessorElement>();
 
     /**
      * {@inheritDoc}
@@ -216,6 +219,18 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         }
 
         super.register();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void register(final ResettableScriptProcessorElement element)
+    {
+        if (element != null)
+        {
+            this.resettableProcessorElements.add(element);
+        }
     }
 
     /**
@@ -334,7 +349,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
             this.initialisationStateLock.writeLock().unlock();
         }
 
-        CacheableResolutionURLConnection.clearCachedResolutions();
+        this.resettableProcessorElements.forEach(x -> x.reset());
     }
 
     protected Object executeAMDLoadableScript(final AMDLoadableScript script, final Map<String, Object> model)

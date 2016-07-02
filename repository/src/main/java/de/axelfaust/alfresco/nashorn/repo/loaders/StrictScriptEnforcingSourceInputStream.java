@@ -27,6 +27,8 @@ import java.nio.charset.StandardCharsets;
 public class StrictScriptEnforcingSourceInputStream extends InputStream
 {
 
+    public static final String USE_STRICT_INJECTION = "'use strict'; ";
+
     protected volatile boolean strictFoundOrInjected = false;
 
     protected volatile boolean inBlockComment = false;
@@ -141,7 +143,7 @@ public class StrictScriptEnforcingSourceInputStream extends InputStream
                         {
                             // potentially a regex literal
                             // inject 'use strict';
-                            lineBuilder.insert(lineBuilder.length() - 2, "'use strict'; ");
+                            lineBuilder.insert(lineBuilder.length() - 2, USE_STRICT_INJECTION);
                             lineBuilder.append(line.substring(idx));
                             this.strictFoundOrInjected = true;
                             break;
@@ -159,7 +161,7 @@ public class StrictScriptEnforcingSourceInputStream extends InputStream
                         {
                             // potentially a regex literal
                             // inject 'use strict';
-                            lineBuilder.insert(lineBuilder.length() - 2, "'use strict'; ");
+                            lineBuilder.insert(lineBuilder.length() - 2, USE_STRICT_INJECTION);
                             lineBuilder.append(line.substring(idx));
                             this.strictFoundOrInjected = true;
                             break;
@@ -180,7 +182,7 @@ public class StrictScriptEnforcingSourceInputStream extends InputStream
                             {
                                 // some arbitrary literal expression
                                 // inject 'use strict';
-                                lineBuilder.append("'use strict'; ");
+                                lineBuilder.append(USE_STRICT_INJECTION);
                             }
                             lineBuilder.append(remainder);
                             this.strictFoundOrInjected = true;
@@ -189,7 +191,7 @@ public class StrictScriptEnforcingSourceInputStream extends InputStream
                         {
                             // non-whitespace, non-quote character outside of a block or line comment
                             // inject 'use strict';
-                            lineBuilder.append("'use strict'; ");
+                            lineBuilder.append(USE_STRICT_INJECTION);
                             lineBuilder.append(remainder);
                             this.strictFoundOrInjected = true;
                         }
