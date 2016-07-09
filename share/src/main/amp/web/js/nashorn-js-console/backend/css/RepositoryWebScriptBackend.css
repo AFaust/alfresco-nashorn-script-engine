@@ -1,0 +1,23 @@
+.jsconsole-tool-JavaScriptConsoleTool--active-backend--nashornRepositoryWebScript {
+    .jsconsole-tool-JavaScriptConsoleTool--parameterForm > form {
+        > .alfresco-forms-controls-BaseFormControl {
+            display: inline-block;
+            margin-right: 2 * @standard-column-spacing;
+            
+            &.parameters-urlArguments > .control-row > .control {
+                width: 30em;
+            }
+            
+            &.parameters-runAs,
+            &.parameters-isolation,
+            &.parameters-runLikeCrazy {
+                max-width: 15em;
+            }
+            
+            &.parameters-runAs > .control-row > .control,
+            &.parameters-isolation > .control-row > .control {
+                width: 10em;
+            }
+        }
+    }
+}

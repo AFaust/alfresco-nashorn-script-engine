@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<extension>
+    <modules>
+        <module>
+            <id>${project.name} - JavaScritp Console (Aikau) Extension</id>
+            <auto-deploy>true</auto-deploy>
+            <version>${noSnapshotVersion}</version>
+
+            <customizations>
+
+                <!-- Console Tools framework forced JS Console Aikau page not to use a proper package name + depth -->
+                <customization>
+                    <targetPackageRoot>de.axelfaust.pages</targetPackageRoot>
+                    <sourcePackageRoot>de.axelfaust.nashorn.jsconsole</sourcePackageRoot>
+                </customization>
+
+            </customizations>
+        </module>
+    </modules>
+</extension>
