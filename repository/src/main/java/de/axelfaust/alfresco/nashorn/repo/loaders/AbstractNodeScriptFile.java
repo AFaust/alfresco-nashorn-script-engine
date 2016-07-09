@@ -25,6 +25,7 @@ import java.nio.channels.FileChannel.MapMode;
 import java.nio.file.StandardOpenOption;
 import java.sql.Date;
 import java.text.MessageFormat;
+
 import org.alfresco.model.ContentModel;
 import org.alfresco.repo.transaction.RetryingTransactionHelper;
 import org.alfresco.repo.transaction.RetryingTransactionHelper.RetryingTransactionCallback;
@@ -148,7 +149,7 @@ public abstract class AbstractNodeScriptFile implements ScriptFile
             }
         });
 
-        final long lastModified = modified != null ? modified.getTime() : -1;
+        final long lastModified = modified != null ? modified.getTime() : System.currentTimeMillis();
 
         if (this.cacheLastModified != -1 && lastModified > this.cacheLastModified)
         {

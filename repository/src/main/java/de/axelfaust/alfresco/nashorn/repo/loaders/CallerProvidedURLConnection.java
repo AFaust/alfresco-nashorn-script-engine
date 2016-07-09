@@ -14,15 +14,20 @@
 package de.axelfaust.alfresco.nashorn.repo.loaders;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
-import org.alfresco.error.AlfrescoRuntimeException;
+import org.alfresco.scripts.ScriptException;
 import org.alfresco.service.cmr.repository.ScriptLocation;
 import org.alfresco.util.Pair;
+import org.apache.commons.io.IOUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -30,6 +35,8 @@ import org.alfresco.util.Pair;
  */
 public class CallerProvidedURLConnection extends URLConnection
 {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CallerProvidedURLConnection.class);
 
     private static final ThreadLocal<Pair<String, Boolean>> CURRENT_CALLER_PROVIDED_SCRIPT = new ThreadLocal<Pair<String, Boolean>>();
 
@@ -62,7 +69,7 @@ public class CallerProvidedURLConnection extends URLConnection
         return result;
     }
 
-    protected transient long contentLength = -1;
+    protected transient ByteBuffer byteBuffer;
 
     public CallerProvidedURLConnection(final URL url)
     {
@@ -87,44 +94,12 @@ public class CallerProvidedURLConnection extends URLConnection
     @Override
     public long getContentLengthLong()
     {
-        if (this.contentLength == -1)
+        if (this.byteBuffer == null)
         {
-            final ScriptLocation scriptLocation = CURRENT_CALLER_PROVIDED_LOCATION.get();
-            final Pair<String, Boolean> script = CURRENT_CALLER_PROVIDED_SCRIPT.get();
-
-            if (script != null)
-            {
-                this.contentLength = script.getFirst().length();
-            }
-            else if (scriptLocation != null)
-            {
-                try
-                {
-                    try (InputStream sis = scriptLocation.getInputStream())
-                    {
-                        final byte[] buf = new byte[10240];
-                        long length = 0;
-                        int bytesRead = -1;
-                        while ((bytesRead = sis.read(buf)) != -1)
-                        {
-                            length += bytesRead;
-                        }
-                        this.contentLength = length;
-                    }
-                }
-                catch (final IOException ioex)
-                {
-                    throw new AlfrescoRuntimeException("Error trying to determine size of script", ioex);
-                }
-            }
-            else
-            {
-                throw new IllegalStateException(
-                        "No caller provided script has been registered with the ThreadLocal of CallerProvidedURLConnection");
-            }
+            this.cacheScriptFile();
         }
 
-        return this.contentLength;
+        return this.byteBuffer.limit();
     }
 
     /**
@@ -135,7 +110,7 @@ public class CallerProvidedURLConnection extends URLConnection
     {
         // we can't really reliably determine lastModified from either source or location
         // Nashorn will still check script digest against cache
-        return 0;
+        return System.currentTimeMillis();
     }
 
     /**
@@ -144,25 +119,38 @@ public class CallerProvidedURLConnection extends URLConnection
     @Override
     public InputStream getInputStream() throws IOException
     {
+        InputStream is;
+        if (this.byteBuffer == null)
+        {
+            this.cacheScriptFile();
+        }
+
+        is = new ByteBufferInputStream(this.byteBuffer);
+        return is;
+    }
+
+    protected synchronized void cacheScriptFile()
+    {
         final ScriptLocation scriptLocation = CURRENT_CALLER_PROVIDED_LOCATION.get();
         final Pair<String, Boolean> script = CURRENT_CALLER_PROVIDED_SCRIPT.get();
 
-        final InputStream is;
-        if (script != null)
+        try
         {
-            is = new StrictScriptEnforcingSourceInputStream(new ByteArrayInputStream(script.getFirst().getBytes(StandardCharsets.UTF_8)));
-        }
-        else if (scriptLocation != null)
-        {
-            // this assumes UTF-8
-            is = new StrictScriptEnforcingSourceInputStream(scriptLocation.getInputStream());
-        }
-        else
-        {
-            throw new IllegalStateException(
-                    "No caller provided script has been registered with the ThreadLocal of CallerProvidedURLConnection");
-        }
+            try (final InputStream is = new StrictScriptEnforcingSourceInputStream(scriptLocation != null ? scriptLocation.getInputStream()
+                    : new ByteArrayInputStream(script.getFirst().getBytes(StandardCharsets.UTF_8))))
+            {
+                try (final ByteArrayOutputStream os = new ByteArrayOutputStream())
+                {
+                    IOUtils.copy(is, os);
 
-        return is;
+                    this.byteBuffer = ByteBuffer.wrap(os.toByteArray());
+                }
+            }
+        }
+        catch (final IOException ioex)
+        {
+            LOGGER.debug("Error caching script file", ioex);
+            throw new ScriptException("Script can't be loaded", ioex);
+        }
     }
 }
