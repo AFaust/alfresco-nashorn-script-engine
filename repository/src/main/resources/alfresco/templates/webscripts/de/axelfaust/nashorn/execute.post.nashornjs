@@ -7,10 +7,49 @@
  * @requires module:require
  * @author Axel Faust
  */
-define([ 'require' ], function execute__factory(require)
+define([ 'require', 'legacyRootObjects', 'args!_printOutput' ], function execute__factory(require, legacyRootObjects, printOutput)
 {
     'use strict';
 
+    legacyRootObjects.registerRootObject('print', function execute__print(msg)
+    {
+        if (typeof msg === 'string')
+        {
+            printOutput.add(msg);
+        }
+        else if (typeof msg === 'function')
+        {
+            printOutput.add('Function ' + msg.name);
+        }
+        else if (Array.isArray(msg))
+        {
+            msg.forEach(function execute__print_forEach(element, idx)
+            {
+                var line = String(idx) + ' : ';
+
+                if (typeof element === 'string')
+                {
+                    line += element;
+                }
+                else if (typeof element === 'function')
+                {
+                    line += 'Function ' + element.name;
+                }
+                else
+                {
+                    line += String(msg);
+                }
+
+                printOutput.add(line);
+            });
+        }
+        else
+        {
+            printOutput.add(String(msg));
+        }
+
+    }, false);
+    
     // TODO Preload additional modules
 
     return function execute()
