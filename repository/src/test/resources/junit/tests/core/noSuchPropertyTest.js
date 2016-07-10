@@ -21,7 +21,7 @@
 
         getTestFunctionNames : function noSuchPropertyTest_getTestFunctionNames()
         {
-            return Java.to([ 'testMiss', 'testStrictMiss' ], 'java.util.List');
+            return Java.to([ 'testMiss' ], 'java.util.List');
         },
 
         beforeScript : function noSuchPropertyTest_beforeScript()
@@ -39,21 +39,8 @@
             require.config({});
         },
 
-        before : function noSuchPropertyTest_before()
-        {
-            require.reset();
-        },
-
+        // no need to differentiate strict from non-strict because noSuchProperty always assumes strict caller
         testMiss : function noSuchPropertyTest_testMiss(testCase)
-        {
-            var globalValue, Assert = Java.type('org.junit.Assert');
-
-            globalValue = unknownVariable;
-
-            Assert.assertTrue('unknownVariable should not have been defined', globalValue === undefined);
-        },
-
-        testStrictMiss : function noSuchPropertyTest_testStrictMiss(testCase)
         {
             'use strict';
             var globalValue, accessError = null, Assert = Java.type('org.junit.Assert');
@@ -68,7 +55,6 @@
             }
             
             Assert.assertTrue('unknownVariable should not have been defined', globalValue === undefined);
-            // currently fails because __noSuchProperty__ hook uses closure _this as scope and does not know if caller is strict or not 
             Assert.assertNotNull('An error should have been thrown and caught', accessError);
             Assert.assertTrue('accessError should have been a ReferenceError', accessError instanceof ReferenceError);
         }

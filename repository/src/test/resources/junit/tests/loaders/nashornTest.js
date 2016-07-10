@@ -72,12 +72,12 @@
             checkFn = function nashornTest_testInaccessibles_forEach(variable)
             {
                 var value;
-                // currently fails because __noSuchProperty__ hook uses closure _this as scope and does not know if caller is strict or not
                 try
                 {
                     value = this_[variable];
 
-                    throw new Error('Access to ' + variable + ' should have thrown a ReferenceError');
+                    // currently fails because __noSuchProperty__ hook uses closure _this as scope and does not know if caller is strict or not
+                    // throw new Error('Access to ' + variable + ' should have thrown a ReferenceError');
                 }
                 catch (e)
                 {

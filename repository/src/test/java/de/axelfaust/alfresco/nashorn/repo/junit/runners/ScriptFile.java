@@ -79,7 +79,7 @@ public class ScriptFile extends ParentRunner<ScriptFunction>
     {
         final NashornScriptEngineFactory scriptEngineFactory = new NashornScriptEngineFactory();
         // -ot / -pcc / --class-cache-size should not be relevant for testing
-        NASHORN_ENGINE = scriptEngineFactory.getScriptEngine("-scripting=false", "--const-as-var=true", "--debug-lines=true",
+        NASHORN_ENGINE = scriptEngineFactory.getScriptEngine("-scripting=false", "--debug-lines=true",
                 "--debug-locals=true");
     }
 
