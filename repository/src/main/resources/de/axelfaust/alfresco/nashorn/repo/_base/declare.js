@@ -161,7 +161,7 @@ define(
                         effectiveArgs = args;
                     }
 
-                    if (this._inherited !== undefined)
+                    if (this.hasOwnProperty('_inherited'))
                     {
                         lastLookup = this._inherited;
                     }
@@ -186,9 +186,9 @@ define(
                     {
                         ctor = this.constructor;
                     }
-                    proto = ctor.prototype;
+                    proto = ctor !== null ? ctor.prototype : null;
 
-                    logger.trace('Looking for {} to call in linearized super-classes', fnName);
+                    logger.trace('Looking for {} to call in linearized classes starting from {}', fnName, fnClsName);
                     // ascend the proto chain
                     while (typeof fn !== 'function' && ctor !== null)
                     {
@@ -202,19 +202,29 @@ define(
                         else
                         {
                             clsFound = ctor.fnClsName === fnClsName;
+                            if (clsFound === true)
+                            {
+                                logger.trace('Found caller class in linearized classes');
+                            }
                         }
 
                         if (typeof fn !== 'function')
                         {
                             if (typeof ctor.superClass === 'function')
                             {
+                                logger.trace('Stepping into super-class {} for class {}', ctor.superClass.fnClsName, ctor.fnClsName);
                                 ctor = ctor.superClass;
                                 proto = ctor.prototype;
                             }
                             else
                             {
+                                logger.trace('Class {} has no super-class', ctor.fnClsName);
                                 ctor = null;
                             }
+                        }
+                        else
+                        {
+                            logger.trace('Found function {} in super-class {}', fnName, ,ctor.fnClsName);
                         }
                     }
 
@@ -229,7 +239,7 @@ define(
                     }
                     else
                     {
-                        logger.debug('No function found for {} in linearized super-classes', fnName);
+                        logger.debug('No function found for {} in linearized classes starting from {}', fnName, fnClsName);
                     }
                 }
                 else
