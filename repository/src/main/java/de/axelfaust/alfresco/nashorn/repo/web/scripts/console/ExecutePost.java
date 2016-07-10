@@ -63,6 +63,8 @@ import de.axelfaust.alfresco.nashorn.repo.loaders.CallerProvidedURLConnection;
 public class ExecutePost extends AbstractWebScript implements InitializingBean
 {
 
+    private static final String CALLSTACK_AT_PREFIX = "\tat ";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(ExecutePost.class);
 
     protected static final String CONSOLE_EXECUTER_CLASSPATH = "de/axelfaust/alfresco/nashorn/repo/webscripts/console-script-executer.js";
@@ -472,15 +474,15 @@ public class ExecutePost extends AbstractWebScript implements InitializingBean
         {
             this.collectCallstackLines(exception.getCause(), callstackLines);
 
-            callstackLines.add(exception.toString());
-            callstackLines.add(exception.getStackTrace()[0].toString());
+            callstackLines.add("Wrapped in " + exception.toString());
+            callstackLines.add(CALLSTACK_AT_PREFIX + exception.getStackTrace()[0].toString());
         }
         else
         {
             callstackLines.add(exception.toString());
             for (final StackTraceElement element : exception.getStackTrace())
             {
-                callstackLines.add(element.toString());
+                callstackLines.add(CALLSTACK_AT_PREFIX + element.toString());
             }
         }
     }

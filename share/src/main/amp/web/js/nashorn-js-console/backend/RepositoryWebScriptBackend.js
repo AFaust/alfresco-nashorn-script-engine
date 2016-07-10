@@ -298,14 +298,14 @@ define(
                                             }, false, false, consoleRequest.alfResponseScope || '');
                                         }
 
-                                        if (lang.isString(response.callstack))
+                                        if (lang.isArray(response.callstack))
                                         {
                                             this.alfPublish(this.appendConsoleOutputTopic, {
                                                 content : '\nStacktrace-Details:'
                                             }, false, false, consoleRequest.alfResponseScope || '');
 
                                             this.alfPublish(this.appendConsoleOutputTopic, {
-                                                content : response.callstack
+                                                content : response.callstack.join('\n')
                                             }, false, false, consoleRequest.alfResponseScope || '');
                                         }
 
