@@ -124,7 +124,10 @@ public class ScriptContentFile implements ScriptFile
                 {
                     IOUtils.copy(is, os);
 
-                    this.byteBuffer = ByteBuffer.wrap(os.toByteArray());
+                    final byte[] bytes = os.toByteArray();
+                    this.byteBuffer = ByteBuffer.allocate(bytes.length);
+                    this.byteBuffer.put(bytes);
+                    this.byteBuffer.position(0);
                 }
             }
 
