@@ -51,7 +51,7 @@ define([ 'nashorn!Java', './JavaConvertableMixin', './logger' ], function _base_
 
     convertToJava = function _base_ConversionService__convertToJava(scriptObject)
     {
-        var result, flags, convertedArray, idx, max, convertedElement;
+        var result, flags, convertedArray;
 
         // default fallback
         result = scriptObject;
@@ -99,15 +99,14 @@ define([ 'nashorn!Java', './JavaConvertableMixin', './logger' ], function _base_
                 {
                     logger.debug('Recursively converting JS array with {} elements', scriptObject.length);
                     convertedArray = [];
-                    // TODO Can we use Array.prototype.forEach on JSObject reliably? (Array.isArray works)
-                    for (idx = 0, max = scriptObject.length; idx < max; idx++)
+                    scriptObject.forEach(function _base_ConversionService__convertToJava_forEachElement(element)
                     {
-                        convertedElement = convertToJava(scriptObject[idx]);
+                        var convertedElement = convertToJava(element);
                         if (convertedElement !== undefined && convertedElement !== null)
                         {
                             convertedArray.push(convertedElement);
                         }
-                    }
+                    });
                     result = Java.to(convertedArray, 'java.util.List');
                 }
                 else if (isObject(scriptObject))
