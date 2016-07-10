@@ -137,6 +137,22 @@
         };
     }());
 
+    /**
+     * Immediately resolves a dependency or set of dependencies. This function can be used to get a reference to an already initialized
+     * single module by invoking it with just a single string parameter, or to resolve (and implicitly load if necessary) one or more
+     * modules with a success and optional failure callback.
+     * 
+     * @global
+     * @param {string|string[]}
+     *            dependencies - the dependency/depenendcies that need to be resolved - if this is an array of modules then the callback
+     *            variant of this function must be used
+     * @param {function}
+     *            [callback] - the callback function to execute when the dependencies have been loaded / initialized (arguments will be the
+     *            resolved modules in the order of the dependencies array)
+     * @param {function}
+     *            [errCallback] - the callback function to execute when the dependencies could not be loaded / initialized (signature:
+     *            fn(dependencies[], moduleResolutions[], implicitResolutions[])
+     */
     require = function amd__require(dependencies, callback, errCallback)
     {
         var idx, args, implicitArgs, normalizedModuleId, module, contextScriptUrl, contextModule, isSecure, failOnMissingDependency, missingModule = false;
@@ -1593,6 +1609,18 @@
         };
     }());
 
+    /**
+     * Defines a new module that can then be requested / required from client code or other modules.
+     * 
+     * @global
+     * @param {string}
+     *            [moduleId] - the ID of the module being defined - if this parameter is not provided the define function will try to derive
+     *            an implicit ID from the current execution context (e.g. references used to load the currently executed script file)
+     * @param {string[]}
+     *            [dependencies] - the list of module dependencies for the module to be defined
+     * @param {function}
+     *            factory - the factory callback to construct the module if it is requested / required
+     */
     define = function amd__define()
     {
         var id, normalizedId, dependencies, factory, idx, contextScriptUrl, contextModule, module;
@@ -1723,6 +1751,15 @@
         return new SecureUseOnlyWrapper(module, url);
     };
 
+    /**
+     * Preloads a specific module in such a way that its defining script file is loaded to ensure that the module is defined. This operation
+     * will not cause any module factory to be called.
+     * 
+     * @instance
+     * @memberof define
+     * @param {string}
+     *            moduleId - the ID of the module to preload
+     */
     define.preload = function amd__define_preload(moduleId)
     {
         var normalizedModuleId, module, contextScriptUrl;
@@ -1790,12 +1827,32 @@
                 streamHandler = new AlfrescoClasspathURLStreamHandler();
                 streamHandler.basePath = 'alfresco';
                 streamHandler.extensionPath = 'extension';
-                
+
                 return streamHandler;
             }());
         }
 
+        /**
+         * This loader module provides the ability to bootstrap / load the other core module loaders of the Nashorn script engine AMD
+         * framework.
+         * 
+         * @module loaderMetaLoader
+         * @author Axel Faust
+         */
         loaderMetaLoader = {
+            /**
+             * Loads a core module loader from the classpath location de/axelfaust/alfresco/nashorn/repo/loaders without any support for
+             * overriding via Alfresco extension paths.
+             * 
+             * @instance
+             * @param {string}
+             *            normalizedId - the normalized ID of the module to load
+             * @param {function}
+             *            require - the context-sensitive require function
+             * @param {function}
+             *            load - the callback to load either a pre-built object as the module result or a script defining a module from a
+             *            script URL
+             */
             load : function amd__loaderMetaLoader__load(normalizedId, /* jshint unused: false */require, load)
             {
                 var url = new URL('raw-classpath', null, -1, 'de/axelfaust/alfresco/nashorn/repo/loaders/' + normalizedId, streamHandler);
