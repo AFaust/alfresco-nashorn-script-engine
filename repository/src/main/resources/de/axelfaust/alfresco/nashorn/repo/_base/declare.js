@@ -224,7 +224,7 @@ define(
                         }
                         else
                         {
-                            logger.trace('Found function {} in super-class {}', fnName, ,ctor.fnClsName);
+                            logger.trace('Found function {} in super-class {}', fnName, ctor.fnClsName);
                         }
                     }
 
