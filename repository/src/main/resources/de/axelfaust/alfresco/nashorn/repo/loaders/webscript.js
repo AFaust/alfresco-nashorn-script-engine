@@ -34,7 +34,8 @@ define('webscript', [ 'spring!de.axelfaust.alfresco.nashorn.repo-webscriptURLStr
             var script = null, url;
 
             // avoid repeated script resolution when already provided (especially since resolution may query DB)
-            require([ 'args!_RepositoryNashornScriptProcessor_RepositoryScriptLocation' ], function webscript_loader__load_callback(scriptLocation)
+            require([ 'args!_RepositoryNashornScriptProcessor_RepositoryScriptLocation' ], function webscript_loader__load_callback(
+                    scriptLocation)
             {
                 if (scriptLocation.scriptModuleId === normalizedId)
                 {
@@ -56,7 +57,19 @@ define('webscript', [ 'spring!de.axelfaust.alfresco.nashorn.repo-webscriptURLStr
                 logger.trace('Script stores contains a script {} for module id {}', [ script, normalizedId ]);
                 url = new URL('webscript', null, -1, normalizedId, webscriptURLStreamHandler);
                 webscriptURLStreamHandler.bindScriptContent(url, script);
-                load(url, script.isSecure());
+
+                try
+                {
+                    load(url, script.isSecure());
+
+                    webscriptURLStreamHandler.unbindScriptContent(url);
+                }
+                catch (e)
+                {
+                    webscriptURLStreamHandler.unbindScriptContent(url);
+
+                    throw e;
+                }
             }
             else
             {

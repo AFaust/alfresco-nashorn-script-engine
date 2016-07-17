@@ -159,6 +159,18 @@ public class WebScriptURLStreamHandler extends URLStreamHandler implements Initi
     }
 
     /**
+     * Removes an URL to script content binding to avoid spillover into future executions on the same thread.
+     *
+     * @param url
+     *            the URL of the script
+     */
+    public void unbindScriptContent(final URL url)
+    {
+        ParameterCheck.mandatory("url", url);
+        this.boundScriptContents.get().remove(url);
+    }
+
+    /**
      * Resolves a module ID to a script content.
      *
      * @param moduleId
@@ -217,10 +229,6 @@ public class WebScriptURLStreamHandler extends URLStreamHandler implements Initi
             {
                 throw new IOException("Script " + url + " does not exist");
             }
-        }
-        else
-        {
-            this.boundScriptContents.get().remove(url);
         }
 
         ScriptFile scriptFile;
