@@ -182,7 +182,7 @@ public class ExecutePost extends AbstractWebScript implements InitializingBean
         }
         finally
         {
-            resultModel.put("webScriptNanoTime", Long.valueOf(System.nanoTime() - webScriptStart));
+            resultModel.put("webScriptMicroTime", Math.round((Long.valueOf(System.nanoTime() - webScriptStart)/1000)));
             this.writeResultData(res, requestModel, resultModel);
         }
     }
@@ -328,7 +328,7 @@ public class ExecutePost extends AbstractWebScript implements InitializingBean
             finally
             {
                 CallerProvidedURLConnection.clearCallerProvidedScript();
-                resultModel.put("scriptNanoTime", Long.valueOf(System.nanoTime() - scriptStart));
+                resultModel.put("scriptMicroTime", Math.round((Long.valueOf(System.nanoTime() - scriptStart)/1000)));
             }
         }
 
@@ -353,7 +353,7 @@ public class ExecutePost extends AbstractWebScript implements InitializingBean
             }
             finally
             {
-                resultModel.put("templateNanoTime", Long.valueOf(System.nanoTime() - templateStart));
+                resultModel.put("templateMicroTime", Math.round((Long.valueOf(System.nanoTime() - templateStart) / 1000)));
             }
 
         }
