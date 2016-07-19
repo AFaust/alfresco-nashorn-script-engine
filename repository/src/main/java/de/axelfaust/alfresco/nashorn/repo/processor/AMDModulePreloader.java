@@ -24,6 +24,9 @@ public interface AMDModulePreloader
      *
      * @param moduleId
      *            the ID of the module to preload (including loader name prefix)
+     * @param aliasModuleId
+     *            an alternative ID of the module to be used to lookup / initialize the module after load (in case the moduleId is used to
+     *            load a module which specifies a different module ID in its call to define) - may be {@code null}
      */
-    public void preload(String moduleId);
+    public void preload(String moduleId, String aliasModuleId);
 }

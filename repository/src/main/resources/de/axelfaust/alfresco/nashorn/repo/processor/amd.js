@@ -1759,8 +1759,11 @@
      * @memberof define
      * @param {string}
      *            moduleId - the ID of the module to preload
+     * @param {string}
+     *            [aliasModuleId] - an alternative ID of the module to be used to lookup / initialize the module after load (in case the
+     *            moduleId is used to load a module which specifies a different module ID in its call to define)
      */
-    define.preload = function amd__define_preload(moduleId)
+    define.preload = function amd__define_preload(moduleId, aliasModuleId)
     {
         var normalizedModuleId, module, contextScriptUrl;
 
@@ -1781,6 +1784,19 @@
             {
                 logger.debug('Pre-loading module "{}"', normalizedModuleId);
                 moduleManagement.loadModule(normalizedModuleId, true, contextScriptUrl);
+
+                // if it a module has been registered with the expected name initialize it too
+                // check for provided aliasModuleId first
+                if (typeof aliasModuleId === 'string')
+                {
+                    normalizedModuleId = normalizeModuleId(aliasModuleId);
+                }
+
+                module = moduleRegistry.getModule(normalizedModuleId);
+                if (isObject(module) && module !== DUMMY_MODULE && typeof module.factory === 'function')
+                {
+                    moduleManagement.getModule(normalizedModuleId, true, true, contextScriptUrl);
+                }
             }
         }
         else

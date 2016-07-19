@@ -430,7 +430,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
             // 3) the nashorn loader plugin so we can control access to globals
             LOGGER.debug("Setting up nashorn AMD loader");
-            this.preloadAMDModule("loaderMetaLoader", "nashorn");
+            this.preloadAMDModule("loaderMetaLoader", "nashorn", "nashorn");
 
             // 4) remove Nashorn globals
             LOGGER.debug("Removing disallowed Nashorn globals \"{}\" and \"{}\"", NASHORN_GLOBAL_PROPERTIES_TO_ALWAYS_REMOVE,
@@ -515,15 +515,18 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
             for (final String scriptName : scriptNames)
             {
-                final String moduleIdKey = MessageFormat.format("nashornJavaScriptProcessor.baseScript.{0}.moduleId", scriptName);
-                final String loaderNameKey = MessageFormat.format("nashornJavaScriptProcessor.baseScript.{0}.loaderName", scriptName);
+                final String modulePrefix = "nashornJavaScriptProcessor.baseScript." + scriptName;
+                final String moduleIdKey = modulePrefix + ".moduleId";
+                final String loaderNameKey = modulePrefix + ".loaderName";
+                final String aliasModuleIdKey = modulePrefix + ".aliasModuleId";
 
                 final Object moduleIdValue = this.globalProperties.get(moduleIdKey);
                 final Object loaderNameValue = this.globalProperties.get(loaderNameKey);
+                final Object aliasModuleIdValue = this.globalProperties.get(aliasModuleIdKey);
 
                 if (moduleIdValue instanceof String && loaderNameValue instanceof String)
                 {
-                    this.preloadAMDModule(loaderNameValue, moduleIdValue);
+                    this.preloadAMDModule(loaderNameValue, moduleIdValue, aliasModuleIdValue);
                 }
             }
         }
@@ -584,17 +587,19 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
                 for (final String scriptName : scriptNames)
                 {
-                    final String moduleIdKey = MessageFormat.format("nashornJavaScriptProcessor.{0}.extensionScript.{1}.moduleId",
-                            moduleId, scriptName);
-                    final String loaderNameKey = MessageFormat.format("nashornJavaScriptProcessor.{0}.extensionScript.{1}.loaderName",
-                            moduleId, scriptName);
+                    final String modulePrefix = MessageFormat.format("nashornJavaScriptProcessor.{0}.extensionScript.{1}", moduleId,
+                            scriptName);
+                    final String moduleIdKey = modulePrefix + ".moduleId";
+                    final String loaderNameKey = modulePrefix + ".loaderName";
+                    final String aliasModuleIdKey = modulePrefix + ".aliasModuleId";
 
                     final Object moduleIdValue = this.globalProperties.get(moduleIdKey);
                     final Object loaderNameValue = this.globalProperties.get(loaderNameKey);
+                    final Object aliasModuleIdValue = this.globalProperties.get(aliasModuleIdKey);
 
                     if (moduleIdValue instanceof String && loaderNameValue instanceof String)
                     {
-                        this.preloadAMDModule(loaderNameValue, moduleIdValue);
+                        this.preloadAMDModule(loaderNameValue, moduleIdValue, aliasModuleIdValue);
                     }
                 }
             }
@@ -604,14 +609,23 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         }
     }
 
-    protected void preloadAMDModule(final Object loaderNameValue, final Object moduleIdValue) throws ScriptException
+    protected void preloadAMDModule(final Object loaderNameValue, final Object moduleIdValue, final Object aliasModuleIdValue)
+            throws ScriptException
     {
         this.initialisationStateLock.readLock().lock();
         try
         {
-            final String fullModuleId = MessageFormat.format("{0}!{1}", loaderNameValue, moduleIdValue);
+            LOGGER.debug("Pre-loading module {}!{}", loaderNameValue, moduleIdValue);
 
-            LOGGER.debug("Pre-loading module {}", fullModuleId);
+            String call;
+            if (aliasModuleIdValue != null)
+            {
+                call = MessageFormat.format("define.preload(''{0}!{1}'', ''{2}'');", loaderNameValue, moduleIdValue, aliasModuleIdValue);
+            }
+            else
+            {
+                call = MessageFormat.format("define.preload(''{0}!{1}'');", loaderNameValue, moduleIdValue);
+            }
 
             try
             {
@@ -620,11 +634,11 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
                 // final ScriptObjectMirror define = (ScriptObjectMirror) this.engine.getContext().getAttribute("define");
                 // define.callMember("preload", fullModuleId);
                 // this.amdPreloader.preload(fullModuleId);
-                this.engine.eval("define.preload('" + fullModuleId + "');");
+                this.engine.eval(call);
             }
             catch (final RuntimeException ex)
             {
-                LOGGER.error("Error preloading module {}", fullModuleId);
+                LOGGER.error("Error preloading module {}!{}", loaderNameValue, moduleIdValue);
                 throw ex;
             }
         }
