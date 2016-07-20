@@ -15,6 +15,8 @@ package de.axelfaust.alfresco.nashorn.repo.loaders;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLStreamHandler;
@@ -29,6 +31,8 @@ import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.NodeService;
 import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.PropertyCheck;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.extensions.webscripts.MultiScriptLoader;
@@ -44,6 +48,8 @@ import de.axelfaust.alfresco.nashorn.repo.processor.ResettableScriptProcessorEle
 public class WebScriptURLStreamHandler extends URLStreamHandler implements InitializingBean, DisposableBean,
         ResettableScriptProcessorElement
 {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(WebScriptURLStreamHandler.class);
 
     private static final List<String> SUFFIX_PRECEDENCE_LIST = Arrays.asList(null, ".nashornjs", ".js");
 
@@ -73,6 +79,21 @@ public class WebScriptURLStreamHandler extends URLStreamHandler implements Initi
             return new HashMap<URL, ScriptContent>();
         }
     };
+
+    {
+        try
+        {
+            final Class<?> cls = Class.forName("de.axelfaust.alfresco.nashorn.jdk8wa.webscript.Handler");
+            final Method setRealHandler = cls.getDeclaredMethod("setRealHandler", URLStreamHandler.class);
+            setRealHandler.invoke(null, this);
+
+            LOGGER.info("Registered {} as global webscript URL stream handler", this);
+        }
+        catch (ClassNotFoundException | NoSuchMethodException | InvocationTargetException | IllegalAccessException e)
+        {
+            LOGGER.info("JDK 8 workarounds library not available - {} not registered as global webscript URL stream handler", this);
+        }
+    }
 
     /**
      * {@inheritDoc}

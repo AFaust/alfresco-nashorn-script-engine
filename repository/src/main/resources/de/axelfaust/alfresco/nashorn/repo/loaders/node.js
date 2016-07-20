@@ -11,7 +11,7 @@ define('node', [ 'define', 'nashorn!Java', 'serviceRegistry!NamespaceService', '
 
     logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.node');
     URL = Java.type('java.net.URL');
-    NodeURLHandler = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.NodeURLHandler');
+    NodeURLHandler = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.NodeURLStreamHandler');
     urlHandler = new NodeURLHandler(NamespaceService, DictionaryService, NodeService, PermissionService, ContentService, SearchService);
 
     NashornScriptModel = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel');

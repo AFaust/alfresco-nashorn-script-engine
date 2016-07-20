@@ -63,14 +63,14 @@ import org.slf4j.LoggerFactory;
  *
  * @author Axel Faust
  */
-public class NodeURLHandler extends URLStreamHandler
+public class NodeURLStreamHandler extends URLStreamHandler
 {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(NodeURLHandler.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(NodeURLStreamHandler.class);
 
-    private static final String TXN_MODULE_ID_RESOLUTION_KEY_PREFIX = NodeURLHandler.class.getName() + "-moduleIdResolution-";
+    private static final String TXN_MODULE_ID_RESOLUTION_KEY_PREFIX = NodeURLStreamHandler.class.getName() + "-moduleIdResolution-";
 
-    private static final String TXN_LAST_MODULE_ID_KEY = NodeURLHandler.class.getName() + "-lastModuleIdResolution";
+    private static final String TXN_LAST_MODULE_ID_KEY = NodeURLStreamHandler.class.getName() + "-lastModuleIdResolution";
 
     protected final NamespaceService namespaceService;
 
@@ -84,13 +84,13 @@ public class NodeURLHandler extends URLStreamHandler
 
     protected final SearchService searchService;
 
-    public NodeURLHandler(final ServiceRegistry serviceRegistry)
+    public NodeURLStreamHandler(final ServiceRegistry serviceRegistry)
     {
         this(serviceRegistry.getNamespaceService(), serviceRegistry.getDictionaryService(), serviceRegistry.getNodeService(),
                 serviceRegistry.getPermissionService(), serviceRegistry.getContentService(), serviceRegistry.getSearchService());
     }
 
-    public NodeURLHandler(final NamespaceService namespaceService, final DictionaryService dictionaryService,
+    public NodeURLStreamHandler(final NamespaceService namespaceService, final DictionaryService dictionaryService,
             final NodeService nodeService, final PermissionService permissionService, final ContentService contentService,
             final SearchService searchService)
     {
@@ -124,7 +124,7 @@ public class NodeURLHandler extends URLStreamHandler
             @Override
             public String doWork()
             {
-                return NodeURLHandler.this.normalizeModuleIdImpl(scriptContextUuid, moduleId);
+                return NodeURLStreamHandler.this.normalizeModuleIdImpl(scriptContextUuid, moduleId);
             }
         });
 
@@ -235,7 +235,7 @@ public class NodeURLHandler extends URLStreamHandler
             @Override
             public URLConnection doWork()
             {
-                return NodeURLHandler.this.openConnectionImpl(u, runAsUser);
+                return NodeURLStreamHandler.this.openConnectionImpl(u, runAsUser);
             }
         });
 
@@ -283,7 +283,7 @@ public class NodeURLHandler extends URLStreamHandler
                     @Override
                     public AccessStatus doWork() throws Exception
                     {
-                        return NodeURLHandler.this.permissionService.hasReadPermission(contentNode);
+                        return NodeURLStreamHandler.this.permissionService.hasReadPermission(contentNode);
                     }
 
                 }, runAsUser);

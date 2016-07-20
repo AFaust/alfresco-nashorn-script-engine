@@ -671,11 +671,20 @@
 
     moduleManagement = (function amd__moduleManagement__init()
     {
-        var nashornLoad, defaultScope, URL, internal, result;
+        var nashornLoad, defaultScope, URL, GloballyRegisteredURLStreamHandler, internal, result;
 
         nashornLoad = load;
         defaultScope = this;
         URL = Java.type('java.net.URL');
+
+        try
+        {
+            GloballyRegisteredURLStreamHandler = Java.type('de.axelfaust.alfresco.nashorn.jdk8wa.GloballyRegisteredURLStreamHandler');
+        }
+        catch (ignore)
+        {
+            logger.info('JDK 8 workarounds library not available');
+        }
 
         internal = Object
                 .create(
@@ -745,7 +754,24 @@
 
                                         withTaggedCaller(function amd__moduleManagement__handleModuleLoadFromURL_nashornLoad()
                                         {
-                                            implicitResult = nashornLoad.call(customScope, url);
+                                            if (GloballyRegisteredURLStreamHandler)
+                                            {
+                                                GloballyRegisteredURLStreamHandler.startScriptLoad();
+                                                try
+                                                {
+                                                    implicitResult = nashornLoad.call(customScope, url);
+                                                    GloballyRegisteredURLStreamHandler.endScriptLoad();
+                                                }
+                                                catch (e)
+                                                {
+                                                    GloballyRegisteredURLStreamHandler.endScriptLoad();
+                                                    throw e;
+                                                }
+                                            }
+                                            else
+                                            {
+                                                implicitResult = nashornLoad.call(customScope, url);
+                                            }
                                         }, urlStr);
 
                                         // no module defined yet by requested module id
@@ -1875,7 +1901,7 @@
              */
             load : function amd__loaderMetaLoader__load(normalizedId, /* jshint unused: false */require, load)
             {
-                var url = new URL('raw-classpath', null, -1, 'de/axelfaust/alfresco/nashorn/repo/loaders/' + normalizedId, streamHandler);
+                var url = new URL('rawclasspath', null, -1, 'de/axelfaust/alfresco/nashorn/repo/loaders/' + normalizedId, streamHandler);
 
                 logger.debug('Loading loader module {} from classpath', normalizedId);
 

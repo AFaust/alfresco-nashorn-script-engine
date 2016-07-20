@@ -86,6 +86,7 @@
     </distributionManagement>
 
     <modules>
+        <module>jdk8-workarounds</module>
         <module>repository</module>
         <module>share</module>
     </modules>

@@ -14,6 +14,8 @@
 package de.axelfaust.alfresco.nashorn.repo.loaders;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLStreamHandler;
@@ -24,6 +26,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.alfresco.util.PropertyCheck;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 
@@ -36,6 +40,8 @@ public class AlfrescoClasspathURLStreamHandler extends URLStreamHandler implemen
         ResettableScriptProcessorElement
 {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(AlfrescoClasspathURLStreamHandler.class);
+
     private static final List<String> SUFFIX_PRECEDENCE_LIST = Arrays.asList(null, ".nashornjs", ".js");
 
     protected Registry registry;
@@ -47,6 +53,47 @@ public class AlfrescoClasspathURLStreamHandler extends URLStreamHandler implemen
     protected final Map<String, List<String>> precedenceChainByScript = new HashMap<String, List<String>>();
 
     protected final Map<String, ScriptFile> scriptHandles = new HashMap<String, ScriptFile>();
+
+    {
+        try
+        {
+            final Class<?> cls = Class.forName("de.axelfaust.alfresco.nashorn.jdk8wa.classpath.Handler");
+            final Method setRealHandler = cls.getDeclaredMethod("setRealHandler", URLStreamHandler.class);
+            setRealHandler.invoke(null, this);
+
+            LOGGER.info("Registered {} as global classpath URL stream handler", this);
+        }
+        catch (ClassNotFoundException | NoSuchMethodException | InvocationTargetException | IllegalAccessException e)
+        {
+            LOGGER.info("JDK 8 workarounds library not available - {} not registered as global classpath URL stream handler", this);
+        }
+
+        try
+        {
+            final Class<?> cls = Class.forName("de.axelfaust.alfresco.nashorn.jdk8wa.rawclasspath.Handler");
+            final Method setRealHandler = cls.getDeclaredMethod("setRealHandler", URLStreamHandler.class);
+            setRealHandler.invoke(null, this);
+
+            LOGGER.info("Registered {} as global rawclasspath URL stream handler", this);
+        }
+        catch (ClassNotFoundException | NoSuchMethodException | InvocationTargetException | IllegalAccessException e)
+        {
+            LOGGER.info("JDK 8 workarounds library not available - {} not registered as global rawclasspath URL stream handler", this);
+        }
+
+        try
+        {
+            final Class<?> cls = Class.forName("de.axelfaust.alfresco.nashorn.jdk8wa.extclasspath.Handler");
+            final Method setRealHandler = cls.getDeclaredMethod("setRealHandler", URLStreamHandler.class);
+            setRealHandler.invoke(null, this);
+
+            LOGGER.info("Registered {} as global extclasspath URL stream handler", this);
+        }
+        catch (ClassNotFoundException | NoSuchMethodException | InvocationTargetException | IllegalAccessException e)
+        {
+            LOGGER.info("JDK 8 workarounds library not available - {} not registered as global extclasspath URL stream handler", this);
+        }
+    }
 
     /**
      * {@inheritDoc}
@@ -111,8 +158,8 @@ public class AlfrescoClasspathURLStreamHandler extends URLStreamHandler implemen
     protected URLConnection openConnection(final URL url) throws IOException
     {
         final String script;
-        final boolean allowExtension = "extensible-classpath".equals(url.getProtocol());
-        final boolean allowBase = !"raw-classpath".equals(url.getProtocol());
+        final boolean allowExtension = "extclasspath".equals(url.getProtocol());
+        final boolean allowBase = !"rawclasspath".equals(url.getProtocol());
         if (allowBase && this.basePath != null && !this.basePath.trim().isEmpty())
         {
             script = this.basePath + "/" + url.getPath();

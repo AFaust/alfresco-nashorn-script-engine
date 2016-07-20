@@ -14,15 +14,37 @@
 package de.axelfaust.alfresco.nashorn.repo.loaders;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLStreamHandler;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author Axel Faust
  */
 public class CallerProvidedURLStreamHandler extends URLStreamHandler
 {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CallerProvidedURLStreamHandler.class);
+
+    {
+        try
+        {
+            final Class<?> cls = Class.forName("de.axelfaust.alfresco.nashorn.jdk8wa.callerProvided.Handler");
+            final Method setRealHandler = cls.getDeclaredMethod("setRealHandler", URLStreamHandler.class);
+            setRealHandler.invoke(null, this);
+
+            LOGGER.info("Registered {} as global callerProvided URL stream handler", this);
+        }
+        catch (ClassNotFoundException | NoSuchMethodException | InvocationTargetException | IllegalAccessException e)
+        {
+            LOGGER.info("JDK 8 workarounds library not available - {} not registered as global callerProvided URL stream handler", this);
+        }
+    }
 
     /**
      * {@inheritDoc}

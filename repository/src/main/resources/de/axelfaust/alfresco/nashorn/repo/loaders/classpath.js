@@ -52,7 +52,7 @@
              */
             load : function classpath_loader__load(normalizedId, require, load)
             {
-                var url = new URL('raw-classpath', null, -1, normalizedId, streamHandler);
+                var url = new URL('rawclasspath', null, -1, normalizedId, streamHandler);
 
                 logger.trace('Loading module id {} from classpath', normalizedId);
 
@@ -111,7 +111,7 @@
              */
             load : function extensible_classpath_loader__load(normalizedId, require, load)
             {
-                var url = new URL('extensible-classpath', null, -1, normalizedId, streamHandler);
+                var url = new URL('extclasspath', null, -1, normalizedId, streamHandler);
 
                 logger.trace('Loading module id {} from extensible classpath', normalizedId);
 
