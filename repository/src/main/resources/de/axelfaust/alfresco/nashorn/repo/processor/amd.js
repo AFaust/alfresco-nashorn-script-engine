@@ -12,7 +12,7 @@
     // core AMD config and backup state
     mappings = {}, packages = {},
     // internal fns
-    isObject, normalizeModuleId, SecureUseOnlyWrapper,
+    isObject, normalizeModuleId, withTaggedCaller, getCaller, SecureUseOnlyWrapper,
     // Java utils
     NashornUtils, Throwable, AMDUnavailableModuleException, logger,
     // public fns
@@ -106,20 +106,23 @@
                 {
                     logger.trace('Calling normalize-function of loader "{}"', loaderName);
                     // protect against loader manipulating the contextModule by using a derivative
-                    derivativeContextModule = Object.create(contextModule, {
-                        initialized : {
-                            value : contextModule.initialized,
-                            enumerable : true
-                        },
-                        constructing : {
-                            value : false,
-                            enumerable : true
-                        },
-                        result : {
-                            value : contextModule.result,
-                            enumerable : true
-                        }
-                    });
+                    if (isObject(contextModule))
+                    {
+                        derivativeContextModule = Object.create(contextModule, {
+                            initialized : {
+                                value : contextModule.initialized,
+                                enumerable : true
+                            },
+                            constructing : {
+                                value : false,
+                                enumerable : true
+                            },
+                            result : {
+                                value : contextModule.result,
+                                enumerable : true
+                            }
+                        });
+                    }
                     normalizedId = loaderName + '!' + loader.normalize(realId, normalizeSimpleId, derivativeContextModule);
                 }
                 else
@@ -160,7 +163,7 @@
         moduleRegistry.initFromSharedState();
 
         // skip this script to determine script URL of caller
-        contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
+        contextScriptUrl = getCaller();
         contextModule = moduleRegistry.getModuleByUrl(contextScriptUrl);
 
         isSecure = isObject(contextModule) && contextModule.secureSource === true;
@@ -740,11 +743,10 @@
                                         // we load with custom scope to prevent pollution of the potentially shared global
                                         customScope = Object.create(defaultScope);
 
-                                        require
-                                                .withoutTaggedCallerScript(function amd__moduleManagement__handleModuleLoadFromURL_nashornLoad()
-                                                {
-                                                    implicitResult = nashornLoad.call(customScope, url);
-                                                });
+                                        withTaggedCaller(function amd__moduleManagement__handleModuleLoadFromURL_nashornLoad()
+                                        {
+                                            implicitResult = nashornLoad.call(customScope, url);
+                                        }, urlStr);
 
                                         // no module defined yet by requested module id
                                         // may be a non-module script with implicit return value
@@ -1060,11 +1062,11 @@
                                         }
                                         else if (doLoad && module.constructing !== true)
                                         {
-                                            require.withoutTaggedCallerScript(function amd__moduleManagement__loadModuleResult_construct()
+                                            withTaggedCaller(function amd__moduleManagement__loadModuleResult_construct()
                                             {
                                                 moduleResult = internal
                                                         .constructModuleResult(normalizedId, module, callerSecure, callerUrl);
-                                            });
+                                            }, callerUrl);
                                         }
                                         else
                                         {
@@ -1183,7 +1185,7 @@
             moduleRegistry.initFromSharedState();
 
             // skip this script to determine script URL of caller
-            contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
+            contextScriptUrl = getCaller();
             contextModule = moduleRegistry.getModuleByUrl(contextScriptUrl);
 
             isSecure = isObject(contextModule) && contextModule.secureSource === true;
@@ -1390,23 +1392,20 @@
         NashornScriptModel = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel');
         executionState = NashornScriptModel.newAssociativeContainer();
 
-        getRestoreTaggedCallerFn = function amd__callerTagging__getRestoreTaggedCallerFn(scriptUrl, taggerUrl)
+        getRestoreTaggedCallerFn = function amd__callerTagging__getRestoreTaggedCallerFn(scriptUrl)
         {
-            var originalScriptUrl = scriptUrl, taggerScriptUrl = taggerUrl;
+            var originalScriptUrl = scriptUrl;
 
             return function amd__require_tagCallerScript_restoreFn()
             {
                 executionState.taggedCallerScriptUrl = originalScriptUrl;
-
-                logger.debug('Script "{}" has reset the tagged script caller', taggerScriptUrl);
+                logger.debug('Tagged script caller reset to {}', originalScriptUrl);
             };
         };
 
         require.isSecureCallerScript = function amd__require__isSecureCallerScript(suppressTaggedCaller)
         {
             var amdScriptUrl, baseUrl, contextScriptUrl, contextModule, isSecure;
-
-            amdScriptUrl = NashornUtils.getCallerScriptURL(false, false);
 
             // skip this and the caller script to determine script URL of callers caller
             if (suppressTaggedCaller === true)
@@ -1426,6 +1425,7 @@
             else
             {
                 // no module = insecure by default unless caller is from this script package
+                amdScriptUrl = NashornUtils.getCallerScriptURL(false, false);
                 baseUrl = amdScriptUrl.substring(0, amdScriptUrl.length - 'amd.js'.length);
                 isSecure = contextScriptUrl.substring(0, baseUrl.length) === baseUrl;
             }
@@ -1501,13 +1501,21 @@
             return moduleLoader;
         };
 
+        /**
+         * Tags the current execution context with a fixed caller script URL. The script URL is determined from the current stack and
+         * excludes both the script of this operation as well as the immediate caller.
+         * 
+         * @instance
+         * @memberof require
+         * @param {boolean}
+         *            [untaggedOnly] - flag if the execution context should only be tagged if not already tagged at the time of the call
+         * @returns {function} a callback to restore the execution context to its previous state
+         */
         require.tagCallerScript = function amd__require__tagCallerScript(untaggedOnly)
         {
-            var restoreFn, contextScriptUrl, actualCaller;
+            var restoreFn, contextScriptUrl;
 
-            actualCaller = NashornUtils.getCallerScriptURL(true, true);
-
-            restoreFn = getRestoreTaggedCallerFn(executionState.taggedCallerScriptUrl, actualCaller);
+            restoreFn = getRestoreTaggedCallerFn(executionState.taggedCallerScriptUrl);
             if (untaggedOnly === true)
             {
                 contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
@@ -1518,21 +1526,29 @@
             }
             executionState.taggedCallerScriptUrl = contextScriptUrl;
 
-            logger.debug('Script "{}" has tagged script caller as "{}"', [ actualCaller, contextScriptUrl ]);
+            logger.debug('Caller script tagged as "{}"', contextScriptUrl);
 
             return restoreFn;
         };
 
+        /**
+         * Executes a callback with a fixed caller script URL tagged in the current execution context. The script URL is determined from the
+         * current stack and excludes both the script of this operation as well as the immediate caller.
+         * 
+         * @instance
+         * @memberof require
+         * @param {function}
+         *            callback - the callback to execute
+         * @param {boolean}
+         *            [untaggedOnly] - flag if the execution context should only be tagged if not already tagged at the time of the call
+         */
         require.withTaggedCallerScript = function amd__require__withTaggedCallerScript(callback, untaggedOnly)
         {
-            var result, restoreFn, contextScriptUrl, actualCaller;
-
-            actualCaller = NashornUtils.getCallerScriptURL(true, false);
+            var result, restoreFn, contextScriptUrl;
 
             if (typeof callback === 'function')
             {
-
-                restoreFn = getRestoreTaggedCallerFn(executionState.taggedCallerScriptUrl, actualCaller);
+                restoreFn = getRestoreTaggedCallerFn(executionState.taggedCallerScriptUrl);
                 if (untaggedOnly === true)
                 {
                     contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
@@ -1543,8 +1559,7 @@
                 }
                 executionState.taggedCallerScriptUrl = contextScriptUrl;
 
-                logger.debug('Script "{}" is executing function "{}" with tagged script caller "{}"', [ actualCaller, callback.name,
-                        contextScriptUrl ]);
+                logger.debug('Executing function "{}" with tagged script caller "{}"', [ callback.name, contextScriptUrl ]);
 
                 try
                 {
@@ -1561,48 +1576,38 @@
             }
             else
             {
-                logger
-                        .info(
-                                'Script "{}" attempted to execute function with a tagged caller script URL, but provided no callback function to execute',
-                                actualCaller);
+                logger.info('Attempted to execute function with a tagged caller script URL, but provided no callback function to execute');
             }
 
             return result;
         };
 
-        require.withoutTaggedCallerScript = function amd__require__withoutTaggedCallerScript(callback)
+        getCaller = function amd__require__getCallerScriptURL_internal()
         {
-            var result, restoreFn, actualCaller;
+            var contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(true, true);
+            return contextScriptUrl;
+        };
 
-            actualCaller = NashornUtils.getCallerScriptURL(true, false);
+        withTaggedCaller = function amd__require__withTaggedCallerScript_internal(callback, callerScriptUrl)
+        {
+            var result, restoreFn;
 
-            if (typeof callback === 'function')
+            restoreFn = getRestoreTaggedCallerFn(executionState.taggedCallerScriptUrl);
+            executionState.taggedCallerScriptUrl = callerScriptUrl;
+
+            logger.debug('Executing function "{}" with tagged script caller "{}"', [ callback.name, callerScriptUrl ]);
+
+            try
             {
+                result = callback();
 
-                restoreFn = getRestoreTaggedCallerFn(executionState.taggedCallerScriptUrl, actualCaller);
-                executionState.taggedCallerScriptUrl = null;
-
-                logger.debug('Script "{}" is executing function "{}" without tagged script caller', [ actualCaller, callback.name ]);
-
-                try
-                {
-                    result = callback();
-
-                    restoreFn();
-                }
-                catch (e)
-                {
-                    restoreFn();
-
-                    throw e;
-                }
+                restoreFn();
             }
-            else
+            catch (e)
             {
-                logger
-                        .info(
-                                'Script "{}" attempted to execute function without a tagged caller script URL, but provided no callback function to execute',
-                                actualCaller);
+                restoreFn();
+
+                throw e;
             }
 
             return result;
@@ -1627,7 +1632,7 @@
 
         moduleRegistry.initFromSharedState();
 
-        contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
+        contextScriptUrl = getCaller();
         contextModule = moduleRegistry.getModuleByUrl(contextScriptUrl);
 
         for (idx = 0; idx < arguments.length; idx += 1)
@@ -1765,7 +1770,7 @@
      */
     define.preload = function amd__define_preload(moduleId, aliasModuleId)
     {
-        var normalizedModuleId, module, contextScriptUrl;
+        var normalizedModuleId, module;
 
         moduleRegistry.initFromSharedState();
 
@@ -1776,14 +1781,13 @@
 
         if (typeof moduleId === 'string')
         {
-            contextScriptUrl = NashornUtils.getCallerScriptURL(true, false);
-            normalizedModuleId = normalizeModuleId(moduleId, null, contextScriptUrl, true);
+            normalizedModuleId = normalizeModuleId(moduleId, null, null, true);
 
             module = moduleRegistry.getModule(normalizedModuleId);
             if (!isObject(module) || module === DUMMY_MODULE)
             {
                 logger.debug('Pre-loading module "{}"', normalizedModuleId);
-                moduleManagement.loadModule(normalizedModuleId, true, contextScriptUrl);
+                moduleManagement.loadModule(normalizedModuleId, true);
 
                 // if it a module has been registered with the expected name initialize it too
                 // check for provided aliasModuleId first
@@ -1795,7 +1799,7 @@
                 module = moduleRegistry.getModule(normalizedModuleId);
                 if (isObject(module) && module !== DUMMY_MODULE && typeof module.factory === 'function')
                 {
-                    moduleManagement.getModule(normalizedModuleId, true, true, contextScriptUrl);
+                    moduleManagement.getModule(normalizedModuleId, true, true);
                 }
             }
         }
@@ -1908,6 +1912,7 @@
         }), 'loaderMetaLoader');
     }());
 
+    // TODO Turn require module into reference-aware require-only (incl caller tagging based on referencing module)
     moduleRegistry.addModule(Object.create(Object.prototype, {
         id : {
             value : 'require',
@@ -1935,6 +1940,7 @@
         }
     }), 'require');
 
+    // TODO Turn define module into reference-aware define-only (incl caller tagging based on referencing module)
     moduleRegistry.addModule(Object.create(Object.prototype, {
         id : {
             value : 'define',
