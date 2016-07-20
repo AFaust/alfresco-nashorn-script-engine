@@ -17,7 +17,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
@@ -35,26 +34,24 @@ public class StrictScriptEnforcingSourceInputStream extends InputStream
 
     protected volatile boolean endOfSourceReached = false;
 
-    // allocate enough for a 1MiB script line
-    // (highly unexpected, even if using purely multi-byte characters in an unformatted block comment)
-    protected final transient ByteBuffer scriptSourceBytes = ByteBuffer.allocate(1024 * 1024);
+    protected transient byte[] buffer;
 
-    protected final transient Charset charset;
+    protected transient int bufPos = -1;
 
-    protected final transient BufferedReader reader;
+    protected final Charset charset;
+
+    protected final BufferedReader reader;
 
     public StrictScriptEnforcingSourceInputStream(final InputStream in)
     {
         this.charset = StandardCharsets.UTF_8;
         this.reader = new BufferedReader(new InputStreamReader(in, this.charset));
-        this.scriptSourceBytes.limit(0);
     }
 
     public StrictScriptEnforcingSourceInputStream(final InputStream in, final Charset charset)
     {
         this.charset = charset;
         this.reader = new BufferedReader(new InputStreamReader(in, charset));
-        this.scriptSourceBytes.limit(0);
     }
 
     /**
@@ -64,14 +61,14 @@ public class StrictScriptEnforcingSourceInputStream extends InputStream
     public int read() throws IOException
     {
         int read;
-        if (!this.scriptSourceBytes.hasRemaining() && !this.endOfSourceReached)
+        if ((this.bufPos == -1 || this.buffer == null || this.bufPos >= this.buffer.length) && !this.endOfSourceReached)
         {
             this.fillBufferWithNextLine();
         }
 
-        if (this.scriptSourceBytes.hasRemaining())
+        if (this.buffer != null && this.bufPos < this.buffer.length)
         {
-            read = this.scriptSourceBytes.get();
+            read = this.buffer[this.bufPos++];
         }
         else
         {
@@ -93,16 +90,12 @@ public class StrictScriptEnforcingSourceInputStream extends InputStream
 
     protected synchronized void fillBufferWithNextLine() throws IOException
     {
-        this.scriptSourceBytes.rewind();
-        this.scriptSourceBytes.limit(0);
-
         final String line = this.reader.readLine();
         if (line != null)
         {
-            String lineToWrite;
+            final StringBuilder lineBuilder = new StringBuilder(line.length());
             if (!this.strictFoundOrInjected)
             {
-                final StringBuilder lineBuilder = new StringBuilder(line.length());
                 char last = '\n';
                 for (int idx = 0; idx < line.length(); idx++)
                 {
@@ -200,18 +193,15 @@ public class StrictScriptEnforcingSourceInputStream extends InputStream
 
                     last = c;
                 }
-                lineToWrite = lineBuilder.toString();
             }
             else
             {
-                lineToWrite = line;
+                lineBuilder.append(line);
             }
 
-            final byte[] lineBytes = lineToWrite.getBytes(this.charset);
-            this.scriptSourceBytes.limit(lineBytes.length + 1);
-            this.scriptSourceBytes.put(lineBytes);
-            this.scriptSourceBytes.put(String.valueOf('\n').getBytes());
-            this.scriptSourceBytes.rewind();
+            lineBuilder.append('\n');
+            this.buffer = lineBuilder.toString().getBytes(this.charset);
+            this.bufPos = 0;
         }
         else
         {
