@@ -9,8 +9,8 @@
  */
 /* globals -require */
 define(
-        [ './c3mro', 'require', './logger' ],
-        function declare_root(c3mro, require, logger)
+        [ './c3mro', 'require', 'define', './logger' ],
+        function declare_root(c3mro, require, define, logger)
         {
             'use strict';
             var anonClassCount = 0, FnCtor, DummyCtor, isObject, fn_toString, isInstanceOf, inherited, forceNew, applyNew, createStandardConstructor, standardConstructorImpl, taggedMixin, standardPrototype, declareImpl, declare;
@@ -554,48 +554,49 @@ define(
              * @param {object}
              *            structure - the "body" of the new class definining its properties and functions
              */
-            declare = function declare__declare()
+            // callerUrl provided via 'callerProvided' flag in special module handling
+            declare = function declare__declare(callerUrl)
             {
-                var className, bases, superClass, structure, idx, fArr, fIdx;
+                var args, className, bases, superClass, structure;
 
-                for (idx = 0; idx < arguments.length; idx++)
+                args = Array.prototype.slice.call(arguments, 1);
+
+                args.forEach(function declare__declare_forEachArg(value, idx)
                 {
-                    if (idx === 0 && typeof arguments[idx] === 'string')
+                    if (idx === 0 && typeof value === 'string')
                     {
-                        className = arguments[idx];
+                        className = value;
                     }
 
-                    if (idx < 2 && bases === undefined && structure === undefined && typeof arguments[idx] === 'function')
+                    if (idx < 2 && bases === undefined && structure === undefined && typeof value === 'function')
                     {
-                        bases = [ arguments[idx] ];
+                        bases = [ value ];
                     }
 
-                    if (idx < 2 && bases === undefined && structure === undefined && Array.isArray(arguments[idx]))
+                    if (idx < 2 && bases === undefined && structure === undefined && Array.isArray(value))
                     {
-                        fArr = arguments[idx];
-
                         bases = [];
-                        for (fIdx = 0; fIdx < fArr.length; fIdx++)
+                        value.forEach(function declare__declare_forEachArg_forEachBaseClass(fn)
                         {
-                            if (typeof fArr[fIdx] !== 'function')
+                            if (typeof fn !== 'function')
                             {
-                                throw new Error('Base ' + fArr[fIdx] + ' is not a callable constructor');
+                                throw new Error('Base ' + fn + ' is not a callable constructor');
                             }
 
-                            if (!isObject(fArr[fIdx]._declare_meta) || typeof fArr[fIdx]._declare_meta.className !== 'string')
+                            if (!isObject(fn._declare_meta) || typeof fn._declare_meta.className !== 'string')
                             {
-                                throw new Error('Base ' + fArr[fIdx] + ' appears not to have been defined via declare');
+                                throw new Error('Base ' + fn + ' appears not to have been defined via declare');
                             }
 
-                            bases.push(fArr[fIdx]);
-                        }
+                            bases.push(fn);
+                        });
                     }
 
-                    if (idx < 3 && structure === undefined && isObject(arguments[idx]))
+                    if (idx < 3 && structure === undefined && isObject(value))
                     {
-                        structure = arguments[idx];
+                        structure = value;
                     }
-                }
+                });
 
                 if (structure === undefined || structure === null)
                 {
@@ -609,7 +610,7 @@ define(
 
                 if (className === undefined || className === null)
                 {
-                    className = require.getCallerScriptModuleId(true);
+                    className = require.getScriptFileModuleId(callerUrl);
                     if (className === undefined || className === null)
                     {
                         className = 'anonClass_' + (++anonClassCount);
@@ -626,5 +627,5 @@ define(
 
             Object.freeze(declare);
 
-            return declare;
+            return define.asSpecialModule(declare, [ 'callerProvided' ]);
         });

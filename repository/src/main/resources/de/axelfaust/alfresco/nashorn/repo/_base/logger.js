@@ -14,16 +14,14 @@
  */
 /* globals -require */
 /* globals SimpleLogger: false */
-define([ 'require' ], function logger(require)
+define([ 'require', 'define' ], function logger(require, define)
 {
     'use strict';
     var loggerModule, getSimpleLogger, loggerByScriptUrl = {};
 
-    getSimpleLogger = function logger__getSimpleLogger()
+    getSimpleLogger = function logger__getSimpleLogger(callerScriptURL)
     {
-        var callerScriptURL, callerScriptModuleId, callerScriptModuleLoader, logger;
-
-        callerScriptURL = require.getCallerScriptURL(true);
+        var callerScriptModuleId, callerScriptModuleLoader, logger;
 
         if (loggerByScriptUrl.hasOwnProperty(callerScriptURL))
         {
@@ -31,8 +29,8 @@ define([ 'require' ], function logger(require)
         }
         else
         {
-            callerScriptModuleId = require.getCallerScriptModuleId(true);
-            callerScriptModuleLoader = require.getCallerScriptModuleLoader(true);
+            callerScriptModuleId = require.getScriptFileModuleId(callerScriptURL);
+            callerScriptModuleLoader = require.getScriptFileModuleLoader(callerScriptURL);
 
             if (typeof callerScriptModuleId === 'string')
             {
@@ -74,12 +72,14 @@ define([ 'require' ], function logger(require)
          *            [params] - log message pattern substitution values to be used in rendering the full log message if the log level is
          *            enabled (mutually exclusive with error)
          */
-        trace : function logger__trace()
+        // callerUrl provided via 'callerProvided' flag in special module handling
+        trace : function logger__trace(callerUrl)
         {
-            // hard redirect is better than dynamic lookup in generic logImpl we had previously
-            var logger = getSimpleLogger();
-            // TODO Determine caller fn + line and expose via MDC
-            logger.trace.apply(logger, arguments);
+            var logger = getSimpleLogger(callerUrl);
+            if (logger.isTraceEnabled())
+            {
+                logger.trace.apply(logger, Array.prototype.slice.call(arguments, 1));
+            }
         },
 
         /**
@@ -89,10 +89,10 @@ define([ 'require' ], function logger(require)
          * @memberof module:_base/logger
          * @returns {boolean} true if the log level is enabled
          */
-        isTraceEnabled : function logger__isTraceEnabled()
+        // callerUrl provided via 'callerProvided' flag in special module handling
+        isTraceEnabled : function logger__isTraceEnabled(callerUrl)
         {
-            // hard redirect is better than dynamic lookup in generic isEnabledImpl we had previously
-            var logger = getSimpleLogger();
+            var logger = getSimpleLogger(callerUrl);
             return logger.isTraceEnabled();
         },
 
@@ -109,12 +109,14 @@ define([ 'require' ], function logger(require)
          *            [params] - log message pattern substitution values to be used in rendering the full log message if the log level is
          *            enabled (mutually exclusive with error)
          */
-        debug : function logger__debug()
+        // callerUrl provided via 'callerProvided' flag in special module handling
+        debug : function logger__debug(callerUrl)
         {
-            // hard redirect is better than dynamic lookup in generic logImpl we had previously
-            var logger = getSimpleLogger();
-            // TODO Determine caller fn + line and expose via MDC
-            logger.debug.apply(logger, arguments);
+            var logger = getSimpleLogger(callerUrl);
+            if (logger.isDebugEnabled())
+            {
+                logger.debug.apply(logger, Array.prototype.slice.call(arguments, 1));
+            }
         },
 
         /**
@@ -124,10 +126,10 @@ define([ 'require' ], function logger(require)
          * @memberof module:_base/logger
          * @returns {boolean} true if the log level is enabled
          */
-        isDebugEnabled : function logger__isDebugEnabled()
+        // callerUrl provided via 'callerProvided' flag in special module handling
+        isDebugEnabled : function logger__isDebugEnabled(callerUrl)
         {
-            // hard redirect is better than dynamic lookup in generic isEnabledImpl we had previously
-            var logger = getSimpleLogger();
+            var logger = getSimpleLogger(callerUrl);
             return logger.isDebugEnabled();
         },
 
@@ -144,12 +146,14 @@ define([ 'require' ], function logger(require)
          *            [params] - log message pattern substitution values to be used in rendering the full log message if the log level is
          *            enabled (mutually exclusive with error)
          */
-        info : function logger__info()
+        // callerUrl provided via 'callerProvided' flag in special module handling
+        info : function logger__info(callerUrl)
         {
-            // hard redirect is better than dynamic lookup in generic logImpl we had previously
-            var logger = getSimpleLogger();
-            // TODO Determine caller fn + line and expose via MDC
-            logger.info.apply(logger, arguments);
+            var logger = getSimpleLogger(callerUrl);
+            if (logger.isInfoEnabled())
+            {
+                logger.info.apply(logger, Array.prototype.slice.call(arguments, 1));
+            }
         },
 
         /**
@@ -159,10 +163,10 @@ define([ 'require' ], function logger(require)
          * @memberof module:_base/logger
          * @returns {boolean} true if the log level is enabled
          */
-        isInfoEnabled : function logger__isInfoEnabled()
+        // callerUrl provided via 'callerProvided' flag in special module handling
+        isInfoEnabled : function logger__isInfoEnabled(callerUrl)
         {
-            // hard redirect is better than dynamic lookup in generic isEnabledImpl we had previously
-            var logger = getSimpleLogger();
+            var logger = getSimpleLogger(callerUrl);
             return logger.isInfoEnabled();
         },
 
@@ -179,12 +183,14 @@ define([ 'require' ], function logger(require)
          *            [params] - log message pattern substitution values to be used in rendering the full log message if the log level is
          *            enabled (mutually exclusive with error)
          */
-        warn : function logger__warn()
+        // callerUrl provided via 'callerProvided' flag in special module handling
+        warn : function logger__warn(callerUrl)
         {
-            // hard redirect is better than dynamic lookup in generic logImpl we had previously
-            var logger = getSimpleLogger();
-            // TODO Determine caller fn + line and expose via MDC
-            logger.warn.apply(logger, arguments);
+            var logger = getSimpleLogger(callerUrl);
+            if (logger.isWarnEnabled())
+            {
+                logger.warn.apply(logger, Array.prototype.slice.call(arguments, 1));
+            }
         },
 
         /**
@@ -194,10 +200,10 @@ define([ 'require' ], function logger(require)
          * @memberof module:_base/logger
          * @returns {boolean} true if the log level is enabled
          */
-        isWarnEnabled : function logger__isWarnEnabled()
+        // callerUrl provided via 'callerProvided' flag in special module handling
+        isWarnEnabled : function logger__isWarnEnabled(callerUrl)
         {
-            // hard redirect is better than dynamic lookup in generic isEnabledImpl we had previously
-            var logger = getSimpleLogger();
+            var logger = getSimpleLogger(callerUrl);
             return logger.isWarnEnabled();
         },
 
@@ -214,12 +220,14 @@ define([ 'require' ], function logger(require)
          *            [params] - log message pattern substitution values to be used in rendering the full log message if the log level is
          *            enabled (mutually exclusive with error)
          */
-        error : function logger__error()
+        // callerUrl provided via 'callerProvided' flag in special module handling
+        error : function logger__error(callerUrl)
         {
-            // hard redirect is better than dynamic lookup in generic logImpl we had previously
-            var logger = getSimpleLogger();
-            // TODO Determine caller fn + line and expose via MDC
-            logger.error.apply(logger, arguments);
+            var logger = getSimpleLogger(callerUrl);
+            if (logger.isErrorEnabled())
+            {
+                logger.error.apply(logger, Array.prototype.slice.call(arguments, 1));
+            }
         },
 
         /**
@@ -229,15 +237,15 @@ define([ 'require' ], function logger(require)
          * @memberof module:_base/logger
          * @returns {boolean} true if the log level is enabled
          */
-        isErrorEnabled : function logger__isErrorEnabled()
+        // callerUrl provided via 'callerProvided' flag in special module handling
+        isErrorEnabled : function logger__isErrorEnabled(callerUrl)
         {
-            // hard redirect is better than dynamic lookup in generic isEnabledImpl we had previously
-            var logger = getSimpleLogger();
+            var logger = getSimpleLogger(callerUrl);
             return logger.isErrorEnabled();
         }
     };
 
     Object.freeze(loggerModule);
 
-    return loggerModule;
+    return define.asSpecialModule(loggerModule, [ 'callerProvided' ]);
 });

@@ -1,6 +1,7 @@
 /* globals -require */
 /* globals -define */
 /* globals Java: false */
+/* globals JSAdapter: false */
 /* globals SimpleLogger: false */
 /* globals applicationContext: false */
 /* globals load: false */
@@ -12,7 +13,7 @@
     // core AMD config and backup state
     mappings = {}, packages = {},
     // internal fns
-    isObject, normalizeModuleId, withTaggedCaller, getCaller, SecureUseOnlyWrapper,
+    isObject, normalizeModuleId, withTaggedCaller, getCaller, SpecialModuleWrapper,
     // Java utils
     NashornUtils, Throwable, AMDUnavailableModuleException, logger,
     // public fns
@@ -32,30 +33,17 @@
         return result;
     };
 
-    SecureUseOnlyWrapper = function amd__SecureUseOnlyWrapper_constructor(module, url)
+    SpecialModuleWrapper = function amd__SpecialModuleWrapper_constructor(module)
     {
         Object.defineProperty(this, 'wrapped', {
             value : module,
             enumerable : true
         });
 
-        if (typeof url === 'string')
-        {
-            Object.defineProperty(this, 'url', {
-                value : url,
-                enumerable : true
-            });
-        }
-
-        Object.defineProperty(this, 'secureUseOnly', {
-            value : true,
-            enumerable : true
-        });
-
-        Object.freeze(this);
-
         return this;
     };
+    SpecialModuleWrapper.prototype = {};
+    SpecialModuleWrapper.prototype.constructor = SpecialModuleWrapper;
 
     (function amd__normalizeModuleId__init()
     {
@@ -216,7 +204,6 @@
                     }
                 }
 
-                // TODO Find a way to bind callerScriptUrl context for provided modules to avoid repeated retrievals)
                 args.push(module);
 
                 // undefined / null are perfectly valid results of a module factory
@@ -671,9 +658,10 @@
 
     moduleManagement = (function amd__moduleManagement__init()
     {
-        var nashornLoad, defaultScope, URL, GloballyRegisteredURLStreamHandler, internal, result;
+        var nashornLoad, Adapter, defaultScope, URL, GloballyRegisteredURLStreamHandler, specialModuleHandling, internal, result;
 
         nashornLoad = load;
+        Adapter = JSAdapter;
         defaultScope = this;
         URL = Java.type('java.net.URL');
 
@@ -685,6 +673,244 @@
         {
             logger.info('JDK 8 workarounds library not available');
         }
+
+        specialModuleHandling = Object.create(null, {
+            convertSpecialModule : {
+                value : function amd__moduleManagement__specialModuleHandling__convertSpecialModule(module, descriptor, url, scope)
+                {
+                    var result, specificAdaptee;
+
+                    if (typeof module === 'function')
+                    {
+                        result = Function.prototype.bind.call(specialModuleHandling.specialModuleFnCall, undefined, module, descriptor,
+                                url, scope);
+
+                        Object.keys(module).forEach(
+                                function amd__moduleManagement__specialModuleHandling__convertSpecialModule_forEachFunctionKey(key)
+                                {
+                                    result[key] = specialModuleHandling.convertSpecialModule(module[key], descriptor, url, module);
+                                });
+                    }
+                    else if (isObject(module))
+                    {
+                        specificAdaptee = {};
+
+                        Object.keys(specialModuleHandling.specialModuleAdaptee).forEach(
+                                function amd__moduleManagement__specialModuleHandling__convertSpecialModule_forEachAdapteeFunctionName(key)
+                                {
+                                    specificAdaptee[key] = Function.prototype.bind.call(specialModuleHandling.specialModuleAdaptee[key],
+                                            undefined, module, descriptor, url);
+                                });
+
+                        result = new Adapter(module, {}, specificAdaptee);
+                    }
+                    else
+                    {
+                        result = module;
+                    }
+
+                    return result;
+                }
+            },
+            specialModuleFnCall : {
+                value : function amd__moduleManagement__specialModuleHandling__specialModuleFnCall(fn, descriptor, url, scope)
+                {
+                    var result, args;
+
+                    args = Array.prototype.slice.call(arguments, 4);
+
+                    logger.trace('Special module function {} called from {} with arguments {}', [ fn.name, url, args ]);
+
+                    if (descriptor.hasOwnProperty('callerTagged') && descriptor.callerTagged === true)
+                    {
+                        withTaggedCaller(function amd__moduleManagement__specialModuleFnCall__callerTagged()
+                        {
+                            result = fn.apply(scope, args);
+                        }, url);
+                    }
+                    else
+                    {
+                        if (descriptor.hasOwnProperty('callerProvided') && descriptor.callerProvided === true)
+                        {
+                            args.splice(0, 0, url);
+                        }
+                        result = fn.apply(scope, args);
+                    }
+
+                    // result of call won't be converted into "special module"-aware
+
+                    return result;
+                }
+            },
+
+            specialModuleAdaptee : {
+                value : {
+                    __has__ : function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__has__(module, descriptor, url,
+                            name)
+                    {
+                        var result = name in module;
+                        return result;
+                    },
+
+                    __get__ : function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__get__(module, descriptor, url,
+                            name)
+                    {
+                        var result;
+                        if (descriptor.hasOwnProperty('callerTagged') && descriptor.callerTagged === true)
+                        {
+                            // property might be associated with a caller-aware getter
+                            withTaggedCaller(
+                                    function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__get__callerTagged()
+                                    {
+                                        result = module[name];
+                                    }, url);
+                        }
+                        else
+                        {
+                            result = module[name];
+                        }
+
+                        result = specialModuleHandling.convertSpecialModule(result, descriptor, url, module);
+
+                        return result;
+                    },
+
+                    __put__ : function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__put__(module, descriptor, url,
+                            name, value)
+                    {
+                        var result;
+                        if (descriptor.hasOwnProperty('callerTagged') && descriptor.callerTagged === true)
+                        {
+                            // property might be associated with a caller-aware setter
+                            withTaggedCaller(
+                                    function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__put__callerTagged()
+                                    {
+                                        result = (module[name] = value);
+                                    }, url);
+                        }
+                        else
+                        {
+                            result = (module[name] = value);
+                        }
+
+                        result = specialModuleHandling.convertSpecialModule(result, descriptor, url, module);
+
+                        return result;
+                    },
+
+                    __delete__ : function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__delete__(module, descriptor,
+                            url, name)
+                    {
+                        var result = delete module[name];
+                        return result;
+                    },
+
+                    __getIds__ : function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__getIds__(module)
+                    {
+                        var name, result = [];
+
+                        /* jshint forin: false */
+                        for (name in module)
+                        {
+                            result.push(name);
+                        }
+                        /* jshint forin: true */
+
+                        return result;
+                    },
+
+                    __getKeys__ : function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__getKeys__(module)
+                    {
+                        var name, result = [];
+
+                        /* jshint forin: false */
+                        for (name in module)
+                        {
+                            result.push(name);
+                        }
+                        /* jshint forin: true */
+
+                        return result;
+                    },
+
+                    __getValues__ : function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__getValues__(module,
+                            descriptor, url)
+                    {
+                        var result = [];
+
+                        if (descriptor.hasOwnProperty('callerTagged') && descriptor.callerTagged === true)
+                        {
+                            // properties might be associated with a caller-aware getter
+                            withTaggedCaller(
+                                    function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__getValues__callerTagged()
+                                    {
+                                        var name, value;
+                                        /* jshint forin:false */
+                                        for (name in module)
+                                        {
+                                            value = module[name];
+                                            value = specialModuleHandling.convertSpecialModule(value, descriptor, url, module);
+                                            result.push(value);
+                                        }
+                                        /* jshint forin:true */
+                                    }, url);
+                        }
+                        else
+                        {
+                            // bug in jshint - claims name as implicitly defined global if included in first var block
+                            /* jshint ignore:start */
+                            var name, value;
+                            for (name in module)
+                            {
+                                value = module[name];
+                                value = specialModuleHandling.convertSpecialModule(value, descriptor, url, module);
+                                result.push(value);
+                            }
+                            /* jshint ignore:end */
+                        }
+                        return result;
+                    },
+
+                    __call__ : function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__call__(module, descriptor, url,
+                            name)
+                    {
+                        var result, args;
+
+                        args = Array.prototype.slice.call(arguments, 4);
+                        logger.trace('Special module proxy called on {} from {} with arguments {}', [ name, url, args ]);
+                        args = [ module[name], descriptor, url, module ].concat(args);
+                        result = specialModuleHandling.specialModuleFnCall.apply(undefined, args);
+                        return result;
+                    },
+
+                    __new__ : function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__new__(module, descriptor, url)
+                    {
+                        var result, args, BoundCtor;
+
+                        args = [ undefined ].concat(Array.prototype.slice.call(arguments, 3));
+
+                        if (descriptor.hasOwnProperty('callerTagged') && descriptor.callerTagged === true)
+                        {
+                            withTaggedCaller(
+                                    function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__new__callerTagged()
+                                    {
+                                        BoundCtor = Function.prototype.bind.apply(module, args);
+                                        result = new BoundCtor();
+                                    }, url);
+                        }
+                        else
+                        {
+                            BoundCtor = Function.prototype.bind.apply(module, args);
+                            result = new BoundCtor();
+                        }
+
+                        // result of constructor won't be converted into "special module"-aware
+
+                        return result;
+                    }
+                }
+            }
+        });
 
         internal = Object
                 .create(
@@ -699,7 +925,7 @@
                                     urlStr = String(url);
 
                                     module = moduleRegistry.getModuleByUrl(urlStr);
-                                    if (isObject(module))
+                                    if (isObject(module) && module !== DUMMY_MODULE)
                                     {
                                         if (module.id === normalizedId)
                                         {
@@ -750,29 +976,34 @@
                                         moduleRegistry.addModule(module);
 
                                         // we load with custom scope to prevent pollution of the potentially shared global
-                                        customScope = Object.create(defaultScope);
-
-                                        withTaggedCaller(function amd__moduleManagement__handleModuleLoadFromURL_nashornLoad()
-                                        {
-                                            if (GloballyRegisteredURLStreamHandler)
-                                            {
-                                                GloballyRegisteredURLStreamHandler.startScriptLoad();
-                                                try
-                                                {
-                                                    implicitResult = nashornLoad.call(customScope, url);
-                                                    GloballyRegisteredURLStreamHandler.endScriptLoad();
-                                                }
-                                                catch (e)
-                                                {
-                                                    GloballyRegisteredURLStreamHandler.endScriptLoad();
-                                                    throw e;
-                                                }
+                                        // provide global modules as potentially script-bound variants
+                                        customScope = Object.create(defaultScope, {
+                                            define : {
+                                                value : moduleManagement.getModule('define', true, isSecureSource === true, urlStr)
+                                            },
+                                            require : {
+                                                value : moduleManagement.getModule('require', true, isSecureSource === true, urlStr)
                                             }
-                                            else
+                                        });
+
+                                        if (GloballyRegisteredURLStreamHandler)
+                                        {
+                                            GloballyRegisteredURLStreamHandler.startScriptLoad();
+                                            try
                                             {
                                                 implicitResult = nashornLoad.call(customScope, url);
+                                                GloballyRegisteredURLStreamHandler.endScriptLoad();
                                             }
-                                        }, urlStr);
+                                            catch (e)
+                                            {
+                                                GloballyRegisteredURLStreamHandler.endScriptLoad();
+                                                throw e;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            implicitResult = nashornLoad.call(customScope, url);
+                                        }
 
                                         // no module defined yet by requested module id
                                         // may be a non-module script with implicit return value
@@ -1010,8 +1241,6 @@
                                                         logger.debug('Loading dependency "{}" for module "{}"', [ module.dependencies[idx],
                                                                 normalizedId ]);
 
-                                                        // TODO Find a way to bind module.url/callerScriptURL context for provided
-                                                        // modules to avoid repeated retrievals)
                                                         dependency = moduleManagement.getModule(module.dependencies[idx], true, isSecure,
                                                                 module.url);
 
@@ -1169,17 +1398,15 @@
                     module = internal.loadModuleDefinition(normalizedId, doLoad, callerSecure, callerUrl);
                     moduleResult = internal.loadModuleResult(normalizedId, module, doLoad, callerSecure, callerUrl);
 
-                    // TODO Refactor with check for wrapper (when we have introduced the generic module result wrapper)
-                    if (callerSecure !== true && isObject(moduleResult) && ('secureUseOnly' in moduleResult)
-                            && moduleResult.secureUseOnly === true)
+                    if (moduleResult instanceof SpecialModuleWrapper)
                     {
-                        throw new Error('Access to module \'' + normalizedId + '\' is not allowed for unsecure caller \'' + callerUrl
-                                + '\'');
-                    }
+                        if (callerSecure !== true && moduleResult.hasOwnProperty('secureUseOnly') && moduleResult.secureUseOnly === true)
+                        {
+                            throw new Error('Access to module \'' + normalizedId + '\' is not allowed for unsecure caller \'' + callerUrl
+                                    + '\'');
+                        }
 
-                    if (moduleResult instanceof SecureUseOnlyWrapper)
-                    {
-                        moduleResult = moduleResult.wrapped;
+                        moduleResult = specialModuleHandling.convertSpecialModule(moduleResult.wrapped, moduleResult, callerUrl);
                     }
 
                     return moduleResult;
@@ -1429,38 +1656,6 @@
             };
         };
 
-        require.isSecureCallerScript = function amd__require__isSecureCallerScript(suppressTaggedCaller)
-        {
-            var amdScriptUrl, baseUrl, contextScriptUrl, contextModule, isSecure;
-
-            // skip this and the caller script to determine script URL of callers caller
-            if (suppressTaggedCaller === true)
-            {
-                contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
-            }
-            else
-            {
-                contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
-            }
-            contextModule = moduleRegistry.getModuleByUrl(contextScriptUrl);
-
-            if (isObject(contextModule))
-            {
-                isSecure = contextModule.secureSource === true;
-            }
-            else
-            {
-                // no module = insecure by default unless caller is from this script package
-                amdScriptUrl = NashornUtils.getCallerScriptURL(false, false);
-                baseUrl = amdScriptUrl.substring(0, amdScriptUrl.length - 'amd.js'.length);
-                isSecure = contextScriptUrl.substring(0, baseUrl.length) === baseUrl;
-            }
-
-            logger.trace('Determined script "{}" to be secure: {}', [ contextScriptUrl, isSecure ]);
-
-            return isSecure;
-        };
-
         require.getCallerScriptURL = function amd__require__getCallerScriptURL(suppressTaggedCaller)
         {
             var contextScriptUrl;
@@ -1478,21 +1673,13 @@
             return contextScriptUrl;
         };
 
-        require.getCallerScriptModuleId = function amd__require__getCallerScriptModuleId(suppressTaggedCaller)
+        require.getScriptFileModuleId = function amd__require__getScriptFileModuleId(contextScriptUrl)
         {
-            var contextScriptUrl, contextModule, moduleId;
+            var contextModule, moduleId;
 
-            if (suppressTaggedCaller === true)
-            {
-                contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
-            }
-            else
-            {
-                contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
-            }
             contextModule = moduleRegistry.getModuleByUrl(contextScriptUrl);
 
-            if (isObject(contextModule))
+            if (isObject(contextModule) && contextModule !== DUMMY_MODULE)
             {
                 moduleId = contextModule.id;
 
@@ -1505,56 +1692,18 @@
             return moduleId;
         };
 
-        require.getCallerScriptModuleLoader = function amd__require__getCallerScriptModuleLoader(suppressTaggedCaller)
+        require.getScriptFileModuleLoader = function amd__require__getScriptFileModuleLoader(contextScriptUrl)
         {
-            var contextScriptUrl, contextModule, moduleLoader;
+            var contextModule, moduleLoader;
 
-            if (suppressTaggedCaller === true)
-            {
-                contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
-            }
-            else
-            {
-                contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
-            }
             contextModule = moduleRegistry.getModuleByUrl(contextScriptUrl);
 
-            if (isObject(contextModule))
+            if (isObject(contextModule) && contextModule !== DUMMY_MODULE)
             {
                 moduleLoader = contextModule.loader;
             }
 
             return moduleLoader;
-        };
-
-        /**
-         * Tags the current execution context with a fixed caller script URL. The script URL is determined from the current stack and
-         * excludes both the script of this operation as well as the immediate caller.
-         * 
-         * @instance
-         * @memberof require
-         * @param {boolean}
-         *            [untaggedOnly] - flag if the execution context should only be tagged if not already tagged at the time of the call
-         * @returns {function} a callback to restore the execution context to its previous state
-         */
-        require.tagCallerScript = function amd__require__tagCallerScript(untaggedOnly)
-        {
-            var restoreFn, contextScriptUrl;
-
-            restoreFn = getRestoreTaggedCallerFn(executionState.taggedCallerScriptUrl);
-            if (untaggedOnly === true)
-            {
-                contextScriptUrl = executionState.taggedCallerScriptUrl || NashornUtils.getCallerScriptURL(2, true);
-            }
-            else
-            {
-                contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
-            }
-            executionState.taggedCallerScriptUrl = contextScriptUrl;
-
-            logger.debug('Caller script tagged as "{}"', contextScriptUrl);
-
-            return restoreFn;
         };
 
         /**
@@ -1602,7 +1751,8 @@
             }
             else
             {
-                logger.info('Attempted to execute function with a tagged caller script URL, but provided no callback function to execute');
+                logger.info('Attempted to execute function with a tagged script caller "{}", but provided no callback function to execute',
+                        contextScriptUrl);
             }
 
             return result;
@@ -1776,10 +1926,36 @@
         moduleRegistry.addModule(module, id, normalizedId);
     };
 
-    // TODO Expand into a generic "asModule" supporting modifiers such as "secureUse", "clientModuleAware"...
-    define.asSecureUseModule = function amd__define_asSecureUseModule(module, url)
+    /**
+     * Wraps and tags a module with one or multiple feature flags that the AMD module system handles accordingly when references to the
+     * module are requested as dependencies of other modules.
+     * 
+     * @instance
+     * @memberof define
+     * @param {object|function}
+     *            module - the actual module instance
+     * @param {string[]}
+     *            flags - the feature flags to be applied to the module
+     */
+    define.asSpecialModule = function amd__define_asSpecialModule(module, flags)
     {
-        return new SecureUseOnlyWrapper(module, url);
+        var wrapper;
+
+        logger.debug('Tagging module as special with flags {}', [ flags ]);
+        wrapper = new SpecialModuleWrapper(module);
+
+        if (Array.isArray(flags))
+        {
+            flags.forEach(function amd__define_asSpecialModule_forEachFlag(flag)
+            {
+                if (define.amd.supportedModuleFlags.indexOf(flag) !== -1)
+                {
+                    wrapper[flag] = true;
+                }
+            });
+        }
+
+        return wrapper;
     };
 
     /**
@@ -1836,19 +2012,20 @@
     };
 
     // mininum object to identify define as AMD compatible
-    define.amd = {};
+    define.amd = {
+        supportedModuleFlags : [ 'secureUseOnly', 'callerTagged', 'callerProvided' ]
+    };
 
     // freeze all the things
     Object.freeze(require.whenAvailable);
-    Object.freeze(require.isSecureCallerScript);
-    Object.freeze(require.getCallerScriptModuleId);
-    Object.freeze(require.getCallerScriptModuleLoader);
+    Object.freeze(require.getScriptFileModuleId);
+    Object.freeze(require.getScriptFileModuleLoader);
     Object.freeze(require.getCallerScriptURL);
-    Object.freeze(require.tagCallerScript);
     Object.freeze(require.withTaggedCallerScript);
     // require / require.config can't be frozen yet
-    Object.freeze(define.asSecureUseModule);
+    Object.freeze(define.asSpecialModule);
     Object.freeze(define.preload);
+    Object.freeze(define.amd.supportedModuleFlags);
     Object.freeze(define.amd);
     Object.freeze(define);
 
@@ -1938,7 +2115,6 @@
         }), 'loaderMetaLoader');
     }());
 
-    // TODO Turn require module into reference-aware require-only (incl caller tagging based on referencing module)
     moduleRegistry.addModule(Object.create(Object.prototype, {
         id : {
             value : 'require',
@@ -1957,7 +2133,7 @@
             enumerable : true
         },
         result : {
-            value : require,
+            value : define.asSpecialModule(require, [ 'callerTagged' ]),
             enumerable : true
         },
         secureSource : {
@@ -1966,7 +2142,6 @@
         }
     }), 'require');
 
-    // TODO Turn define module into reference-aware define-only (incl caller tagging based on referencing module)
     moduleRegistry.addModule(Object.create(Object.prototype, {
         id : {
             value : 'define',
@@ -1985,7 +2160,7 @@
             enumerable : true
         },
         result : {
-            value : define,
+            value : define.asSpecialModule(define, [ 'callerTagged' ]),
             enumerable : true
         },
         secureSource : {

@@ -111,5 +111,5 @@ define('node', [ 'define', 'nashorn!Java', 'serviceRegistry!NamespaceService', '
     Object.freeze(loader.load);
     Object.freeze(loader);
 
-    return define.asSecureUseModule(loader);
+    return define.asSpecialModule(loader, [ 'secureUseOnly' ]);
 });

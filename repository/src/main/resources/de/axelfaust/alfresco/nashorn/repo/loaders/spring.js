@@ -31,13 +31,13 @@
             load : function spring_loader__load(normalizedId, require, load)
             {
                 var bean = appContext.getBean(normalizedId.replace(/\//g, '.'));
-                load(define.asSecureUseModule(bean), true);
+                load(define.asSpecialModule(bean, [ 'secureUseOnly' ]), true);
             }
         };
 
         Object.freeze(loader.load);
         Object.freeze(loader);
 
-        return define.asSecureUseModule(loader);
+        return define.asSpecialModule(loader, [ 'secureUseOnly' ]);
     });
 }());

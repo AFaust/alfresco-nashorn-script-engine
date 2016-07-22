@@ -43,7 +43,7 @@ define('serviceRegistry', [ 'define', 'spring!ServiceRegistry' ], function alfre
 
             if (service !== null)
             {
-                load(define.asSecureUseModule(service), true);
+                load(define.asSpecialModule(service, [ 'secureUseOnly' ]), true);
             }
         }
     };
@@ -51,5 +51,5 @@ define('serviceRegistry', [ 'define', 'spring!ServiceRegistry' ], function alfre
     Object.freeze(loader.load);
     Object.freeze(loader);
 
-    return define.asSecureUseModule(loader);
+    return define.asSpecialModule(loader, [ 'secureUseOnly' ]);
 });

@@ -408,11 +408,11 @@ define(
 
                             if (this === _this['--proxy'] || this === undefined)
                             {
-                                fnResult = fn.apply(_this, Array.prototype.slice(arguments, 1));
+                                fnResult = fn.apply(_this, Array.prototype.slice.call(arguments, 1));
                             }
                             else
                             {
-                                fnResult = fn.apply(this, Array.prototype.slice(arguments, 1));
+                                fnResult = fn.apply(this, Array.prototype.slice.call(arguments, 1));
                             }
 
                             return fnResult;
@@ -781,7 +781,7 @@ define(
 
                     if (typeof this === 'function')
                     {
-                        BoundCtor = Function.prototype.bind.apply(this, [ undefined ].concat(Array.prototype.slice(arguments, 1)));
+                        BoundCtor = Function.prototype.bind.apply(this, [ undefined ].concat(Array.prototype.slice.call(arguments, 0)));
                         result = new BoundCtor();
                     }
 
