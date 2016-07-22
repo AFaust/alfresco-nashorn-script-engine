@@ -260,7 +260,7 @@
          */
         trace : function simple_logger__trace(message, arg2)
         {
-            var args, idx;
+            var args;
 
             // no point wasting time if it isn't enabled
             if (this.logger.traceEnabled)
@@ -280,12 +280,7 @@
                 }
                 else if (arguments.length > 1)
                 {
-                    args = [];
-                    for (idx = 1; idx < arguments.length; idx++)
-                    {
-                        args.push(arguments[idx]);
-                    }
-
+                    args = Array.prototype.slice.call(arguments, 1);
                     this._traceVarArgs(message, processMessageParams(args));
                 }
             }
@@ -306,7 +301,7 @@
          */
         debug : function simple_logger__debug(message, arg2)
         {
-            var args, idx;
+            var args;
 
             // no point wasting time if it isn't enabled
             if (this.logger.debugEnabled)
@@ -326,12 +321,7 @@
                 }
                 else if (arguments.length > 1)
                 {
-                    args = [];
-                    for (idx = 1; idx < arguments.length; idx++)
-                    {
-                        args.push(arguments[idx]);
-                    }
-
+                    args = Array.prototype.slice.call(arguments, 1);
                     this._debugVarArgs(message, processMessageParams(args));
                 }
             }
@@ -352,7 +342,7 @@
          */
         info : function simple_logger__info(message, arg2)
         {
-            var args, idx;
+            var args;
 
             // no point wasting time if it isn't enabled
             if (this.logger.infoEnabled)
@@ -372,12 +362,7 @@
                 }
                 else if (arguments.length > 1)
                 {
-                    args = [];
-                    for (idx = 1; idx < arguments.length; idx++)
-                    {
-                        args.push(arguments[idx]);
-                    }
-
+                    args = Array.prototype.slice.call(arguments, 1);
                     this._infoVarArgs(message, processMessageParams(args));
                 }
             }
@@ -398,7 +383,7 @@
          */
         warn : function simple_logger__warn(message, arg2)
         {
-            var args, idx;
+            var args;
 
             // no point wasting time if it isn't enabled
             if (this.logger.warnEnabled)
@@ -418,12 +403,7 @@
                 }
                 else if (arguments.length > 1)
                 {
-                    args = [];
-                    for (idx = 1; idx < arguments.length; idx++)
-                    {
-                        args.push(arguments[idx]);
-                    }
-
+                    args = Array.prototype.slice.call(arguments, 1);
                     this._warnVarArgs(message, processMessageParams(args));
                 }
             }
@@ -444,7 +424,7 @@
          */
         error : function simple_logger__error(message, arg2)
         {
-            var args, idx;
+            var args;
 
             // no point wasting time if it isn't enabled
             if (this.logger.errorEnabled)
@@ -464,12 +444,7 @@
                 }
                 else if (arguments.length > 1)
                 {
-                    args = [];
-                    for (idx = 1; idx < arguments.length; idx++)
-                    {
-                        args.push(arguments[idx]);
-                    }
-
+                    args = Array.prototype.slice.call(arguments, 1);
                     this._errorVarArgs(message, processMessageParams(args));
                 }
             }
