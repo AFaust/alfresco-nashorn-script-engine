@@ -20,6 +20,9 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLStreamHandler;
 
+import org.alfresco.scripts.ScriptException;
+import org.alfresco.service.cmr.repository.ScriptLocation;
+import org.alfresco.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,6 +33,37 @@ public class CallerProvidedURLStreamHandler extends URLStreamHandler
 {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CallerProvidedURLStreamHandler.class);
+
+    private static final ThreadLocal<Pair<String, Boolean>> CURRENT_CALLER_PROVIDED_SCRIPT = new ThreadLocal<Pair<String, Boolean>>();
+
+    private static final ThreadLocal<ScriptLocation> CURRENT_CALLER_PROVIDED_LOCATION = new ThreadLocal<ScriptLocation>();
+
+    public static void clearCallerProvidedScript()
+    {
+        CURRENT_CALLER_PROVIDED_LOCATION.remove();
+        CURRENT_CALLER_PROVIDED_SCRIPT.remove();
+    }
+
+    public static void registerCallerProvidedScript(final String script, final boolean secure)
+    {
+        CURRENT_CALLER_PROVIDED_LOCATION.remove();
+        CURRENT_CALLER_PROVIDED_SCRIPT.set(new Pair<>(script, Boolean.valueOf(secure)));
+    }
+
+    public static void registerCallerProvidedScript(final ScriptLocation scriptLocation)
+    {
+        CURRENT_CALLER_PROVIDED_LOCATION.set(scriptLocation);
+        CURRENT_CALLER_PROVIDED_SCRIPT.remove();
+    }
+
+    public static boolean isCallerProvidedScriptSecure()
+    {
+        final boolean result;
+        final ScriptLocation scriptLocation = CURRENT_CALLER_PROVIDED_LOCATION.get();
+        final Pair<String, Boolean> script = CURRENT_CALLER_PROVIDED_SCRIPT.get();
+        result = (scriptLocation != null && scriptLocation.isSecure()) || (script != null && Boolean.TRUE.equals(script.getSecond()));
+        return result;
+    }
 
     {
         try
@@ -52,7 +86,27 @@ public class CallerProvidedURLStreamHandler extends URLStreamHandler
     @Override
     protected URLConnection openConnection(final URL u) throws IOException
     {
-        return new CallerProvidedURLConnection(u);
+        final URLConnection con;
+
+        final Pair<String, Boolean> script = CURRENT_CALLER_PROVIDED_SCRIPT.get();
+        if (script != null)
+        {
+            con = new CallerProvidedURLConnection(u, script.getFirst());
+        }
+        else
+        {
+            final ScriptLocation scriptLocation = CURRENT_CALLER_PROVIDED_LOCATION.get();
+            if (scriptLocation != null)
+            {
+                con = new CallerProvidedURLConnection(u, scriptLocation);
+            }
+            else
+            {
+                throw new ScriptException("No caller-provided script has been registered");
+            }
+        }
+
+        return con;
     }
 
 }

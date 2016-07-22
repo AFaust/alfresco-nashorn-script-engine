@@ -55,7 +55,7 @@ import org.springframework.extensions.webscripts.WebScriptException;
 import org.springframework.extensions.webscripts.WebScriptRequest;
 import org.springframework.extensions.webscripts.WebScriptResponse;
 
-import de.axelfaust.alfresco.nashorn.repo.loaders.CallerProvidedURLConnection;
+import de.axelfaust.alfresco.nashorn.repo.loaders.CallerProvidedURLStreamHandler;
 
 /**
  * @author Axel Faust
@@ -319,7 +319,7 @@ public class ExecutePost extends AbstractWebScript implements InitializingBean
             scriptModel.put("_printOutput", resultModel.get("printOutput"));
 
             final long scriptStart = System.nanoTime();
-            CallerProvidedURLConnection.registerCallerProvidedScript(script, true);
+            CallerProvidedURLStreamHandler.registerCallerProvidedScript(script, true);
             try
             {
                 final ScriptDetails executeScript = this.getExecuteScript(req.getContentType());
@@ -327,7 +327,7 @@ public class ExecutePost extends AbstractWebScript implements InitializingBean
             }
             finally
             {
-                CallerProvidedURLConnection.clearCallerProvidedScript();
+                CallerProvidedURLStreamHandler.clearCallerProvidedScript();
                 resultModel.put("scriptMicroTime", Math.round((Long.valueOf(System.nanoTime() - scriptStart)/1000)));
             }
         }

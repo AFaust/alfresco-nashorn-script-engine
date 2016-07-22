@@ -59,7 +59,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.core.io.Resource;
 
-import de.axelfaust.alfresco.nashorn.repo.loaders.CallerProvidedURLConnection;
+import de.axelfaust.alfresco.nashorn.repo.loaders.CallerProvidedURLStreamHandler;
 
 /**
  * @author Axel Faust
@@ -253,7 +253,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         }
         else
         {
-            CallerProvidedURLConnection.registerCallerProvidedScript(location);
+            CallerProvidedURLStreamHandler.registerCallerProvidedScript(location);
             try
             {
                 final AMDLoadableScript script = new SimpleAMDLoadableScript("callerProvided", location.getPath());
@@ -261,7 +261,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
             }
             finally
             {
-                CallerProvidedURLConnection.clearCallerProvidedScript();
+                CallerProvidedURLStreamHandler.clearCallerProvidedScript();
             }
         }
 
@@ -315,7 +315,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
     {
         ParameterCheck.mandatoryString("script", scriptStr);
 
-        CallerProvidedURLConnection.registerCallerProvidedScript(scriptStr, this.executeArbitraryScriptStringsAsSecure);
+        CallerProvidedURLStreamHandler.registerCallerProvidedScript(scriptStr, this.executeArbitraryScriptStringsAsSecure);
         try
         {
             final String location = MD5.Digest(scriptStr.getBytes(StandardCharsets.UTF_8));
@@ -325,7 +325,7 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
         }
         finally
         {
-            CallerProvidedURLConnection.clearCallerProvidedScript();
+            CallerProvidedURLStreamHandler.clearCallerProvidedScript();
         }
     }
 

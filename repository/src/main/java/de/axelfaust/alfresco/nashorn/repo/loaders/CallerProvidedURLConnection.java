@@ -17,13 +17,17 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.net.URLConnection;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import org.alfresco.scripts.ScriptException;
 import org.alfresco.service.cmr.repository.ScriptLocation;
+import org.alfresco.util.MD5;
 import org.alfresco.util.Pair;
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
@@ -38,42 +42,79 @@ public class CallerProvidedURLConnection extends URLConnection
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CallerProvidedURLConnection.class);
 
-    private static final ThreadLocal<Pair<String, Boolean>> CURRENT_CALLER_PROVIDED_SCRIPT = new ThreadLocal<Pair<String, Boolean>>();
+    private static final Map<String, Pair<Long, Long>> STRING_SCRIPT_META_CACHE = new LinkedHashMap<String, Pair<Long, Long>>();
 
-    private static final ThreadLocal<ScriptLocation> CURRENT_CALLER_PROVIDED_LOCATION = new ThreadLocal<ScriptLocation>();
+    private static final int STRING_SCRIPT_META_MAX_CACHE_SIZE = 250;
 
-    public static void clearCallerProvidedScript()
-    {
-        CURRENT_CALLER_PROVIDED_LOCATION.remove();
-        CURRENT_CALLER_PROVIDED_SCRIPT.remove();
-    }
+    protected transient String script;
 
-    public static void registerCallerProvidedScript(final String script, final boolean secure)
-    {
-        CURRENT_CALLER_PROVIDED_LOCATION.remove();
-        CURRENT_CALLER_PROVIDED_SCRIPT.set(new Pair<>(script, Boolean.valueOf(secure)));
-    }
+    protected transient byte[] byteBuffer;
 
-    public static void registerCallerProvidedScript(final ScriptLocation scriptLocation)
-    {
-        CURRENT_CALLER_PROVIDED_LOCATION.set(scriptLocation);
-        CURRENT_CALLER_PROVIDED_SCRIPT.remove();
-    }
+    protected long lastModified;
 
-    public static boolean isCallerProvidedScriptSecure()
-    {
-        final boolean result;
-        final ScriptLocation scriptLocation = CURRENT_CALLER_PROVIDED_LOCATION.get();
-        final Pair<String, Boolean> script = CURRENT_CALLER_PROVIDED_SCRIPT.get();
-        result = (scriptLocation != null && scriptLocation.isSecure()) || (script != null && Boolean.TRUE.equals(script.getSecond()));
-        return result;
-    }
+    protected long contentLength;
 
-    protected transient ByteBuffer byteBuffer;
-
-    public CallerProvidedURLConnection(final URL url)
+    public CallerProvidedURLConnection(final URL url, final String script)
     {
         super(url);
+
+        // we use MD5 hashing to store some metadata about inline scripts
+        // this avoids repeated compilation of same script (and injection of use strict)
+        try
+        {
+            final String digest = MD5.Digest(script.getBytes("UTF-8"));
+            final Pair<Long, Long> cachedMeta = STRING_SCRIPT_META_CACHE.get(digest);
+            if (cachedMeta != null)
+            {
+                this.contentLength = cachedMeta.getFirst().longValue();
+                this.lastModified = cachedMeta.getSecond().longValue();
+                this.script = script;
+            }
+            else
+            {
+                this.cacheScriptFile(script);
+
+                // simply use "now" (first occurrence) as lastModified
+                this.lastModified = System.currentTimeMillis();
+                this.contentLength = this.byteBuffer.length;
+
+                this.cacheMetaData(digest);
+            }
+        }
+        catch (final UnsupportedEncodingException e)
+        {
+            this.cacheScriptFile(script);
+
+            this.lastModified = System.currentTimeMillis();
+            this.contentLength = this.byteBuffer.length;
+
+            final String digest = MD5.Digest(this.byteBuffer);
+            this.cacheMetaData(digest);
+        }
+    }
+
+    public CallerProvidedURLConnection(final URL url, final ScriptLocation script)
+    {
+        super(url);
+
+        this.cacheScriptFile(script);
+
+        // we use MD5 hashing to store some metadata about inline scripts
+        // this avoids repeated compilation of same script (and injection of use strict)
+        final String digest = MD5.Digest(this.byteBuffer);
+        final Pair<Long, Long> cachedMeta = STRING_SCRIPT_META_CACHE.get(digest);
+        if (cachedMeta != null)
+        {
+            this.contentLength = cachedMeta.getFirst().longValue();
+            this.lastModified = cachedMeta.getSecond().longValue();
+        }
+        else
+        {
+            // simply use "now" (first occurrence) as lastModified
+            this.lastModified = System.currentTimeMillis();
+            this.contentLength = this.byteBuffer.length;
+            this.cacheMetaData(digest);
+        }
     }
 
     /**
@@ -94,12 +135,7 @@ public class CallerProvidedURLConnection extends URLConnection
     @Override
     public long getContentLengthLong()
     {
-        if (this.byteBuffer == null)
-        {
-            this.cacheScriptFile();
-        }
-
-        return this.byteBuffer.limit();
+        return this.contentLength;
     }
 
     /**
@@ -108,9 +144,7 @@ public class CallerProvidedURLConnection extends URLConnection
     @Override
     public long getLastModified()
     {
-        // we can't really reliably determine lastModified from either source or location
-        // Nashorn will still check script digest against cache
-        return System.currentTimeMillis();
+        return this.lastModified;
     }
 
     /**
@@ -119,34 +153,29 @@ public class CallerProvidedURLConnection extends URLConnection
     @Override
     public InputStream getInputStream() throws IOException
     {
-        InputStream is;
-        if (this.byteBuffer == null)
+        final InputStream is;
+
+        if (this.byteBuffer == null && this.script != null)
         {
-            this.cacheScriptFile();
+            // apparently Nashorn cache did not contain script with same URL and metadata
+            this.cacheScriptFile(this.script);
         }
 
-        is = new ByteBufferInputStream(this.byteBuffer);
+        is = new ByteArrayInputStream(this.byteBuffer);
         return is;
     }
 
-    protected synchronized void cacheScriptFile()
+    protected synchronized void cacheScriptFile(final String script)
     {
-        final ScriptLocation scriptLocation = CURRENT_CALLER_PROVIDED_LOCATION.get();
-        final Pair<String, Boolean> script = CURRENT_CALLER_PROVIDED_SCRIPT.get();
-
         try
         {
-            try (final InputStream is = new StrictScriptEnforcingSourceInputStream(scriptLocation != null ? scriptLocation.getInputStream()
-                    : new ByteArrayInputStream(script.getFirst().getBytes(StandardCharsets.UTF_8))))
+            try (final InputStream is = new StrictScriptEnforcingSourceInputStream(new ByteArrayInputStream(
+                    script.getBytes(StandardCharsets.UTF_8))))
             {
                 try (final ByteArrayOutputStream os = new ByteArrayOutputStream())
                 {
                     IOUtils.copy(is, os);
-
-                    final byte[] bytes = os.toByteArray();
-                    this.byteBuffer = ByteBuffer.allocate(bytes.length);
-                    this.byteBuffer.put(bytes);
-                    this.byteBuffer.position(0);
+                    this.byteBuffer = os.toByteArray();
                 }
             }
         }
@@ -154,6 +183,44 @@ public class CallerProvidedURLConnection extends URLConnection
         {
             LOGGER.debug("Error caching script file", ioex);
             throw new ScriptException("Script can't be loaded", ioex);
+        }
+    }
+
+    protected synchronized void cacheScriptFile(final ScriptLocation script)
+    {
+        try
+        {
+            try (final InputStream is = new StrictScriptEnforcingSourceInputStream(script.getInputStream()))
+            {
+                try (final ByteArrayOutputStream os = new ByteArrayOutputStream())
+                {
+                    IOUtils.copy(is, os);
+                    this.byteBuffer = os.toByteArray();
+                }
+            }
+        }
+        catch (final IOException ioex)
+        {
+            LOGGER.debug("Error caching script file", ioex);
+            throw new ScriptException("Script can't be loaded", ioex);
+        }
+    }
+
+    protected void cacheMetaData(final String digest)
+    {
+        synchronized (STRING_SCRIPT_META_CACHE)
+        {
+            STRING_SCRIPT_META_CACHE.put(digest, new Pair<Long, Long>(Long.valueOf(this.contentLength), Long.valueOf(this.lastModified)));
+
+            if (STRING_SCRIPT_META_CACHE.size() > STRING_SCRIPT_META_MAX_CACHE_SIZE)
+            {
+                final Iterator<String> iterator = STRING_SCRIPT_META_CACHE.keySet().iterator();
+                while (STRING_SCRIPT_META_CACHE.size() > STRING_SCRIPT_META_MAX_CACHE_SIZE && iterator.hasNext())
+                {
+                    iterator.next();
+                    iterator.remove();
+                }
+            }
         }
     }
 }
