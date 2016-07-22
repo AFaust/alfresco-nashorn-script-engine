@@ -19,7 +19,10 @@
          * classes that may be resolved from within a script.
          * 
          * @module nashorn!Packages
-         * @example var Packages = require('nashorn!Packages'); var out = Packages.java.lang.System.out; out.println('Test');
+         * @example
+         * var Packages = require('nashorn!Packages');
+         * var out = Packages.java.lang.System.out;
+         * out.println('Test');
          */
         Packages : Packages,
         /**
@@ -27,12 +30,23 @@
          * typically be preferred to {@link module:nashorn!Packages}.
          * 
          * @module nashorn!Java
-         * @example var Java = require('nashorn!Java'); var System = Java.type('java.lang.System'); System.out.println('Test');
-         * @example var Java = require('nashorn!Java'); var strArr = ['str1', 'str2', 'str3']; var javaList = Java.to(strArr,
-         *          'java.util.List'); var javaStrArr = Java.to(strArr, 'java.lang.String[]'); strArr = Java.from(javaStrArr);
-         * @example var Java = require('nashorn!Java'); var JsThread1 = Java.extend(Java.type('java.lang.Thread')); var thread = new
-         *          JsThread1(){run : function () {print('js thread 1 run');}}; var JsThread2 = Java.extend(Java.type('java.lang.Thread'),
-         *          {run : function () {print('js thread 2 run');}});
+         * @example
+         * var Java = require('nashorn!Java');
+         * var System = Java.type('java.lang.System');
+         * System.out.println('Test');
+         * 
+         * @example
+         * var Java = require('nashorn!Java');
+         * var strArr = ['str1', 'str2', 'str3'];
+         * var javaList = Java.to(strArr, 'java.util.List');
+         * var javaStrArr = Java.to(strArr, 'java.lang.String[]');
+         * strArr = Java.from(javaStrArr);
+         * 
+         * @example
+         * var Java = require('nashorn!Java');
+         * var JsThread1 = Java.extend(Java.type('java.lang.Thread'));
+         * var thread = new JsThread1(){run : function () {print('js thread 1 run');}};
+         * var JsThread2 = Java.extend(Java.type('java.lang.Thread'), {run : function () {print('js thread 2 run');}});
          */
         Java : Java,
         /**
@@ -40,16 +54,24 @@
          * with-scope blocks are not supported in strict-mode scripts, which most (if not all) modules will be loaded as by default.
          * 
          * @module nashorn!JavaImporter
-         * @example var Packages = require('nashorn!Packages'); var JavaImporter = require('nashorn!JavaImporter'); var imports = new
-         *          JavaImporter(Packages.java.util, Packages.java.io); with (imports) { var m = new HashMap(); var f = new File('.'); }
+         * @example
+         * var Packages = require('nashorn!Packages');
+         * var JavaImporter = require('nashorn!JavaImporter');
+         * var imports = new JavaImporter(Packages.java.util, Packages.java.io);
+         * with (imports) {
+         *  var m = new HashMap();
+         *  var f = new File('.');
+         * }
          */
         JavaImporter : JavaImporter,
         /**
          * This modules provides the ability to construct adapters / proxies for JavaScript objects.
          * 
          * @module nashorn!JSAdapter
-         * @example var JSAdapter = require('nashorn!JSAdapter'); var obj = { prop1 : 'test'}; var proxy = new JSAdapter({__get__ :
-         *          function(name} { if(name === 'prop1') return obj.prop1; });
+         * @example
+         * var JSAdapter = require('nashorn!JSAdapter');
+         * var obj = { prop1 : 'test'};
+         * var proxy = new JSAdapter({__get__ : function(name} { if(name === 'prop1') return obj.prop1; });
          */
         JSAdapter : JSAdapter
     };
