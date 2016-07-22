@@ -103,27 +103,10 @@ define('legacyRootObjects', [ 'globalProperties!nashornJavaScriptProcessor.de.ax
                 }
             }
 
-            if (result === undefined)
+            if (result !== undefined)
             {
-                // arguments are never considered secure
-                isSecure = false;
-                try
-                {
-                    logger.trace('Loading legacy root object module {} from arguments', normalizedId);
-                    require([ 'args!' + normalizedId ], function legacyRootObjects_loader__load__args_callback(value)
-                    {
-                        logger.debug('Resolved {} from argument {}', value, normalizedId);
-                        result = value;
-                    });
-                }
-                catch (e)
-                {
-                    logger.debug('Failed to load argument {}', normalizedId);
-                    result = undefined;
-                }
+                load(result, isSecure);
             }
-
-            load(result, isSecure);
         }
     };
 

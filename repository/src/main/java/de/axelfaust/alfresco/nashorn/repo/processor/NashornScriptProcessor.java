@@ -78,6 +78,8 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
 
     private static final String SCRIPT_AMD = "amd.js";
 
+    private static final String SCRIPT_NO_SUCH_PROPERTY = "noSuchProperty.js";
+
     private static final String SCRIPE_AMD_SCRIPT_RUNNER = "amd-script-runner.js";
 
     private static final ThreadLocal<Boolean> inEngineContextInitialization = new ThreadLocal<Boolean>();
@@ -420,9 +422,12 @@ public class NashornScriptProcessor extends BaseProcessor implements ScriptProce
             resource = NashornScriptProcessor.class.getResource(SCRIPT_SIMPLE_LOGGER);
             this.executeScriptFromResource(resource);
 
-            // 2) AMD loader to be used for all scripts apart from bootstrap
+            // 2) AMD loader and noSuchProperty to be used for all scripts apart from bootstrap
             LOGGER.debug("Setting up AMD");
             resource = NashornScriptProcessor.class.getResource(SCRIPT_AMD);
+            this.executeScriptFromResource(resource);
+
+            resource = NashornScriptProcessor.class.getResource(SCRIPT_NO_SUCH_PROPERTY);
             this.executeScriptFromResource(resource);
 
             final Object define = this.engine.get("define");
