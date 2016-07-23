@@ -148,8 +148,6 @@
     {
         var idx, args, implicitArgs, normalizedModuleId, module, contextScriptUrl, contextModule, isSecure, failOnMissingDependency, missingModule = false;
 
-        moduleRegistry.initFromSharedState();
-
         // skip this script to determine script URL of caller
         contextScriptUrl = getCaller();
         contextModule = moduleRegistry.getModuleByUrl(contextScriptUrl);
@@ -271,6 +269,9 @@
                 },
                 moduleListenersByModule : {
                     value : NashornScriptModel.newAssociativeContainer()
+                },
+                moduleListeners : {
+                    value : NashornScriptModel.newAssociativeContainer()
                 }
             });
         }());
@@ -285,131 +286,134 @@
         });
 
         internal = Object.create(Object.prototype, {
-            initModulesFromSharedState : {
-                value : function amd__moduleRegistry__initModulesFromSharedState()
+
+            copySharedModule : {
+                value : function amd__moduleRegistry__internal__copySharedModule(backupModule)
                 {
-                    var am, amu, bm, moduleIds, moduleInit;
+                    var module, normalizedId, am;
 
                     am = active.modules;
-                    amu = active.modulesByUrl;
-                    bm = backup.modules;
 
-                    if (am.length === 0)
+                    // simply use backup-ed module as prototype
+                    // prevent prototype mutation by re-adding mutables locally
+                    module = Object.create(backupModule, {
+                        initialized : {
+                            value : backupModule.initialized,
+                            enumerable : true,
+                            writable : !backupModule.initialized
+                        },
+                        constructing : {
+                            value : false,
+                            enumerable : true,
+                            writable : !backupModule.initialized
+                        },
+                        result : {
+                            value : backupModule.result,
+                            enumerable : true,
+                            writable : !backupModule.initialized
+                        }
+                    });
+
+                    am[module.id] = module;
+                    if (typeof module.url === 'string')
                     {
-                        logger.debug('Restoring modules from AMD loader shared state');
-
-                        moduleIds = [];
-                        moduleInit = function amd__moduleRegistry__initModulesFromSharedState_forEach(moduleId)
-                        {
-                            var module, backedUpModule, normalizedId;
-
-                            backedUpModule = bm[moduleId];
-                            if (isObject(backedUpModule) && !(moduleId in am))
-                            {
-                                // simply use backup-ed module as prototype
-                                // prevent prototype mutation by re-adding mutables locally
-                                module = Object.create(backedUpModule, {
-                                    initialized : {
-                                        value : backedUpModule.initialized,
-                                        enumerable : true,
-                                        writable : !backedUpModule.initialized
-                                    },
-                                    constructing : {
-                                        value : false,
-                                        enumerable : true,
-                                        writable : !backedUpModule.initialized
-                                    },
-                                    result : {
-                                        value : backedUpModule.result,
-                                        enumerable : true,
-                                        writable : !backedUpModule.initialized
-                                    }
-                                });
-
-                                moduleIds.push(module.id);
-                                am[module.id] = module;
-                                if (typeof module.url === 'string')
-                                {
-                                    amu[module.url] = module;
-                                }
-
-                                if (typeof module.loader === 'string' && module.id.indexOf(module.loader + '!') !== 0)
-                                {
-                                    normalizedId = module.loader + '!' + module.id;
-                                    am[normalizedId] = module;
-                                    moduleIds.push(normalizedId);
-                                }
-                            }
-                        };
-
-                        Object.keys(bm).forEach(moduleInit);
-                        logger.trace('Restored registered modules {} from shared state', JSON.stringify(moduleIds));
+                        active.modulesByUrl[module.url] = module;
                     }
+
+                    if (typeof module.loader === 'string' && module.id.indexOf(module.loader + '!') !== 0)
+                    {
+                        normalizedId = module.loader + '!' + module.id;
+                        am[normalizedId] = module;
+                    }
+
+                    return module;
                 }
             },
-            initListenersFromSharedState : {
-                value : function amd__moduleRegistry__initListenersFromSharedState()
+
+            getModule : {
+                value : function amd__moduleRegistry__internal__getModule(moduleId)
                 {
-                    var albm, blbm, initializedListeners, listenerIter, listenerInit;
+                    var module;
 
-                    albm = active.moduleListenersByModule;
-                    blbm = backup.moduleListenersByModule;
+                    module = active.modules[moduleId];
+                    logger.trace('Module "{}" has {}been defined', [ moduleId, isObject(module) ? '' : 'not ' ]);
 
-                    if (active.moduleListenersByModule.length === 0)
+                    if (!isObject(module) && moduleId in backup.modules)
                     {
-                        logger.debug('Restoring module listeners from AMD loader shared state');
-
-                        initializedListeners = {};
-
-                        listenerInit = function amd__moduleRegistry__initListenersFromSharedState_forEach_init(listener, index, arr)
-                        {
-                            var copiedListener;
-
-                            if (initializedListeners.hasOwnProperty(listener.id))
-                            {
-                                copiedListener = initializedListeners[listener.id];
-                            }
-
-                            if (copiedListener === undefined)
-                            {
-                                // simply use backup-ed listener as prototype
-                                // prevent prototype mutation by re-adding mutables locally
-                                copiedListener = Object.create(listener, {
-                                    triggered : {
-                                        value : listener.triggered,
-                                        enumerable : true,
-                                        writable : true
-                                    },
-                                    resolved : {
-                                        value : listener.resolved.slice(),
-                                        enumerable : true
-                                    }
-                                });
-                                initializedListeners[listener.id] = copiedListener;
-                            }
-
-                            arr[index] = copiedListener;
-                        };
-
-                        listenerIter = function amd__moduleRegistry__initListenersFromSharedState_forEach(moduleId)
-                        {
-                            if (Array.isArray(blbm[moduleId]))
-                            {
-                                // shallow copy array
-                                albm[moduleId] = blbm[moduleId].slice();
-                                // decouple elements from the backup state
-                                albm[moduleId].forEach(listenerInit);
-                            }
-                        };
-
-                        Object.keys(blbm).forEach(listenerIter);
-
-                        albm['_#dummy#_'] = [];
+                        logger.trace('Restoring module "{}" from shared AMD loader state', moduleId);
+                        module = this.copySharedModule(backup.modules[moduleId]);
                     }
+
+                    if (module === undefined)
+                    {
+                        module = active.modules[moduleId] = DUMMY_MODULE;
+                    }
+
+                    return module;
                 }
             },
+
+            copySharedListenerInModuleList : {
+                value : function amd__moduleRegistry__internal__copySharedListenerInModuleList(listener, index, arr)
+                {
+                    var copiedListener;
+
+                    if (listener.id in active.moduleListeners)
+                    {
+                        copiedListener = active.moduleListeners[listener.id];
+                    }
+
+                    if (copiedListener === undefined)
+                    {
+                        // simply use backup-ed listener as prototype
+                        // prevent prototype mutation by re-adding mutables locally
+                        copiedListener = Object.create(listener, {
+                            triggered : {
+                                value : listener.triggered,
+                                enumerable : true,
+                                writable : true
+                            },
+                            resolved : {
+                                value : listener.resolved.slice(),
+                                enumerable : true
+                            }
+                        });
+                        active.moduleListeners[listener.id] = copiedListener;
+                    }
+
+                    arr[index] = copiedListener;
+                }
+            },
+
+            getModuleListeners : {
+                value : function amd__moduleRegistry__getModuleListeners(moduleId)
+                {
+                    var aml, listeners;
+
+                    aml = active.moduleListenersByModule;
+                    listeners = aml[moduleId];
+                    logger.trace('Listeners for module "{}" have {}been defined', [ moduleId, Array.isArray(listeners) ? '' : 'not ' ]);
+
+                    if (!Array.isArray(listeners) && moduleId in backup.moduleListenersByModule)
+                    {
+                        logger.trace('Restoring listeners for module {} from shared AMD loader state', moduleId);
+
+                        listeners = Array.prototype.slice.call(backup.moduleListenersByModule[moduleId], 0);
+                        listeners.forEach(this.copySharedListenerInModuleList);
+
+                        aml[moduleId] = listeners;
+                    }
+                    else
+                    {
+                        listeners = aml[moduleId] = [];
+                    }
+
+                    return listeners;
+                }
+            },
+
             updateSharedStateModules : {
-                value : function amd__moduleRegistry__updateSharedStateModules()
+                value : function amd__moduleRegistry__internal__updateSharedStateModules()
                 {
                     var moduleId, am, bm, transferredModuleIds;
 
@@ -432,12 +436,11 @@
                     /* jshint forin: true */
 
                     logger.trace('Transferred registered modules {} to shared state', JSON.stringify(transferredModuleIds));
-
-                    this.initModulesFromSharedState();
                 }
             },
+
             updateSharedStateListeners : {
-                value : function amd__moduleRegistry__updateSharedStateListeners()
+                value : function amd__moduleRegistry__internal__updateSharedStateListeners()
                 {
                     var moduleId, albm, blbm;
 
@@ -457,199 +460,185 @@
                     }
                     /* jshint forin: true */
 
-                    this.initListenersFromSharedState();
+                    logger.trace('Transferred registered module listeners to shared state');
                 }
             }
         });
 
-        result = Object.create(Object.prototype, {
-
-            getModuleListeners : {
-                value : function amd__moduleRegistry__getModuleListeners(moduleId)
-                {
-                    return active.moduleListenersByModule[moduleId] || [];
-                }
-            },
-
-            addModuleListener : {
-                value : function amd__moduleRegistry__addModuleListener(listener)
-                {
-                    var am, dependencyResolutionCheckHandler, handleDependencies, args, dependencyCollectionHandler, aml, bml;
-
-                    am = active.modules;
-                    dependencyResolutionCheckHandler = function amd__moduleRegistry__addModuleListener_dependencyResolutionCheckHandler(
-                            dependency)
-                    {
-                        var module = am[dependency];
-                        if (isObject(module) && module !== DUMMY_MODULE
-                                && (typeof module.factory === 'function' || (module.result !== undefined && module.result !== null)))
+        result = Object
+                .create(
+                        Object.prototype,
                         {
-                            listener.resolved.push(module.id);
-                        }
-                    };
-
-                    if (listener.dependencies.length === listener.resolved.length)
-                    {
-                        handleDependencies = function amd__moduleRegistry__addModuleListener_handleDependencies(listener, dependency, idx,
-                                arr)
-                        {
-                            var depModule = moduleManagement.getModule(dependency, true, listener.isSecure, listener.url);
-                            arr[idx] = depModule;
-                        };
-
-                        args = listener.dependencies.slice();
-                        args.forEach(Function.prototype.bind.call(handleDependencies, null, listener));
-                        listener.callback.apply(this, args);
-                        listener.triggered = true;
-                    }
-
-                    if (listener.triggered !== true)
-                    {
-                        aml = active.moduleListenersByModule;
-                        bml = backup.moduleListenersByModule;
-
-                        dependencyCollectionHandler = function amd__moduleRegistry__addModuleListener_dependencyCollectionHandler(
-                                dependency)
-                        {
-                            if (!(dependency in aml))
-                            {
-                                aml[dependency] = [];
-
-                                if (NashornScriptProcessor.isInEngineContextInitialization())
+                            addModuleListener : {
+                                value : function amd__moduleRegistry__addModuleListener(listener)
                                 {
-                                    bml[dependency] = aml[dependency];
+                                    var dependencyResolutionCheckHandler, handleDependencies, args, dependencyCollectionHandler;
+
+                                    dependencyResolutionCheckHandler = function amd__moduleRegistry__addModuleListener_dependencyResolutionCheckHandler(
+                                            dependency)
+                                    {
+                                        var module = internal.getModule(dependency);
+                                        if (isObject(module)
+                                                && module !== DUMMY_MODULE
+                                                && (typeof module.factory === 'function' || (module.result !== undefined && module.result !== null)))
+                                        {
+                                            listener.resolved.push(module.id);
+                                        }
+                                    };
+                                    listener.dependencies.forEach(dependencyResolutionCheckHandler);
+
+                                    if (listener.dependencies.length === listener.resolved.length)
+                                    {
+                                        handleDependencies = function amd__moduleRegistry__addModuleListener_handleDependencies(dependency,
+                                                idx, arr)
+                                        {
+                                            var depModule = moduleManagement.getModule(dependency, true, listener.isSecure, listener.url);
+                                            arr[idx] = depModule;
+                                        };
+
+                                        args = listener.dependencies.slice();
+                                        args.forEach(handleDependencies);
+                                        listener.callback.apply(this, args);
+                                        listener.triggered = true;
+                                    }
+
+                                    if (listener.triggered !== true)
+                                    {
+                                        dependencyCollectionHandler = function amd__moduleRegistry__addModuleListener_dependencyCollectionHandler(
+                                                dependency)
+                                        {
+                                            var listeners = internal.getModuleListeners(dependency);
+
+                                            if (NashornScriptProcessor.isInEngineContextInitialization()
+                                                    && !(dependency in backup.moduleListenersByModule))
+                                            {
+                                                backup.moduleListenersByModule[dependency] = listeners;
+                                            }
+
+                                            listeners.push(listener);
+                                        };
+
+                                        listener.dependencies.forEach(dependencyCollectionHandler);
+                                    }
+                                }
+                            },
+
+                            getModule : {
+                                value : function amd__moduleRegistry__getModule(moduleId)
+                                {
+                                    return internal.getModule(moduleId);
+                                }
+                            },
+
+                            getModuleByUrl : {
+                                value : function amd__moduleRegistry__getModuleByUrl(moduleUrl)
+                                {
+                                    // use case does not require us to check backup since only active modules can cause this fn to be called
+                                    return active.modulesByUrl[moduleUrl];
+                                }
+                            },
+
+                            addModule : {
+                                value : function amd__moduleRegistry__addModule(module, moduleId, fullModuleId)
+                                {
+                                    var am, amu, bm, moduleIds;
+
+                                    am = active.modules;
+                                    amu = active.modulesByUrl;
+                                    bm = backup.modules;
+                                    moduleIds = [];
+
+                                    if (typeof moduleId === 'string')
+                                    {
+                                        moduleIds.push(moduleId);
+                                    }
+
+                                    if (typeof module.url === 'string')
+                                    {
+                                        amu[module.url] = module;
+                                    }
+
+                                    if (typeof fullModuleId === 'string')
+                                    {
+                                        moduleIds.push(fullModuleId);
+                                    }
+
+                                    moduleIds.forEach(function amd__moduleRegistry__addModule_registerForEachModuleIdVariant(moduleId)
+                                    {
+                                        am[moduleId] = module;
+                                    });
+
+                                    // if still in initialisation add to backup
+                                    if (NashornScriptProcessor.isInEngineContextInitialization())
+                                    {
+                                        moduleIds.forEach(function amd__moduleRegistry__addModule_backupForEachModuleIdVariant(moduleId)
+                                        {
+                                            bm[moduleId] = module;
+                                        });
+
+                                        if (moduleIds.length !== 0)
+                                        {
+                                            logger.trace('Transferred newly registered modules {} to shared state', JSON
+                                                    .stringify(moduleIds));
+                                        }
+                                    }
+
+                                    // either constructible or pre-resolved
+                                    if (module !== DUMMY_MODULE
+                                            && (typeof module.factory === 'function' || (module.result !== undefined && module.result !== null)))
+                                    {
+                                        this.checkAndFulfillModuleListeners(module);
+                                    }
+                                }
+                            },
+
+                            checkAndFulfillModuleListeners : {
+                                value : function amd__moduleRegistry__checkAndFulfillModuleListeners(module)
+                                {
+                                    var listeners, handleListener, handleDependencies;
+
+                                    listeners = internal.getModuleListeners(module.id);
+
+                                    if (Array.isArray(listeners))
+                                    {
+                                        handleDependencies = function amd__moduleRegistry__checkAndFulfillModuleListeners_handleDependencies(
+                                                listener, dependency, idx, arr)
+                                        {
+                                            var depModule = moduleManagement.getModule(dependency, true, listener.isSecure, listener.url);
+                                            arr[idx] = depModule;
+                                        };
+
+                                        handleListener = function amd__moduleRegistry__checkAndFulfillModuleListeners_handleListener(
+                                                listener)
+                                        {
+                                            var args;
+
+                                            if (listener.triggered !== true)
+                                            {
+                                                listener.resolved.push(module.id);
+                                                if (listener.dependencies.length === listener.resolved.length)
+                                                {
+                                                    args = listener.dependencies.slice();
+                                                    args.forEach(Function.prototype.bind.call(handleDependencies, null, listener));
+                                                    listener.callback.apply(this, args);
+                                                    listener.triggered = true;
+                                                }
+                                            }
+                                        };
+
+                                        listeners.forEach(handleListener);
+                                    }
+                                }
+                            },
+                            updateSharedState : {
+                                value : function amd__moduleRegistry__updateSharedState()
+                                {
+                                    logger.debug('Updating AMD loader shared state');
+                                    internal.updateSharedStateModules();
+                                    internal.updateSharedStateListeners();
                                 }
                             }
-
-                            aml[dependency].push(listener);
-                        };
-
-                        listener.dependencies.forEach(dependencyCollectionHandler);
-                    }
-                }
-            },
-
-            getModule : {
-                value : function amd__moduleRegistry__getModule(moduleId)
-                {
-                    return active.modules[moduleId];
-                }
-            },
-
-            getModuleByUrl : {
-                value : function amd__moduleRegistry__getModuleByUrl(moduleUrl)
-                {
-                    return active.modulesByUrl[moduleUrl];
-                }
-            },
-
-            addModule : {
-                value : function amd__moduleRegistry__addModule(module, moduleId, fullModuleId)
-                {
-                    var am, amu, bm, moduleIds;
-
-                    am = active.modules;
-                    amu = active.modulesByUrl;
-                    bm = backup.modules;
-                    moduleIds = [];
-
-                    if (typeof moduleId === 'string')
-                    {
-                        moduleIds.push(moduleId);
-                    }
-
-                    if (typeof module.url === 'string')
-                    {
-                        amu[module.url] = module;
-                    }
-
-                    if (typeof fullModuleId === 'string')
-                    {
-                        moduleIds.push(fullModuleId);
-                    }
-
-                    moduleIds.forEach(function(moduleId)
-                    {
-                        am[moduleId] = module;
-                    });
-
-                    // if still in initialisation add to backup
-                    if (NashornScriptProcessor.isInEngineContextInitialization())
-                    {
-                        moduleIds.forEach(function(moduleId)
-                        {
-                            bm[moduleId] = module;
                         });
-
-                        if (moduleIds.length !== 0)
-                        {
-                            logger.trace('Transferred newly registered modules {} to shared state', JSON.stringify(moduleIds));
-                        }
-                    }
-
-                    // either constructible or pre-resolved
-                    if (module !== DUMMY_MODULE
-                            && (typeof module.factory === 'function' || (module.result !== undefined && module.result !== null)))
-                    {
-                        this.checkAndFulfillModuleListeners(module);
-                    }
-                }
-            },
-
-            checkAndFulfillModuleListeners : {
-                value : function amd__moduleRegistry__checkAndFulfillModuleListeners(module)
-                {
-                    var listeners, handleListener, handleDependencies;
-
-                    listeners = this.getModuleListeners(module.id);
-
-                    if (Array.isArray(listeners))
-                    {
-                        handleDependencies = function amd__moduleRegistry__checkAndFulfillModuleListeners_handleDependencies(listener,
-                                dependency, idx, arr)
-                        {
-                            var depModule = moduleManagement.getModule(dependency, true, listener.isSecure, listener.url);
-                            arr[idx] = depModule;
-                        };
-
-                        handleListener = function amd__moduleRegistry__checkAndFulfillModuleListeners_handleListener(listener)
-                        {
-                            var args;
-
-                            if (listener.triggered !== true)
-                            {
-                                listener.resolved.push(module.id);
-                                if (listener.dependencies.length === listener.resolved.length)
-                                {
-                                    args = listener.dependencies.slice();
-                                    args.forEach(Function.prototype.bind.call(handleDependencies, null, listener));
-                                    listener.callback.apply(this, args);
-                                    listener.triggered = true;
-                                }
-                            }
-                        };
-
-                        listeners.forEach(handleListener);
-                    }
-                }
-            },
-
-            initFromSharedState : {
-                value : function amd__moduleRegistry__initFromSharedState()
-                {
-                    internal.initModulesFromSharedState();
-                    internal.initListenersFromSharedState();
-                }
-            },
-            updateSharedState : {
-                value : function amd__moduleRegistry__updateSharedState()
-                {
-                    logger.debug('Updating AMD loader shared state');
-                    internal.updateSharedStateModules();
-                    internal.updateSharedStateListeners();
-                }
-            }
-        });
 
         Object.freeze(result);
 
@@ -719,7 +708,7 @@
 
                     args = Array.prototype.slice.call(arguments, 4);
 
-                    logger.trace('Special module function {} called from {} with arguments {}', [ fn.name, url, args ]);
+                    logger.trace('Special module function {} called from {}', [ fn.name, url ]);
 
                     if (descriptor.hasOwnProperty('callerTagged') && descriptor.callerTagged === true)
                     {
@@ -877,7 +866,7 @@
                         var result, args;
 
                         args = Array.prototype.slice.call(arguments, 4);
-                        logger.trace('Special module proxy called on {} from {} with arguments {}', [ name, url, args ]);
+                        logger.trace('Special module proxy called on {} from {}', [ name, url ]);
                         args = [ module[name], descriptor, url, module ].concat(args);
                         result = specialModuleHandling.specialModuleFnCall.apply(undefined, args);
                         return result;
@@ -1282,8 +1271,6 @@
                                         }
 
                                         moduleResult = module.result;
-
-                                        moduleRegistry.checkAndFulfillModuleListeners(module);
                                     }
                                     else
                                     {
@@ -1434,8 +1421,6 @@
             {
                 throw new Error('Callback is not a function');
             }
-
-            moduleRegistry.initFromSharedState();
 
             // skip this script to determine script URL of caller
             contextScriptUrl = getCaller();
@@ -1806,8 +1791,6 @@
     {
         var id, normalizedId, dependencies, factory, idx, contextScriptUrl, contextModule, module;
 
-        moduleRegistry.initFromSharedState();
-
         contextScriptUrl = getCaller();
         contextModule = moduleRegistry.getModuleByUrl(contextScriptUrl);
 
@@ -1973,8 +1956,6 @@
     define.preload = function amd__define_preload(moduleId, aliasModuleId)
     {
         var normalizedModuleId, module;
-
-        moduleRegistry.initFromSharedState();
 
         if (moduleId === undefined || moduleId === null)
         {
