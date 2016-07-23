@@ -32,8 +32,6 @@
 
             // now we can use define
             define.preload('loaderMetaLoader!nashorn');
-            define.preload('loaderMetaLoader!classpath');
-            define.preload('classpath!de/axelfaust/alfresco/nashorn/repo/processor/noSuchProperty');
 
             // empty config
             require.config({});

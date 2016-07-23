@@ -53,10 +53,14 @@ public class SimpleScriptTestCase extends TestCase implements ScriptContextReusi
 
     private static final String SCRIPT_AMD = "amd.js";
 
+    private static final String SCRIPT_NO_SUCH_PROPERTY = "noSuchProperty.js";
+
     public static void initializeAMD(final ScriptEngine engine, final ScriptContext scriptContext) throws ScriptException
     {
+        // load core scripts
         loadScriptResource(engine, scriptContext, NashornScriptProcessor.class, SCRIPT_SIMPLE_LOGGER);
         loadScriptResource(engine, scriptContext, NashornScriptProcessor.class, SCRIPT_AMD);
+        loadScriptResource(engine, scriptContext, NashornScriptProcessor.class, SCRIPT_NO_SUCH_PROPERTY);
     }
 
     public static void removeGlobals(final ScriptEngine engine, final ScriptContext scriptContext, final String... globalProperties)

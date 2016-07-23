@@ -8,7 +8,7 @@
 
         loader = {
 
-            prepareModule : function test_loader__prepareMOdule(normalizedId, url, isSecure, module)
+            prepareModule : function test_loader__prepareModule(normalizedId, url, isSecure, module)
             {
                 modules[normalizedId] = {
                     url : url,
