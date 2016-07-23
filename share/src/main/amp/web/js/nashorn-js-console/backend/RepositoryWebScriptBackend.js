@@ -94,13 +94,12 @@ define(
                                 value : '-1'
                             }
                         } ],
+                        
+                        backendId : 'nashornRepositoryWebScript',
 
                         initService : function nashornjsconsole_backend_RepositoryWebScriptBackend__initService()
                         {
                             this.inherited(arguments);
-
-                            // generated ID to allow easy differentiation of backend services
-                            this.backendId = this.generateUuid();
 
                             // need to track requests by alfResponseScope
                             this._activeRequestByScope = {};
@@ -187,15 +186,19 @@ define(
                             {
                                 try
                                 {
-                                    this.alfPublish(this.resetConsoleOutputTopic, {}, false, false, consoleRequest.alfResponseScope || '');
+                                    this.alfPublish(this.resetConsoleOutputTopic, {
+                                        backend : this.backendId
+                                    }, false, false, consoleRequest.alfResponseScope || '');
 
                                     if (typeof response === 'string')
                                     {
                                         this.alfPublish(this.appendConsoleOutputTopic, {
+                                            backend : this.backendId,
                                             content : response
                                         }, false, false, consoleRequest.alfResponseScope || '');
 
                                         this.alfPublish(this.updateTemplateOutputTopic, {
+                                            backend : this.backendId,
                                             content : ''
                                         }, false, false, consoleRequest.alfResponseScope || '');
                                     }
@@ -203,19 +206,14 @@ define(
                                     {
                                         if (lang.isArray(response.printOutput))
                                         {
-                                            array
-                                                    .forEach(
-                                                            response.printOutput,
-                                                            function nashornjsconsole_backend_RepositoryWebScriptBackend__onExecuteInBackendSuccess_handlePrintOutputLines(
-                                                                    line)
-                                                            {
-                                                                this.alfPublish(this.appendConsoleOutputTopic, {
-                                                                    content : line
-                                                                }, false, false, consoleRequest.alfResponseScope || '');
-                                                            }, this);
+                                            this.alfPublish(this.appendConsoleOutputTopic, {
+                                                backend : this.backendId,
+                                                content : response.printOutput.join('\n')
+                                            }, false, false, consoleRequest.alfResponseScope || '');
                                         }
 
                                         this.alfPublish(this.updateTemplateOutputTopic, {
+                                            backend : this.backendId,
                                             content : response.renderedTemplate || ''
                                         }, false, false, consoleRequest.alfResponseScope || '');
                                     }
@@ -262,11 +260,14 @@ define(
                                 if ((response.response && response.response.status !== 408)
                                         || (response.status !== undefined && response.status !== 408))
                                 {
-                                    this.alfPublish(this.resetConsoleOutputTopic, {}, false, false, consoleRequest.alfResponseScope || '');
+                                    this.alfPublish(this.resetConsoleOutputTopic, {
+                                        backend : this.backendId
+                                    }, false, false, consoleRequest.alfResponseScope || '');
 
                                     if (typeof response === 'string')
                                     {
                                         this.alfPublish(this.appendConsoleOutputTopic, {
+                                            backend : this.backendId,
                                             content : response
                                         }, false, false, consoleRequest.alfResponseScope || '');
                                     }
@@ -274,25 +275,21 @@ define(
                                     {
                                         if (lang.isArray(response.printOutput))
                                         {
-                                            array
-                                                    .forEach(
-                                                            response.printOutput,
-                                                            function nashornjsconsole_backend_RepositoryWebScriptBackend__onExecuteInBackendCheckProgressSuccess_handlePrintOutputLines(
-                                                                    line)
-                                                            {
-                                                                this.alfPublish(this.appendConsoleOutputTopic, {
-                                                                    content : line
-                                                                }, false, false, consoleRequest.alfResponseScope || '');
-                                                            }, this);
+                                            this.alfPublish(this.appendConsoleOutputTopic, {
+                                                backend : this.backendId,
+                                                content : response.printOutput.join('\n')
+                                            }, false, false, consoleRequest.alfResponseScope || '');
                                         }
 
                                         if (response.status)
                                         {
                                             this.alfPublish(this.appendConsoleOutputTopic, {
+                                                backend : this.backendId,
                                                 content : response.status.code + ' ' + response.status.name
                                             }, false, false, consoleRequest.alfResponseScope || '');
 
                                             this.alfPublish(this.appendConsoleOutputTopic, {
+                                                backend : this.backendId,
                                                 content : response.status.description
                                             }, false, false, consoleRequest.alfResponseScope || '');
                                         }
@@ -300,6 +297,7 @@ define(
                                         if (lang.isString(response.message))
                                         {
                                             this.alfPublish(this.appendConsoleOutputTopic, {
+                                                backend : this.backendId,
                                                 content : response.message
                                             }, false, false, consoleRequest.alfResponseScope || '');
                                         }
@@ -307,10 +305,12 @@ define(
                                         if (lang.isArray(response.callstack))
                                         {
                                             this.alfPublish(this.appendConsoleOutputTopic, {
+                                                backend : this.backendId,
                                                 content : '\nStacktrace-Details:'
                                             }, false, false, consoleRequest.alfResponseScope || '');
 
                                             this.alfPublish(this.appendConsoleOutputTopic, {
+                                                backend : this.backendId,
                                                 content : response.callstack.join('\n')
                                             }, false, false, consoleRequest.alfResponseScope || '');
                                         }
@@ -329,7 +329,16 @@ define(
                         onExecuteInBackendCheckProgress : function nashornjsconsole_backend_RepositoryWebScriptBackend__onExecuteInBackendCheckProgress(
                                 consoleRequest)
                         {
-                            // TODO Check not yet supported in backend
+                            if (consoleRequest.superseded !== true && consoleRequest.completed !== true)
+                            {
+                                // this is a best-effort update - we do not care about failures
+                                this.serviceXhr({
+                                    url : Constants.PROXY_URI + 'nashorn-script-engine/'
+                                            + encodeURIComponent(consoleRequest.data.resultChannel) + '/result',
+                                    method : 'GET',
+                                    successCallback : lang.hitch(this, this.onExecuteInBackendCheckProgressSuccess, consoleRequest)
+                                });
+                            }
                         },
 
                         onExecuteInBackendCheckProgressSuccess : function nashornjsconsole_backend_RepositoryWebScriptBackend__onExecuteInBackendCheckProgressSuccess(
@@ -345,15 +354,19 @@ define(
 
                             if (consoleRequest.superseded !== true)
                             {
-                                this.alfPublish(this.resetConsoleOutputTopic, {}, false, false, consoleRequest.alfResponseScope || '');
+                                this.alfPublish(this.resetConsoleOutputTopic, {
+                                    backend : this.backendId
+                                }, false, false, consoleRequest.alfResponseScope || '');
 
                                 if (typeof response === 'string')
                                 {
                                     this.alfPublish(this.appendConsoleOutputTopic, {
+                                        backend : this.backendId,
                                         content : response
                                     }, false, false, consoleRequest.alfResponseScope || '');
 
                                     this.alfPublish(this.updateTemplateOutputTopic, {
+                                        backend : this.backendId,
                                         content : ''
                                     }, false, false, consoleRequest.alfResponseScope || '');
                                 }
@@ -361,22 +374,17 @@ define(
                                 {
                                     if (lang.isArray(response.printOutput))
                                     {
-                                        array
-                                                .forEach(
-                                                        response.printOutput,
-                                                        function nashornjsconsole_backend_RepositoryWebScriptBackend__onExecuteInBackendCheckProgressSuccess_handlePrintOutputLines(
-                                                                line)
-                                                        {
-                                                            this.alfPublish(this.appendConsoleOutputTopic, {
-                                                                content : line
-                                                            }, false, false, consoleRequest.alfResponseScope || '');
-                                                        }, this);
+                                        this.alfPublish(this.appendConsoleOutputTopic, {
+                                            backend : this.backendId,
+                                            content : response.printOutput.join('\n')
+                                        }, false, false, consoleRequest.alfResponseScope || '');
                                     }
 
                                     // if we had an error or entire web script is already done this will be the last update
                                     if (response.error === true || response.error === 'true' || lang.isString(response.webscriptPerf))
                                     {
                                         this.alfPublish(this.updateTemplateOutputTopic, {
+                                            backend : this.backendId,
                                             content : response.renderedTemplate || ''
                                         }, false, false, consoleRequest.alfResponseScope || '');
 
@@ -444,6 +452,7 @@ define(
                             networkTime = overallTime - webScriptTime;
 
                             this.alfPublish(this.reportExecutionPerformanceTopic, {
+                                backend : this.backendId,
                                 metrics : [ {
                                     type : 'javaScriptTime',
                                     value : jsTime

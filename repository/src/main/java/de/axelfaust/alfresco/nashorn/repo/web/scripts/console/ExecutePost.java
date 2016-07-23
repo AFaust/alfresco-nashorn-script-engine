@@ -16,7 +16,7 @@ package de.axelfaust.alfresco.nashorn.repo.web.scripts.console;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.StringWriter;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -104,6 +104,9 @@ public class ExecutePost extends AbstractWebScript implements InitializingBean
     public void afterPropertiesSet()
     {
         PropertyCheck.mandatory(this, "transactionService", this.transactionService);
+
+        PropertyCheck.mandatory(this, "printOutputCache", this.printOutputCache);
+        PropertyCheck.mandatory(this, "resultCache", this.resultCache);
     }
 
     /**
@@ -182,7 +185,7 @@ public class ExecutePost extends AbstractWebScript implements InitializingBean
         }
         finally
         {
-            resultModel.put("webScriptMicroTime", Math.round((Long.valueOf(System.nanoTime() - webScriptStart)/1000)));
+            resultModel.put("webScriptMicroTime", Math.round((Long.valueOf(System.nanoTime() - webScriptStart) / 1000)));
             this.writeResultData(res, requestModel, resultModel);
         }
     }
@@ -222,7 +225,7 @@ public class ExecutePost extends AbstractWebScript implements InitializingBean
         final List<String> printOutput;
 
         final String resultChannel = DefaultTypeConverter.INSTANCE.convert(String.class, requestModel.get(REQ_RESULT_CHANNEL));
-        if (this.printOutputCache != null && resultChannel != null && !resultChannel.trim().isEmpty())
+        if (resultChannel != null && !resultChannel.trim().isEmpty())
         {
             printOutput = new CacheBackedChunkedList<String, String>(this.printOutputCache, resultChannel, this.printOutputChunkSize);
         }
@@ -328,7 +331,7 @@ public class ExecutePost extends AbstractWebScript implements InitializingBean
             finally
             {
                 CallerProvidedURLStreamHandler.clearCallerProvidedScript();
-                resultModel.put("scriptMicroTime", Math.round((Long.valueOf(System.nanoTime() - scriptStart)/1000)));
+                resultModel.put("scriptMicroTime", Math.round((Long.valueOf(System.nanoTime() - scriptStart) / 1000)));
             }
         }
 
@@ -492,16 +495,16 @@ public class ExecutePost extends AbstractWebScript implements InitializingBean
     {
         try
         {
-            final Object json = this.toJSON(resultModel);
+            final Object json = toJSON(resultModel);
             final String resultJSON = json.toString();
 
             final String resultChannel = DefaultTypeConverter.INSTANCE.convert(String.class, requestModel.get(REQ_RESULT_CHANNEL));
-            if (this.resultCache != null && resultChannel != null && !resultChannel.trim().isEmpty())
+            if (resultChannel != null && !resultChannel.trim().isEmpty())
             {
                 this.resultCache.put(resultChannel, resultJSON);
             }
 
-            res.setContentEncoding("UTF-8");
+            res.setContentEncoding(StandardCharsets.UTF_8.name());
             res.setContentType(MimetypeMap.MIMETYPE_JSON);
             res.getWriter().write(resultJSON);
         }
@@ -511,7 +514,7 @@ public class ExecutePost extends AbstractWebScript implements InitializingBean
         }
     }
 
-    protected Object toJSON(final Map<?, ?> model) throws JSONException
+    protected static Object toJSON(final Map<?, ?> model) throws JSONException
     {
         final JSONObject json = new JSONObject();
         for (final Entry<?, ?> entry : model.entrySet())
@@ -519,11 +522,11 @@ public class ExecutePost extends AbstractWebScript implements InitializingBean
             Object value = entry.getValue();
             if (value instanceof Map<?, ?>)
             {
-                value = this.toJSON((Map<?, ?>) value);
+                value = toJSON((Map<?, ?>) value);
             }
             else if (value instanceof List<?>)
             {
-                value = this.toJSON((List<?>) value);
+                value = toJSON((List<?>) value);
             }
             else if (value instanceof Date)
             {
@@ -540,7 +543,7 @@ public class ExecutePost extends AbstractWebScript implements InitializingBean
         return json;
     }
 
-    protected Object toJSON(final List<?> model) throws JSONException
+    protected static Object toJSON(final List<?> model) throws JSONException
     {
         final JSONArray json = new JSONArray();
         int idx = 0;
@@ -548,11 +551,11 @@ public class ExecutePost extends AbstractWebScript implements InitializingBean
         {
             if (element instanceof Map<?, ?>)
             {
-                element = this.toJSON((Map<?, ?>) element);
+                element = toJSON((Map<?, ?>) element);
             }
             else if (element instanceof List<?>)
             {
-                element = this.toJSON((List<?>) element);
+                element = toJSON((List<?>) element);
             }
             else if (element instanceof Date)
             {
@@ -572,7 +575,7 @@ public class ExecutePost extends AbstractWebScript implements InitializingBean
     {
         final Content content = req.getContent();
 
-        try (final InputStreamReader br = new InputStreamReader(content.getInputStream(), Charset.forName("UTF-8")))
+        try (final InputStreamReader br = new InputStreamReader(content.getInputStream(), StandardCharsets.UTF_8))
         {
             final JSONTokener jsonTokener = new JSONTokener(br);
             final JSONObject jsonInput = new JSONObject(jsonTokener);

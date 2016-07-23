@@ -29,6 +29,11 @@
         <property name="resultCache" ref="${project.artifactId}-resultCache" />
         <property name="printOutputChunkSize" value="${nashornJavaScriptProcessor.nashorn.printOutputChunkSize}" />
     </bean>
+    
+    <bean id="webscript.de.axelfaust.nashorn.result.get" class="${project.artifactId}.web.scripts.console.ResultGet" parent="webscript">
+        <property name="printOutputCache" ref="${project.artifactId}-printOutputCache" />
+        <property name="resultCache" ref="${project.artifactId}-resultCache" />
+    </bean>
 
     <bean name="${project.artifactId}-printOutputCache" factory-bean="cacheFactory" factory-method="createCache">
         <constructor-arg value="cache.nashornJavaScriptProcessor.console.printOutput" />

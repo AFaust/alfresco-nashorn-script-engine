@@ -62,7 +62,7 @@ public class CallerProvidedURLConnection extends URLConnection
         // this avoids repeated compilation of same script (and injection of use strict)
         try
         {
-            final String digest = MD5.Digest(script.getBytes("UTF-8"));
+            final String digest = MD5.Digest(script.getBytes(StandardCharsets.UTF_8.name()));
             final Pair<Long, Long> cachedMeta = STRING_SCRIPT_META_CACHE.get(digest);
             if (cachedMeta != null)
             {

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<webscript>
+    <shortname>Nashorn JavaScript Console Backend</shortname>
+    <description>Repository-tier result check backend for the JavaScript Console addon</description>
+    <url>/nashorn-script-engine/{resultChannel}/result</url>
+    <authentication>admin</authentication>
+    <format default="json">extension</format>
+    <transaction>none</transaction>
+    <family>Nashorn Script Engine</family>
+</webscript>
