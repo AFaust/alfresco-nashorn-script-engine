@@ -39,9 +39,20 @@ public class RepositoryNashornScriptProcessor implements ScriptProcessor, Initia
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RepositoryNashornScriptProcessor.class);
 
-    protected static final String RUNNER_CLASSPATH = "de/axelfaust/alfresco/nashorn/repo/webscripts/webscript-runner.js";
-
     protected static final String MODEL_KEY_SCRIPT_LOCATION = "_RepositoryNashornScriptProcessor_RepositoryScriptLocation";
+
+    private static final ThreadLocal<Boolean> IN_WEBSCRIPT_CALL = new ThreadLocal<Boolean>();
+
+    /**
+     * Checks if the current thread is currently part of a web script request.
+     *
+     * @return {@code true} if the current thread is processing a web script request, {@code false} otherwise
+     */
+    public static boolean isInWebScriptCall()
+    {
+        final Boolean inWebScriptCall = IN_WEBSCRIPT_CALL.get();
+        return Boolean.TRUE.equals(inWebScriptCall);
+    }
 
     protected ScriptService scriptService;
 
@@ -123,13 +134,16 @@ public class RepositoryNashornScriptProcessor implements ScriptProcessor, Initia
                     MODEL_KEY_SCRIPT_LOCATION, effectiveModel.get(MODEL_KEY_SCRIPT_LOCATION));
         }
 
-        effectiveModel.put(MODEL_KEY_SCRIPT_LOCATION, new RepositoryScriptLocation(location));
+        final RepositoryScriptLocation scriptLocation = new RepositoryScriptLocation(location);
+        effectiveModel.put(MODEL_KEY_SCRIPT_LOCATION, scriptLocation);
+        IN_WEBSCRIPT_CALL.set(Boolean.TRUE);
         try
         {
-            return this.scriptService.executeScript("nashorn", RUNNER_CLASSPATH, effectiveModel);
+            return this.scriptService.executeScript("nashorn", scriptLocation, effectiveModel);
         }
         finally
         {
+            IN_WEBSCRIPT_CALL.remove();
             effectiveModel.remove(MODEL_KEY_SCRIPT_LOCATION);
         }
     }

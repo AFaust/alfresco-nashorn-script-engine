@@ -57,11 +57,11 @@
             }
         });
 
-        Object.freeze(this);
+        Object.seal(this);
 
         return this;
     };
-    SpecialModuleWrapper.prototype = {};
+    SpecialModuleWrapper.prototype = Object.create(Object.prototype);
     SpecialModuleWrapper.prototype.constructor = SpecialModuleWrapper;
 
     (function amd__normalizeModuleId__init()

@@ -4,10 +4,11 @@ define('webscript', [ 'spring!de.axelfaust.alfresco.nashorn.repo-webscriptURLStr
         webscriptURLStreamHandler, Java)
 {
     'use strict';
-    var logger, loader, URL;
+    var logger, loader, URL, RepositoryNashornScriptProcessor;
 
-    URL = Java.type('java.net.URL');
     logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.webscript');
+    URL = Java.type('java.net.URL');
+    RepositoryNashornScriptProcessor = Java.type('de.axelfaust.alfresco.nashorn.repo.web.scripts.RepositoryNashornScriptProcessor');
 
     /**
      * This loader module provides the capability to load web scripts as AMD modules, using the Surf web script loader as the lookup
@@ -33,6 +34,11 @@ define('webscript', [ 'spring!de.axelfaust.alfresco.nashorn.repo-webscriptURLStr
         {
             var script = null, url;
 
+            if (!RepositoryNashornScriptProcessor.isInWebScriptCall())
+            {
+                throw new Error('Loader "webscript" is inaccessible when not currently processing a web script call');
+            }
+
             // avoid repeated script resolution when already provided (especially since resolution may query DB)
             require([ 'args!_RepositoryNashornScriptProcessor_RepositoryScriptLocation' ], function webscript_loader__load_callback(
                     scriptLocation)
@@ -44,7 +50,7 @@ define('webscript', [ 'spring!de.axelfaust.alfresco.nashorn.repo-webscriptURLStr
                 }
             }, function webscript_loader__load_errCallback()
             {
-                logger.trace('Currently not part of "real" web script execution');
+                throw new Error('Loader "webscript" is inaccessible when not currently processing a web script call');
             });
 
             if (script === null)
