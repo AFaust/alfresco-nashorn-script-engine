@@ -49,7 +49,10 @@ public abstract class AbstractNodeScriptFile implements ScriptFile
 
     private static final String CACHE_DIRECTORY_NAME = "Alfresco-Nashorn-NodeScriptCache";
 
-    private static final File CACHE_DIRECTORY = TempFileProvider.getTempDir(CACHE_DIRECTORY_NAME);
+    private static final File CACHE_DIRECTORY = TempFileProvider.getTempDir(CACHE_DIRECTORY_NAME + "-" + System.currentTimeMillis());
+    static {
+        CACHE_DIRECTORY.deleteOnExit();
+    }
 
     protected final NodeRef nodeRef;
 

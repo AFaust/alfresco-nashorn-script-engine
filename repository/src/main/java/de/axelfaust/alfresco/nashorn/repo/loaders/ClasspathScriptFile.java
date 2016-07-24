@@ -45,7 +45,10 @@ public class ClasspathScriptFile implements ScriptFile
 
     private static final String CACHE_DIRECTORY_NAME = "Alfresco-Nashorn-ClasspathScriptCache";
 
-    private static final File CACHE_DIRECTORY = TempFileProvider.getTempDir(CACHE_DIRECTORY_NAME);
+    private static final File CACHE_DIRECTORY = TempFileProvider.getTempDir(CACHE_DIRECTORY_NAME + "-" + System.currentTimeMillis());
+    static {
+        CACHE_DIRECTORY.deleteOnExit();
+    }
 
     protected static final long DEFAULT_EXISTENCE_CHECK_INTERVAL = 30000;
 
