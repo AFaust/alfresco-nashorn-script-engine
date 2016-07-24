@@ -82,7 +82,7 @@
 
     noSuchPropertyImpl = function __noSuchProperty__(propName)
     {
-        var defaultResult, result;
+        var result;
 
         logger.trace('Checking previously cached __noSuchProperty__ result for {}', propName);
         if (propName in cachedValues)
