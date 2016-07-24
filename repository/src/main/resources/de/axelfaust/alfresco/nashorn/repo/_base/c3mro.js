@@ -141,18 +141,19 @@ define([], function()
 
         c3mroId = lastC3mroId++;
 
-        Object.defineProperty(o, '_c3mro_id', {
-            value : c3mroId,
-            writable : false,
-            enumerable : false,
-            configurable : false
-        });
-
-        Object.defineProperty(o, '_c3mro_linearization', {
-            value : linearization,
-            writable : false,
-            enumerable : false,
-            configurable : false
+        Object.defineProperties(o, {
+            _c3mro_id : {
+                value : c3mroId,
+                writable : false,
+                enumerable : false,
+                configurable : false
+            },
+            _c3mro_linearization : {
+                value : linearization,
+                writable : false,
+                enumerable : false,
+                configurable : false
+            }
         });
 
         Object.freeze(linearization);

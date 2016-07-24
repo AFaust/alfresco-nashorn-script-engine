@@ -35,10 +35,29 @@
 
     SpecialModuleWrapper = function amd__SpecialModuleWrapper_constructor(module)
     {
-        Object.defineProperty(this, 'wrapped', {
-            value : module,
-            enumerable : true
+        Object.defineProperties(this, {
+            wrapped : {
+                value : module,
+                enumerable : true
+            },
+            callerTagged : {
+                value : false,
+                enumerable : true,
+                writable : true
+            },
+            callerProvided : {
+                value : false,
+                enumerable : true,
+                writable : true
+            },
+            secureUseOnly : {
+                value : false,
+                enumerable : true,
+                writable : true
+            }
         });
+
+        Object.freeze(this);
 
         return this;
     };
@@ -2150,13 +2169,14 @@
         }
     }), 'define');
 
-    Object.defineProperty(this, 'require', {
-        value : require,
-        enumerable : false
-    });
-
-    Object.defineProperty(this, 'define', {
-        value : define,
-        enumerable : false
+    Object.defineProperties(this, {
+        require : {
+            value : require,
+            enumerable : false
+        },
+        define : {
+            value : define,
+            enumerable : false
+        }
     });
 }.call(this));

@@ -66,26 +66,24 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '_base/Conver
 
                     // setup internal state
 
-                    // identity of backing node
-                    Object.defineProperty(this, 'nodeRef', {
-                        value : internalNodeRef
+                    Object.defineProperties(this, {
+                        // identity of backing node
+                        nodeRef : {
+                            value : internalNodeRef
+                        },
+                        // map of properties as exposed to scripts (set/retrieved at least once and converted)
+                        effectiveScriptProperties : {
+                            value : {}
+                        },
+                        explicitlyAccessedProperties : {
+                            value : []
+                        },
+                        // map of Alfresco properties as previously retrieved (for checking against potential co-modification in other
+                        // APIs)
+                        nodeProperties : {
+                            value : {}
+                        }
                     });
-
-                    // map of properties as exposed to scripts (set/retrieved at least once and converted)
-                    Object.defineProperty(this, 'effectiveScriptProperties', {
-                        value : {}
-                    });
-
-                    Object.defineProperty(this, 'explicitlyAccessedProperties', {
-                        value : []
-                    });
-
-                    // map of Alfresco properties as previously retrieved (for checking against potential co-modification in other
-                    // APIs)
-                    Object.defineProperty(this, 'nodeProperties', {
-                        value : {}
-                    });
-
                     this._loadNodeProperties();
                 },
 
