@@ -688,7 +688,7 @@
                 {
                     var result, specificAdaptee;
 
-                    if (typeof module === 'function')
+                    if (typeof module === 'function' && (!('_specialHandling' in module) || module._specialHandling !== false))
                     {
                         result = Function.prototype.bind.call(specialModuleHandling.specialModuleFnCall, undefined, module, descriptor,
                                 url, scope);
@@ -729,7 +729,8 @@
 
                     logger.trace('Special module function {} called from {}', [ fn.name, url ]);
 
-                    if (descriptor.hasOwnProperty('callerTagged') && descriptor.callerTagged === true)
+                    if ((!('_specialHandling' in fn) || fn._specialHandling !== false) && descriptor.hasOwnProperty('callerTagged')
+                            && descriptor.callerTagged === true)
                     {
                         withTaggedCaller(function amd__moduleManagement__specialModuleFnCall__callerTagged()
                         {
@@ -1676,6 +1677,7 @@
 
             return contextScriptUrl;
         };
+        require.getCallerScriptURL._specialHandling = false;
 
         require.getScriptFileModuleId = function amd__require__getScriptFileModuleId(contextScriptUrl)
         {
@@ -1695,6 +1697,7 @@
 
             return moduleId;
         };
+        require.getScriptFileModuleId._specialHandling = false;
 
         require.getScriptFileModuleLoader = function amd__require__getScriptFileModuleLoader(contextScriptUrl)
         {
@@ -1709,6 +1712,7 @@
 
             return moduleLoader;
         };
+        require.getScriptFileModuleLoader._specialHandling = false;
 
         /**
          * Executes a callback with a fixed caller script URL tagged in the current execution context. The script URL is determined from the
@@ -1761,6 +1765,7 @@
 
             return result;
         };
+        require.withTaggedCallerScript._specialHandling = false;
 
         getCaller = function amd__require__getCallerScriptURL_internal()
         {
@@ -1959,6 +1964,7 @@
 
         return wrapper;
     };
+    define.asSpecialModule._specialHandling = false;
 
     /**
      * Preloads a specific module in such a way that its defining script file is loaded to ensure that the module is defined. This operation
@@ -2010,6 +2016,7 @@
             throw new Error('Module id is not a string');
         }
     };
+    define.preload._specialHandling = false;
 
     // mininum object to identify define as AMD compatible
     define.amd = {
