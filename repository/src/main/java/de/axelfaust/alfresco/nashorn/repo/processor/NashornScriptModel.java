@@ -24,6 +24,8 @@ import java.util.UUID;
 import javax.script.ScriptContext;
 
 import de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModelAwareContainer.DataContainerType;
+import de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModelAwareContainer.IndexValueInitializationCallback;
+import de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModelAwareContainer.NamedValueInitializationCallback;
 
 /**
  * @author Axel Faust
@@ -76,6 +78,20 @@ public class NashornScriptModel implements Closeable
     }
 
     /**
+     * Creates a new indexed data container to be used for managing script-execution specific state in a script environment without any
+     * sharing via {@link ScriptContext}.
+     *
+     * @param callback
+     *            the initial value callback for the indexed container
+     * @return the new indexed data container
+     */
+    public static NashornScriptModelAwareContainer newIndexedContainer(final IndexValueInitializationCallback callback)
+    {
+        final NashornScriptModelAwareContainer dataContainer = new NashornScriptModelAwareContainer(callback);
+        return dataContainer;
+    }
+
+    /**
      * Creates a new associative data container to be used for managing script-execution specific state in a script environment without any
      * sharing via {@link ScriptContext}.
      *
@@ -84,6 +100,20 @@ public class NashornScriptModel implements Closeable
     public static NashornScriptModelAwareContainer newAssociativeContainer()
     {
         final NashornScriptModelAwareContainer dataContainer = new NashornScriptModelAwareContainer(DataContainerType.ASSOCIATIVE);
+        return dataContainer;
+    }
+
+    /**
+     * Creates a new associative data container to be used for managing script-execution specific state in a script environment without any
+     * sharing via {@link ScriptContext}.
+     *
+     * @param callback
+     *            the initial value callback for the associative container
+     * @return the new associative data container
+     */
+    public static NashornScriptModelAwareContainer newAssociativeContainer(final NamedValueInitializationCallback callback)
+    {
+        final NashornScriptModelAwareContainer dataContainer = new NashornScriptModelAwareContainer(callback);
         return dataContainer;
     }
 
@@ -154,7 +184,7 @@ public class NashornScriptModel implements Closeable
         this.closed = true;
     }
 
-    protected List<Object> getOrIndexContainerData(final UUID containerUUID)
+    protected List<Object> getOrCreateIndexContainerData(final UUID containerUUID)
     {
         List<Object> list = this.indexedContainers.get(containerUUID);
         if (list == null)

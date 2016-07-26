@@ -47,14 +47,83 @@ public class NashornScriptModelAwareContainer extends AbstractJSObject
         ASSOCIATIVE;
     }
 
+    /**
+     *
+     * This single abstract method (SAM) interface allows scripts to provide callback functions to a model-aware container to derive the
+     * initial value of a field in an associative data container.
+     *
+     * @author Axel Faust
+     */
+    @FunctionalInterface
+    public static interface NamedValueInitializationCallback
+    {
+
+        /**
+         * Determines the initial value of a specific named member.
+         *
+         * @param member
+         *            the name of the member for which to get the initial value
+         * @return the initial value
+         */
+        Object getInitialValue(String member);
+    }
+
+    private static final Object EXPLICIT_NULL = new Object();
+
+    /**
+     *
+     * This single abstract method (SAM) interface allows scripts to provide callback functions to a model-aware container to derive the
+     * initial value of a field in an indexed data container.
+     *
+     * @author Axel Faust
+     */
+    @FunctionalInterface
+    public static interface IndexValueInitializationCallback
+    {
+
+        /**
+         * Determines the initial value of a specific indexed member.
+         *
+         * @param index
+         *            the index of the member for which to get the initial value
+         * @return the initial value
+         */
+        Object getInitialValue(int index);
+    }
+
     private final UUID uuid = UUID.randomUUID();
 
     private final DataContainerType type;
+
+    private final IndexValueInitializationCallback indexedValueCallback;
+
+    private final NamedValueInitializationCallback namedValueCallback;
 
     protected NashornScriptModelAwareContainer(final DataContainerType type)
     {
         ParameterCheck.mandatory("type", type);
         this.type = type;
+
+        this.indexedValueCallback = null;
+        this.namedValueCallback = null;
+    }
+
+    protected NashornScriptModelAwareContainer(final IndexValueInitializationCallback indexValueCallback)
+    {
+        ParameterCheck.mandatory("indexValueCallback", indexValueCallback);
+        this.indexedValueCallback = indexValueCallback;
+        this.type = DataContainerType.INDEXED;
+
+        this.namedValueCallback = null;
+    }
+
+    protected NashornScriptModelAwareContainer(final NamedValueInitializationCallback namedValueCallback)
+    {
+        ParameterCheck.mandatory("namedValueCallback", namedValueCallback);
+        this.namedValueCallback = namedValueCallback;
+        this.type = DataContainerType.ASSOCIATIVE;
+
+        this.indexedValueCallback = null;
     }
 
     /**
@@ -69,7 +138,7 @@ public class NashornScriptModelAwareContainer extends AbstractJSObject
         switch (this.type)
         {
             case INDEXED:
-                final List<Object> indexContainerData = currentModel.getOrIndexContainerData(this.uuid);
+                final List<Object> indexContainerData = currentModel.getOrCreateIndexContainerData(this.uuid);
                 switch (name)
                 {
                     case "length":
@@ -86,6 +155,22 @@ public class NashornScriptModelAwareContainer extends AbstractJSObject
                             else
                             {
                                 result = null;
+                            }
+
+                            if (result == EXPLICIT_NULL)
+                            {
+                                result = null;
+                            }
+                            else if (result == null && this.indexedValueCallback != null)
+                            {
+                                final Object initialValue = this.indexedValueCallback.getInitialValue(idx);
+                                while (idx > indexContainerData.size())
+                                {
+                                    indexContainerData.add(null);
+                                }
+
+                                indexContainerData.add(initialValue != null ? initialValue : EXPLICIT_NULL);
+                                result = initialValue;
                             }
                         }
                         catch (final NumberFormatException nex)
@@ -104,9 +189,21 @@ public class NashornScriptModelAwareContainer extends AbstractJSObject
                         case "length":
                             result = Integer.valueOf(associativeContainerData.size());
                             break;
-                        default: // empty
+                        default:
+                            if (this.namedValueCallback != null)
+                            {
+                                final Object initialValue = this.namedValueCallback.getInitialValue(name);
+                                associativeContainerData.put(name, initialValue != null ? initialValue : EXPLICIT_NULL);
+                                result = initialValue;
+                            }
                     }
                 }
+
+                if (result == EXPLICIT_NULL)
+                {
+                    result = null;
+                }
+
                 break;
             default:
                 result = null;
@@ -127,7 +224,7 @@ public class NashornScriptModelAwareContainer extends AbstractJSObject
         switch (this.type)
         {
             case INDEXED:
-                final List<Object> indexContainerData = currentModel.getOrIndexContainerData(this.uuid);
+                final List<Object> indexContainerData = currentModel.getOrCreateIndexContainerData(this.uuid);
                 if (idx >= 0 && idx < indexContainerData.size())
                 {
                     result = indexContainerData.get(idx);
@@ -136,10 +233,33 @@ public class NashornScriptModelAwareContainer extends AbstractJSObject
                 {
                     result = null;
                 }
+
+                if (result == EXPLICIT_NULL)
+                {
+                    result = null;
+                }
+                else if (result == null && this.indexedValueCallback != null)
+                {
+                    final Object initialValue = this.indexedValueCallback.getInitialValue(idx);
+                    while (idx > indexContainerData.size())
+                    {
+                        indexContainerData.add(null);
+                    }
+
+                    indexContainerData.add(initialValue != null ? initialValue : EXPLICIT_NULL);
+                    result = initialValue;
+                }
+
                 break;
             case ASSOCIATIVE:
                 final Map<Object, Object> associativeContainerData = currentModel.getOrCreateAssociativeContainerData(this.uuid);
                 result = associativeContainerData.get(Integer.valueOf(idx));
+
+                if (result == EXPLICIT_NULL)
+                {
+                    result = null;
+                }
+
                 break;
             default:
                 result = null;
@@ -163,7 +283,7 @@ public class NashornScriptModelAwareContainer extends AbstractJSObject
                 try
                 {
                     final int idx = Integer.parseInt(name);
-                    final List<Object> indexContainerData = currentModel.getOrIndexContainerData(this.uuid);
+                    final List<Object> indexContainerData = currentModel.getOrCreateIndexContainerData(this.uuid);
                     result = idx >= 0 && idx < indexContainerData.size();
                 }
                 catch (final NumberFormatException nex)
@@ -194,7 +314,7 @@ public class NashornScriptModelAwareContainer extends AbstractJSObject
         switch (this.type)
         {
             case INDEXED:
-                final List<Object> indexContainerData = currentModel.getOrIndexContainerData(this.uuid);
+                final List<Object> indexContainerData = currentModel.getOrCreateIndexContainerData(this.uuid);
                 result = idx >= 0 && idx < indexContainerData.size();
                 break;
             case ASSOCIATIVE:
@@ -222,7 +342,7 @@ public class NashornScriptModelAwareContainer extends AbstractJSObject
                 try
                 {
                     final int idx = Integer.parseInt(name);
-                    final List<Object> indexContainerData = currentModel.getOrIndexContainerData(this.uuid);
+                    final List<Object> indexContainerData = currentModel.getOrCreateIndexContainerData(this.uuid);
                     if (idx >= 0 && idx < indexContainerData.size())
                     {
                         indexContainerData.remove(idx);
@@ -260,14 +380,14 @@ public class NashornScriptModelAwareContainer extends AbstractJSObject
                 try
                 {
                     final int idx = Integer.parseInt(name);
-                    final List<Object> indexContainerData = currentModel.getOrIndexContainerData(this.uuid);
+                    final List<Object> indexContainerData = currentModel.getOrCreateIndexContainerData(this.uuid);
                     if (idx >= 0 && idx < indexContainerData.size())
                     {
-                        indexContainerData.set(idx, value);
+                        indexContainerData.set(idx, value == null ? EXPLICIT_NULL : value);
                     }
                     else if (idx == indexContainerData.size())
                     {
-                        indexContainerData.add(value);
+                        indexContainerData.add(value == null ? EXPLICIT_NULL : value);
                     }
                     else
                     {
@@ -281,7 +401,7 @@ public class NashornScriptModelAwareContainer extends AbstractJSObject
                 break;
             case ASSOCIATIVE:
                 final Map<Object, Object> associativeContainerData = currentModel.getOrCreateAssociativeContainerData(this.uuid);
-                associativeContainerData.put(name, value);
+                associativeContainerData.put(name, value == null ? EXPLICIT_NULL : value);
                 break;
             default:
                 throw new UnsupportedOperationException("setMember not supported by " + this.type);
@@ -299,14 +419,14 @@ public class NashornScriptModelAwareContainer extends AbstractJSObject
         switch (this.type)
         {
             case INDEXED:
-                final List<Object> indexContainerData = currentModel.getOrIndexContainerData(this.uuid);
+                final List<Object> indexContainerData = currentModel.getOrCreateIndexContainerData(this.uuid);
                 if (idx >= 0 && idx < indexContainerData.size())
                 {
-                    indexContainerData.set(idx, value);
+                    indexContainerData.set(idx, value == null ? EXPLICIT_NULL : value);
                 }
                 else if (idx == indexContainerData.size())
                 {
-                    indexContainerData.add(value);
+                    indexContainerData.add(value == null ? EXPLICIT_NULL : value);
                 }
                 else
                 {
@@ -315,7 +435,7 @@ public class NashornScriptModelAwareContainer extends AbstractJSObject
                 break;
             case ASSOCIATIVE:
                 final Map<Object, Object> associativeContainerData = currentModel.getOrCreateAssociativeContainerData(this.uuid);
-                associativeContainerData.put(Integer.valueOf(idx), value);
+                associativeContainerData.put(Integer.valueOf(idx), value == null ? EXPLICIT_NULL : value);
                 break;
             default:
                 throw new UnsupportedOperationException("setSlot not supported by " + this.type);
@@ -336,7 +456,7 @@ public class NashornScriptModelAwareContainer extends AbstractJSObject
         {
             case INDEXED:
                 keys = new LinkedHashSet<String>();
-                final List<Object> indexContainerData = currentModel.getOrIndexContainerData(this.uuid);
+                final List<Object> indexContainerData = currentModel.getOrCreateIndexContainerData(this.uuid);
                 for (int idx = 0, max = indexContainerData.size(); idx < max; idx++)
                 {
                     keys.add(String.valueOf(idx));
@@ -371,7 +491,7 @@ public class NashornScriptModelAwareContainer extends AbstractJSObject
         {
             case INDEXED:
                 values = new ArrayList<Object>();
-                final List<Object> indexContainerData = currentModel.getOrIndexContainerData(this.uuid);
+                final List<Object> indexContainerData = currentModel.getOrCreateIndexContainerData(this.uuid);
                 values.addAll(indexContainerData);
                 break;
             case ASSOCIATIVE:

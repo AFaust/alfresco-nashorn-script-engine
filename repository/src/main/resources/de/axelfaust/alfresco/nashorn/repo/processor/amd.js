@@ -15,7 +15,9 @@
     // internal fns
     isObject, normalizeModuleId, withTaggedCaller, getCaller, SpecialModuleWrapper,
     // Java utils
-    NashornUtils, Throwable, AMDUnavailableModuleException, logger,
+    NashornUtils, Throwable, AMDUnavailableModuleException,
+    // JS utils
+    logger, loggerState,
     // public fns
     require, define;
 
@@ -26,6 +28,41 @@
     Throwable = Java.type('java.lang.Throwable');
     AMDUnavailableModuleException = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.AMDUnavailableModuleException');
     logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.amd');
+
+    // we use loggerState to avoid costly call-linking (and potentially array-parameter preparation) for any log statements if the log level
+    // is not enabled at all (at the beginning of an execution / first check)
+    loggerState = (function amd__loggerState_init()
+    {
+        var NashornScriptModel = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel');
+
+        return NashornScriptModel.newAssociativeContainer(function amd__loggerState_getLogLevelEnabled(name)
+        {
+            var result;
+
+            switch (name)
+            {
+                case 'trace':
+                    result = logger.isTraceEnabled();
+                    break;
+                case 'debug':
+                    result = logger.isDebugEnabled();
+                    break;
+                case 'info':
+                    result = logger.isInfoEnabled();
+                    break;
+                case 'warn':
+                    result = logger.isWarnEnabled();
+                    break;
+                case 'error':
+                    result = logger.isErrorEnabled();
+                    break;
+                default:
+                    result = false;
+            }
+
+            return result;
+        });
+    }());
 
     isObject = function amd__isObject(o)
     {
@@ -81,7 +118,10 @@
 
             result = AMDUtils.normalizeSimpleModuleId(id, isObject(contextModule) ? contextModule.id : null);
             result = AMDUtils.mapModuleId(result, isObject(contextModule) ? contextModule.id : null, mappings);
-            logger.trace('Normalized simple id "{}" to "{}"', [ id, result ]);
+            if (loggerState.trace)
+            {
+                logger.trace('Normalized simple id "{}" to "{}"', [ id, result ]);
+            }
             return result;
         };
 
@@ -93,14 +133,20 @@
                 throw new Error('Module ID was either not provided or is not a string');
             }
 
-            logger.trace('Normalizing module id "{}"', id);
+            if (loggerState.trace)
+            {
+                logger.trace('Normalizing module id "{}"', id);
+            }
 
             if (/^[^!]+!.+$/.test(id))
             {
                 loaderName = id.substring(0, id.indexOf('!'));
                 realId = (id.length >= loaderName.length + 1) ? id.substring(id.indexOf('!') + 1) : '';
 
-                logger.trace('Retrieving loader "{}" for module "{}"', [ loaderName, id ]);
+                if (loggerState.trace)
+                {
+                    logger.trace('Retrieving loader "{}" for module "{}"', [ loaderName, id ]);
+                }
 
                 isSecure = forceIsSecure === true || (isObject(contextModule) && contextModule.secureSource === true);
                 loader = moduleManagement.getModule(loaderName, true, isSecure, isObject(contextModule) ? contextModule.url : contextUrl);
@@ -111,7 +157,10 @@
 
                 if (typeof loader.normalize === 'function')
                 {
-                    logger.trace('Calling normalize-function of loader "{}"', loaderName);
+                    if (loggerState.trace)
+                    {
+                        logger.trace('Calling normalize-function of loader "{}"', loaderName);
+                    }
                     // protect against loader manipulating the contextModule by using a derivative
                     if (isObject(contextModule))
                     {
@@ -134,7 +183,10 @@
                 }
                 else
                 {
-                    logger.trace('Loader "{}" does not define a normalize-function', loaderName);
+                    if (loggerState.trace)
+                    {
+                        logger.trace('Loader "{}" does not define a normalize-function', loaderName);
+                    }
                     normalizedId = loaderName + '!' + normalizeSimpleId(realId, contextModule);
                 }
             }
@@ -175,7 +227,10 @@
 
         if (typeof dependencies === 'string')
         {
-            logger.trace('Resolving single dependency "{}" for call to require(string)', dependencies);
+            if (loggerState.trace)
+            {
+                logger.trace('Resolving single dependency "{}" for call to require(string)', dependencies);
+            }
             // require(string)
             normalizedModuleId = normalizeModuleId(dependencies, contextModule, contextScriptUrl);
             // MUST fail if module is not yet defined or initialised
@@ -190,11 +245,17 @@
             implicitArgs = [];
             failOnMissingDependency = typeof errCallback !== 'function';
 
-            logger.trace('Resolving {} dependencies for call to require(string[], function, function?)', dependencies.length);
+            if (loggerState.trace)
+            {
+                logger.trace('Resolving {} dependencies for call to require(string[], function, function?)', dependencies.length);
+            }
 
             for (idx = 0; idx < dependencies.length; idx += 1)
             {
-                logger.trace('Resolving dependency "{}" for call to require(string[], function, function?)', dependencies[0]);
+                if (loggerState.trace)
+                {
+                    logger.trace('Resolving dependency "{}" for call to require(string[], function, function?)', dependencies[0]);
+                }
                 normalizedModuleId = normalizeModuleId(dependencies[idx], contextModule, contextScriptUrl);
 
                 try
@@ -204,15 +265,22 @@
                 catch (e)
                 {
                     module = null;
-                    if (e.nashornException instanceof Throwable)
+                    if (loggerState.trace)
                     {
-                        logger.trace('Failed to resolve dependency', e.nashornException);
+                        if (e.nashornException instanceof Throwable)
+                        {
+                            logger.trace('Failed to resolve dependency', e.nashornException);
+                        }
+                        else
+                        {
+                            logger.trace('Failed to resolve dependency - {}', e.message);
+                        }
                     }
-                    else
+                    if (loggerState.debug)
                     {
-                        logger.trace('Failed to resolve dependency - {}', e.message);
+                        logger.debug('Failed to resolve dependency "{}" for call to require(string[], function, function?)',
+                                dependencies[idx]);
                     }
-                    logger.debug('Failed to resolve dependency "{}" for call to require(string[], function, function?)', dependencies[idx]);
 
                     // rethrow
                     if (failOnMissingDependency === true || !(e instanceof AMDUnavailableModuleException))
@@ -227,7 +295,10 @@
                 // missingModule only triggers special handling if errCallback has been provided
                 if (module === undefined || module === null)
                 {
-                    logger.trace('Module "{}" in call to require(string[], function, function?) is undefined/null', normalizedModuleId);
+                    if (loggerState.trace)
+                    {
+                        logger.trace('Module "{}" in call to require(string[], function, function?) is undefined/null', normalizedModuleId);
+                    }
                     missingModule = true;
                 }
 
@@ -244,20 +315,29 @@
                         implicitArgs.push(undefined);
                     }
 
-                    logger.trace('Added implicit module result "{}" for call to require(string[], function, function?)',
-                            implicitArgs[implicitArgs.length - 1]);
+                    if (loggerState.trace)
+                    {
+                        logger.trace('Added implicit module result "{}" for call to require(string[], function, function?)',
+                                implicitArgs[implicitArgs.length - 1]);
+                    }
                 }
             }
 
             if (missingModule === true && failOnMissingDependency !== true)
             {
-                logger.debug('Calling errCallback for call to require(string[], function, function?)');
+                if (loggerState.debug)
+                {
+                    logger.debug('Calling errCallback for call to require(string[], function, function?)');
+                }
                 // signature is fn(dependencies[], moduleResolutions[], implicitResolutions[])
                 errCallback.call(this, dependencies, args, implicitArgs);
             }
             else if (typeof callback === 'function')
             {
-                logger.debug('Calling standard callback for call to require(string[], function, function?)');
+                if (loggerState.debug)
+                {
+                    logger.debug('Calling standard callback for call to require(string[], function, function?)');
+                }
                 callback.apply(this, args);
             }
             else
@@ -304,185 +384,205 @@
             }
         });
 
-        internal = Object.create(Object.prototype, {
-
-            copySharedModule : {
-                value : function amd__moduleRegistry__internal__copySharedModule(backupModule)
+        internal = Object.create(Object.prototype,
                 {
-                    var module, normalizedId, am;
 
-                    am = active.modules;
+                    copySharedModule : {
+                        value : function amd__moduleRegistry__internal__copySharedModule(backupModule)
+                        {
+                            var module, normalizedId, am;
 
-                    // simply use backup-ed module as prototype
-                    // prevent prototype mutation by re-adding mutables locally
-                    module = Object.create(backupModule, {
-                        initialized : {
-                            value : backupModule.initialized,
-                            enumerable : true,
-                            writable : !backupModule.initialized
-                        },
-                        constructing : {
-                            value : false,
-                            enumerable : true,
-                            writable : !backupModule.initialized
-                        },
-                        result : {
-                            value : backupModule.result,
-                            enumerable : true,
-                            writable : !backupModule.initialized
-                        }
-                    });
+                            am = active.modules;
 
-                    am[module.id] = module;
-                    if (typeof module.url === 'string')
-                    {
-                        active.modulesByUrl[module.url] = module;
-                    }
+                            // simply use backup-ed module as prototype
+                            // prevent prototype mutation by re-adding mutables locally
+                            module = Object.create(backupModule, {
+                                initialized : {
+                                    value : backupModule.initialized,
+                                    enumerable : true,
+                                    writable : !backupModule.initialized
+                                },
+                                constructing : {
+                                    value : false,
+                                    enumerable : true,
+                                    writable : !backupModule.initialized
+                                },
+                                result : {
+                                    value : backupModule.result,
+                                    enumerable : true,
+                                    writable : !backupModule.initialized
+                                }
+                            });
 
-                    if (typeof module.loader === 'string' && module.id.indexOf(module.loader + '!') !== 0)
-                    {
-                        normalizedId = module.loader + '!' + module.id;
-                        am[normalizedId] = module;
-                    }
-
-                    return module;
-                }
-            },
-
-            getModule : {
-                value : function amd__moduleRegistry__internal__getModule(moduleId)
-                {
-                    var module;
-
-                    module = active.modules[moduleId];
-                    logger.trace('Module "{}" has {}been defined', [ moduleId, isObject(module) ? '' : 'not ' ]);
-
-                    if (!isObject(module) && moduleId in backup.modules)
-                    {
-                        logger.trace('Restoring module "{}" from shared AMD loader state', moduleId);
-                        module = this.copySharedModule(backup.modules[moduleId]);
-                    }
-
-                    if (module === undefined)
-                    {
-                        module = active.modules[moduleId] = DUMMY_MODULE;
-                    }
-
-                    return module;
-                }
-            },
-
-            copySharedListenerInModuleList : {
-                value : function amd__moduleRegistry__internal__copySharedListenerInModuleList(listener, index, arr)
-                {
-                    var copiedListener;
-
-                    if (listener.id in active.moduleListeners)
-                    {
-                        copiedListener = active.moduleListeners[listener.id];
-                    }
-
-                    if (copiedListener === undefined)
-                    {
-                        // simply use backup-ed listener as prototype
-                        // prevent prototype mutation by re-adding mutables locally
-                        copiedListener = Object.create(listener, {
-                            triggered : {
-                                value : listener.triggered,
-                                enumerable : true,
-                                writable : true
-                            },
-                            resolved : {
-                                value : listener.resolved.slice(),
-                                enumerable : true
+                            am[module.id] = module;
+                            if (typeof module.url === 'string')
+                            {
+                                active.modulesByUrl[module.url] = module;
                             }
-                        });
-                        active.moduleListeners[listener.id] = copiedListener;
-                    }
 
-                    arr[index] = copiedListener;
-                }
-            },
+                            if (typeof module.loader === 'string' && module.id.indexOf(module.loader + '!') !== 0)
+                            {
+                                normalizedId = module.loader + '!' + module.id;
+                                am[normalizedId] = module;
+                            }
 
-            getModuleListeners : {
-                value : function amd__moduleRegistry__getModuleListeners(moduleId)
-                {
-                    var aml, listeners;
-
-                    aml = active.moduleListenersByModule;
-                    listeners = aml[moduleId];
-                    logger.trace('Listeners for module "{}" have {}been defined', [ moduleId, Array.isArray(listeners) ? '' : 'not ' ]);
-
-                    if (!Array.isArray(listeners) && moduleId in backup.moduleListenersByModule)
-                    {
-                        logger.trace('Restoring listeners for module {} from shared AMD loader state', moduleId);
-
-                        listeners = Array.prototype.slice.call(backup.moduleListenersByModule[moduleId], 0);
-                        listeners.forEach(this.copySharedListenerInModuleList);
-
-                        aml[moduleId] = listeners;
-                    }
-                    else
-                    {
-                        listeners = aml[moduleId] = [];
-                    }
-
-                    return listeners;
-                }
-            },
-
-            updateSharedStateModules : {
-                value : function amd__moduleRegistry__internal__updateSharedStateModules()
-                {
-                    var moduleId, am, bm, transferredModuleIds;
-
-                    am = active.modules;
-                    bm = backup.modules;
-
-                    transferredModuleIds = [];
-                    // can't use hasOwnProperty on JSObject am and no prototype exists to inject unwanted/unintended properties
-                    /* jshint forin: false */
-                    for (moduleId in am)
-                    {
-                        if (!bm.hasOwnProperty(moduleId) && isObject(am[moduleId]) && am[moduleId] !== DUMMY_MODULE)
-                        {
-                            bm[moduleId] = am[moduleId];
-                            transferredModuleIds.push(moduleId);
+                            return module;
                         }
+                    },
 
-                        delete am[moduleId];
-                    }
-                    /* jshint forin: true */
-
-                    logger.trace('Transferred registered modules {} to shared state', JSON.stringify(transferredModuleIds));
-                }
-            },
-
-            updateSharedStateListeners : {
-                value : function amd__moduleRegistry__internal__updateSharedStateListeners()
-                {
-                    var moduleId, albm, blbm;
-
-                    albm = active.moduleListenersByModule;
-                    blbm = backup.moduleListenersByModule;
-
-                    // can't use hasOwnProperty on JSObject albm and no prototype exists to inject unwanted/unintended properties
-                    /* jshint forin: false */
-                    for (moduleId in albm)
-                    {
-                        if (Array.isArray(albm[moduleId]))
+                    getModule : {
+                        value : function amd__moduleRegistry__internal__getModule(moduleId)
                         {
-                            blbm[moduleId] = albm[moduleId];
+                            var module;
+
+                            module = active.modules[moduleId];
+                            if (loggerState.trace)
+                            {
+                                logger.trace('Module "{}" has {}been defined', [ moduleId, isObject(module) ? '' : 'not ' ]);
+                            }
+
+                            if (!isObject(module) && moduleId in backup.modules)
+                            {
+                                if (loggerState.trace)
+                                {
+                                    logger.trace('Restoring module "{}" from shared AMD loader state', moduleId);
+                                }
+                                module = this.copySharedModule(backup.modules[moduleId]);
+                            }
+
+                            if (module === undefined)
+                            {
+                                module = active.modules[moduleId] = DUMMY_MODULE;
+                            }
+
+                            return module;
                         }
+                    },
 
-                        delete albm[moduleId];
+                    copySharedListenerInModuleList : {
+                        value : function amd__moduleRegistry__internal__copySharedListenerInModuleList(listener, index, arr)
+                        {
+                            var copiedListener;
+
+                            if (listener.id in active.moduleListeners)
+                            {
+                                copiedListener = active.moduleListeners[listener.id];
+                            }
+
+                            if (copiedListener === undefined)
+                            {
+                                // simply use backup-ed listener as prototype
+                                // prevent prototype mutation by re-adding mutables locally
+                                copiedListener = Object.create(listener, {
+                                    triggered : {
+                                        value : listener.triggered,
+                                        enumerable : true,
+                                        writable : true
+                                    },
+                                    resolved : {
+                                        value : listener.resolved.slice(),
+                                        enumerable : true
+                                    }
+                                });
+                                active.moduleListeners[listener.id] = copiedListener;
+                            }
+
+                            arr[index] = copiedListener;
+                        }
+                    },
+
+                    getModuleListeners : {
+                        value : function amd__moduleRegistry__getModuleListeners(moduleId)
+                        {
+                            var aml, listeners;
+
+                            aml = active.moduleListenersByModule;
+                            listeners = aml[moduleId];
+                            if (loggerState.trace)
+                            {
+                                logger.trace('Listeners for module "{}" have {}been defined', [ moduleId,
+                                        Array.isArray(listeners) ? '' : 'not ' ]);
+                            }
+
+                            if (!Array.isArray(listeners) && moduleId in backup.moduleListenersByModule)
+                            {
+                                if (loggerState.trace)
+                                {
+                                    logger.trace('Restoring listeners for module {} from shared AMD loader state', moduleId);
+                                }
+
+                                listeners = Array.prototype.slice.call(backup.moduleListenersByModule[moduleId], 0);
+                                listeners.forEach(this.copySharedListenerInModuleList);
+
+                                aml[moduleId] = listeners;
+                            }
+                            else
+                            {
+                                listeners = aml[moduleId] = [];
+                            }
+
+                            return listeners;
+                        }
+                    },
+
+                    updateSharedStateModules : {
+                        value : function amd__moduleRegistry__internal__updateSharedStateModules()
+                        {
+                            var moduleId, am, bm, transferredModuleIds;
+
+                            am = active.modules;
+                            bm = backup.modules;
+
+                            transferredModuleIds = [];
+                            // can't use hasOwnProperty on JSObject am and no prototype exists to inject unwanted/unintended properties
+                            /* jshint forin: false */
+                            for (moduleId in am)
+                            {
+                                if (!bm.hasOwnProperty(moduleId) && isObject(am[moduleId]) && am[moduleId] !== DUMMY_MODULE)
+                                {
+                                    bm[moduleId] = am[moduleId];
+                                    transferredModuleIds.push(moduleId);
+                                }
+
+                                delete am[moduleId];
+                            }
+                            /* jshint forin: true */
+
+                            if (loggerState.trace)
+                            {
+                                logger.trace('Transferred registered modules {} to shared state', JSON.stringify(transferredModuleIds));
+                            }
+                        }
+                    },
+
+                    updateSharedStateListeners : {
+                        value : function amd__moduleRegistry__internal__updateSharedStateListeners()
+                        {
+                            var moduleId, albm, blbm;
+
+                            albm = active.moduleListenersByModule;
+                            blbm = backup.moduleListenersByModule;
+
+                            // can't use hasOwnProperty on JSObject albm and no prototype exists to inject unwanted/unintended properties
+                            /* jshint forin: false */
+                            for (moduleId in albm)
+                            {
+                                if (Array.isArray(albm[moduleId]))
+                                {
+                                    blbm[moduleId] = albm[moduleId];
+                                }
+
+                                delete albm[moduleId];
+                            }
+                            /* jshint forin: true */
+
+                            if (loggerState.trace)
+                            {
+                                logger.trace('Transferred registered module listeners to shared state');
+                            }
+                        }
                     }
-                    /* jshint forin: true */
-
-                    logger.trace('Transferred registered module listeners to shared state');
-                }
-            }
-        });
+                });
 
         result = Object
                 .create(
@@ -597,8 +697,11 @@
 
                                         if (moduleIds.length !== 0)
                                         {
-                                            logger.trace('Transferred newly registered modules {} to shared state', JSON
-                                                    .stringify(moduleIds));
+                                            if (loggerState.trace)
+                                            {
+                                                logger.trace('Transferred newly registered modules {} to shared state', JSON
+                                                        .stringify(moduleIds));
+                                            }
                                         }
                                     }
 
@@ -652,7 +755,10 @@
                             updateSharedState : {
                                 value : function amd__moduleRegistry__updateSharedState()
                                 {
-                                    logger.debug('Updating AMD loader shared state');
+                                    if (loggerState.debug)
+                                    {
+                                        logger.debug('Updating AMD loader shared state');
+                                    }
                                     internal.updateSharedStateModules();
                                     internal.updateSharedStateListeners();
                                 }
@@ -679,7 +785,10 @@
         }
         catch (ignore)
         {
-            logger.info('JDK 8 workarounds library not available');
+            if (loggerState.info)
+            {
+                logger.info('JDK 8 workarounds library not available');
+            }
         }
 
         specialModuleHandling = Object.create(null, {
@@ -727,7 +836,10 @@
 
                     args = Array.prototype.slice.call(arguments, 4);
 
-                    logger.trace('Special module function {} called from {}', [ fn.name, url ]);
+                    if (loggerState.trace)
+                    {
+                        logger.trace('Special module function {} called from {}', [ fn.name, url ]);
+                    }
 
                     if ((!('_specialHandling' in fn) || fn._specialHandling !== false) && descriptor.hasOwnProperty('callerTagged')
                             && descriptor.callerTagged === true)
@@ -886,7 +998,10 @@
                         var result, args;
 
                         args = Array.prototype.slice.call(arguments, 4);
-                        logger.trace('Special module proxy called on {} from {}', [ name, url ]);
+                        if (loggerState.trace)
+                        {
+                            logger.trace('Special module proxy called on {} from {}', [ name, url ]);
+                        }
                         args = [ module[name], descriptor, url, module ].concat(args);
                         result = specialModuleHandling.specialModuleFnCall.apply(undefined, args);
                         return result;
@@ -942,14 +1057,20 @@
                                                     + '\' has already been loaded once - it should not have been loaded again');
                                         }
 
-                                        logger.trace('Remapping already loaded module "{}" to "{}" from url "{}"', [ module.id,
-                                                normalizedId, url ]);
+                                        if (loggerState.trace)
+                                        {
+                                            logger.trace('Remapping already loaded module "{}" to "{}" from url "{}"', [ module.id,
+                                                    normalizedId, url ]);
+                                        }
                                         moduleRegistry.addModule(module, normalizedId);
                                     }
                                     else
                                     {
-                                        logger.debug('Loading module "{}" from url "{}" (secureSource: {})', [ normalizedId, url,
-                                                isSecureSource === true ]);
+                                        if (loggerState.debug)
+                                        {
+                                            logger.debug('Loading module "{}" from url "{}" (secureSource: {})', [ normalizedId, url,
+                                                    isSecureSource === true ]);
+                                        }
 
                                         // minimal module for URL - just enough for context use
                                         module = Object.create(Object.prototype, {
@@ -1021,8 +1142,11 @@
                                         {
                                             // script may not define a module
                                             // we store the result of script execution for require(dependencies[], successFn, errorFn)
-                                            logger.debug('Module "{}" from url "{}" yielded implicit result "{}"', [ normalizedId, url,
-                                                    implicitResult ]);
+                                            if (loggerState.debug)
+                                            {
+                                                logger.debug('Module "{}" from url "{}" yielded implicit result "{}"', [ normalizedId, url,
+                                                        implicitResult ]);
+                                            }
 
                                             module = Object.create(Object.prototype, {
                                                 id : {
@@ -1076,7 +1200,10 @@
                                 {
                                     var module;
 
-                                    logger.debug('Registering pre-resolved module "{}"', normalizedId);
+                                    if (loggerState.debug)
+                                    {
+                                        logger.debug('Registering pre-resolved module "{}"', normalizedId);
+                                    }
 
                                     module = Object.create(Object.prototype, {
                                         id : {
@@ -1141,7 +1268,10 @@
                                 {
                                     var loader, loaderModule;
 
-                                    logger.trace('Retrieving loader "{}" for module "{}"', [ loaderName, id ]);
+                                    if (loggerState.trace)
+                                    {
+                                        logger.trace('Retrieving loader "{}" for module "{}"', [ loaderName, id ]);
+                                    }
 
                                     loader = moduleManagement.getModule(loaderName, true, callerSecure, callerUrl);
                                     loaderModule = moduleRegistry.getModule(loaderName);
@@ -1178,18 +1308,27 @@
                                     module = moduleRegistry.getModule(normalizedId);
                                     if (module === null && doLoad)
                                     {
-                                        logger.debug('Module "{}" not defined yet - forcing load', normalizedId);
+                                        if (loggerState.debug)
+                                        {
+                                            logger.debug('Module "{}" not defined yet - forcing load', normalizedId);
+                                        }
 
                                         moduleManagement.loadModule(normalizedId, callerSecure, callerUrl);
 
                                         module = moduleRegistry.getModule(normalizedId);
                                         if (isObject(module))
                                         {
-                                            logger.trace('Module "{}" defined by load', normalizedId);
+                                            if (loggerState.trace)
+                                            {
+                                                logger.trace('Module "{}" defined by load', normalizedId);
+                                            }
                                         }
                                         else
                                         {
-                                            logger.debug('Module "{}" not defined after explicit load', normalizedId);
+                                            if (loggerState.debug)
+                                            {
+                                                logger.debug('Module "{}" not defined after explicit load', normalizedId);
+                                            }
                                             // avoid repeated loads by caching missed-resolution
                                             moduleRegistry.addModule(DUMMY_MODULE, normalizedId);
 
@@ -1199,7 +1338,10 @@
                                     }
                                     else if (isObject(module) && module !== DUMMY_MODULE)
                                     {
-                                        logger.trace('Module "{}" already defined', normalizedId);
+                                        if (loggerState.trace)
+                                        {
+                                            logger.trace('Module "{}" already defined', normalizedId);
+                                        }
                                     }
                                     else
                                     {
@@ -1216,14 +1358,20 @@
 
                                     if (typeof module.factory === 'function')
                                     {
-                                        logger.debug('Module "{}" not initialised yet - forcing initialisation', normalizedId);
+                                        if (loggerState.debug)
+                                        {
+                                            logger.debug('Module "{}" not initialised yet - forcing initialisation', normalizedId);
+                                        }
 
                                         module.constructing = true;
                                         try
                                         {
                                             if (module.dependencies.length === 0)
                                             {
-                                                logger.trace('Module "{}" has no dependencies - calling factory', normalizedId);
+                                                if (loggerState.trace)
+                                                {
+                                                    logger.trace('Module "{}" has no dependencies - calling factory', normalizedId);
+                                                }
 
                                                 module.result = module.factory();
                                             }
@@ -1231,24 +1379,33 @@
                                             {
                                                 isSecure = module.secureSource === true;
 
-                                                logger.trace('Resolving {} dependencies for call to factory of {}', [
-                                                        module.dependencies.length, normalizedId ]);
+                                                if (loggerState.trace)
+                                                {
+                                                    logger.trace('Resolving {} dependencies for call to factory of {}', [
+                                                            module.dependencies.length, normalizedId ]);
+                                                }
                                                 resolvedDependencies = [];
                                                 for (idx = 0; idx < module.dependencies.length; idx += 1)
                                                 {
                                                     if (module.dependencies[idx] === 'exports')
                                                     {
-                                                        logger
-                                                                .trace(
-                                                                        'Module "{}" uses "exports"-dependency to expose module during initialisation (avoiding circular dependency issues)',
-                                                                        normalizedId);
+                                                        if (loggerState.trace)
+                                                        {
+                                                            logger
+                                                                    .trace(
+                                                                            'Module "{}" uses "exports"-dependency to expose module during initialisation (avoiding circular dependency issues)',
+                                                                            normalizedId);
+                                                        }
                                                         module.result = {};
                                                         resolvedDependencies.push(module.result);
                                                     }
                                                     else
                                                     {
-                                                        logger.debug('Loading dependency "{}" for module "{}"', [ module.dependencies[idx],
-                                                                normalizedId ]);
+                                                        if (loggerState.debug)
+                                                        {
+                                                            logger.debug('Loading dependency "{}" for module "{}"', [
+                                                                    module.dependencies[idx], normalizedId ]);
+                                                        }
 
                                                         dependency = moduleManagement.getModule(module.dependencies[idx], true, isSecure,
                                                                 module.url);
@@ -1257,7 +1414,12 @@
                                                     }
                                                 }
 
-                                                logger.trace('All dependencies of module "{}" resolved - calling factory', normalizedId);
+                                                if (loggerState.trace)
+                                                {
+                                                    logger
+                                                            .trace('All dependencies of module "{}" resolved - calling factory',
+                                                                    normalizedId);
+                                                }
                                                 if (module.result !== null)
                                                 {
                                                     module.factory.apply(this, resolvedDependencies);
@@ -1266,7 +1428,10 @@
                                                 {
                                                     module.result = module.factory.apply(this, resolvedDependencies);
                                                 }
-                                                logger.trace('Instance/value for module "{}" initialized from factory', normalizedId);
+                                                if (loggerState.trace)
+                                                {
+                                                    logger.trace('Instance/value for module "{}" initialized from factory', normalizedId);
+                                                }
                                             }
                                             module.initialized = true;
 
@@ -1275,13 +1440,16 @@
                                         }
                                         catch (e)
                                         {
-                                            if (e.nashornException instanceof Throwable)
+                                            if (loggerState.info)
                                             {
-                                                logger.info('Failed to instantiate module', e.nashornException);
-                                            }
-                                            else
-                                            {
-                                                logger.info('Failed to instantiate module - {}', e.message);
+                                                if (e.nashornException instanceof Throwable)
+                                                {
+                                                    logger.info('Failed to instantiate module', e.nashornException);
+                                                }
+                                                else
+                                                {
+                                                    logger.info('Failed to instantiate module - {}', e.message);
+                                                }
                                             }
 
                                             // reset
@@ -1311,7 +1479,10 @@
                                     {
                                         if (module.initialized === true)
                                         {
-                                            logger.trace('Module "{}" already initialized', normalizedId);
+                                            if (loggerState.trace)
+                                            {
+                                                logger.trace('Module "{}" already initialized', normalizedId);
+                                            }
                                             moduleResult = module.result;
 
                                             // special case where module was only defined to track implicit return values
@@ -1354,7 +1525,10 @@
                 {
                     var loaderName, id, idFragments, length, prospectivePackageName, packageConfig;
 
-                    logger.debug('Loading module "{}"', normalizedId);
+                    if (loggerState.debug)
+                    {
+                        logger.debug('Loading module "{}"', normalizedId);
+                    }
 
                     if (/^[^!]+!.+$/.test(normalizedId))
                     {
@@ -1365,7 +1539,10 @@
                     }
                     else
                     {
-                        logger.trace('Resolving module "{}" against configured packages', normalizedId);
+                        if (loggerState.trace)
+                        {
+                            logger.trace('Resolving module "{}" against configured packages', normalizedId);
+                        }
 
                         idFragments = normalizedId.split('/');
                         for (length = idFragments.length - 1; length > 0; length -= 1)
@@ -1400,7 +1577,10 @@
                 value : function amd__moduleManagement__getModule(normalizedId, doLoad, callerSecure, callerUrl)
                 {
                     var module, moduleResult;
-                    logger.debug('Retrieving module "{}" (force load: {})', [ normalizedId, doLoad ]);
+                    if (loggerState.debug)
+                    {
+                        logger.debug('Retrieving module "{}" (force load: {})', [ normalizedId, doLoad ]);
+                    }
 
                     module = internal.loadModuleDefinition(normalizedId, doLoad, callerSecure, callerUrl);
                     moduleResult = internal.loadModuleResult(normalizedId, module, doLoad, callerSecure, callerUrl);
@@ -1500,14 +1680,14 @@
 
             Object.freeze(listener.dependencies);
 
-            if (logger.traceEnabled)
+            if (loggerState.trace)
             {
                 logger.trace('Registered listener from url "{}" (secureSource: {}) for modules {}', [ contextScriptUrl, isSecure,
                         JSON.stringify(listener.dependencies) ]);
             }
-            else
+            else if (loggerState.debug)
             {
-                logger.trace('Registered listener from url "{}" (secureSource: {})', [ contextScriptUrl, isSecure ]);
+                logger.debug('Registered listener from url "{}" (secureSource: {})', [ contextScriptUrl, isSecure ]);
             }
 
             moduleRegistry.addModuleListener(listener);
@@ -1523,11 +1703,11 @@
             throw new Error('Invalid config parameter');
         }
 
-        if (logger.traceEnabled)
+        if (loggerState.trace)
         {
             logger.trace('Configuring AMD loader with config "{}"', JSON.stringify(config));
         }
-        else
+        else if (loggerState.debug)
         {
             logger.debug('Configuring AMD loader');
         }
@@ -1539,23 +1719,34 @@
             switch (key)
             {
                 case 'packages':
-                    logger.debug('Configuring AMD packages');
                     packageConfigs = config[key];
 
                     if (Array.isArray(packageConfigs))
                     {
+                        if (loggerState.debug)
+                        {
+                            logger.debug('Configuring AMD packages');
+                        }
+
                         packageConfigs.forEach(packageFn, this);
                     }
                     break;
                 case 'map':
-                    logger.debug('Configuring AMD mapppings');
                     if (isObject(config[key]))
                     {
+                        if (loggerState.debug)
+                        {
+                            logger.debug('Configuring AMD mapppings');
+                        }
+
                         mapFn.call(this, config[key]);
                     }
                     break;
                 default:
-                    logger.warn('Ignoring unsupported AMD loader option "{}"', key);
+                    if (loggerState.warn)
+                    {
+                        logger.warn('Ignoring unsupported AMD loader option "{}"', key);
+                    }
                     // unsupported option - ignore silently
             }
         };
@@ -1597,7 +1788,10 @@
                 throw new Error('Loader name for package \'' + packName + '\' has not been set or is not a valid string');
             }
 
-            logger.trace('Adding AMD package "{}" using loader "{}" (package location: {})', [ packName, packLoader, packLocation ]);
+            if (loggerState.trace)
+            {
+                logger.trace('Adding AMD package "{}" using loader "{}" (package location: {})', [ packName, packLoader, packLocation ]);
+            }
 
             packages[packName] = {
                 name : packName,
@@ -1622,13 +1816,16 @@
         }
         catch (e)
         {
-            if (e.nashornException instanceof Throwable)
+            if (loggerState.warn)
             {
-                logger.warn('Failed to configure AMD loader', e.nashornException);
-            }
-            else
-            {
-                logger.warn('Failed to configure AMD loader - {}', e.message);
+                if (e.nashornException instanceof Throwable)
+                {
+                    logger.warn('Failed to configure AMD loader', e.nashornException);
+                }
+                else
+                {
+                    logger.warn('Failed to configure AMD loader - {}', e.message);
+                }
             }
             // reset to preserve pristine state
             packages = {};
@@ -1657,7 +1854,10 @@
             return function amd__require_tagCallerScript_restoreFn()
             {
                 executionState.taggedCallerScriptUrl = originalScriptUrl;
-                logger.debug('Tagged script caller reset to {}', originalScriptUrl);
+                if (loggerState.debug)
+                {
+                    logger.debug('Tagged script caller reset to {}', originalScriptUrl);
+                }
             };
         };
 
@@ -1742,7 +1942,10 @@
                 }
                 executionState.taggedCallerScriptUrl = contextScriptUrl;
 
-                logger.debug('Executing function "{}" with tagged script caller "{}"', [ callback.name, contextScriptUrl ]);
+                if (loggerState.debug)
+                {
+                    logger.debug('Executing function "{}" with tagged script caller "{}"', [ callback.name, contextScriptUrl ]);
+                }
 
                 try
                 {
@@ -1757,7 +1960,7 @@
                     throw e;
                 }
             }
-            else
+            else if (loggerState.info)
             {
                 logger.info('Attempted to execute function with a tagged script caller "{}", but provided no callback function to execute',
                         contextScriptUrl);
@@ -1780,7 +1983,10 @@
             restoreFn = getRestoreTaggedCallerFn(executionState.taggedCallerScriptUrl);
             executionState.taggedCallerScriptUrl = callerScriptUrl;
 
-            logger.debug('Executing function "{}" with tagged script caller "{}"', [ callback.name, callerScriptUrl ]);
+            if (loggerState.debug)
+            {
+                logger.debug('Executing function "{}" with tagged script caller "{}"', [ callback.name, callerScriptUrl ]);
+            }
 
             try
             {
@@ -1875,12 +2081,12 @@
             throw new Error('Module factory was not provided');
         }
 
-        if (logger.traceEnabled)
+        if (loggerState.trace)
         {
             logger.trace('Defining module "{}" from url "{}" with dependencies {} (secureSource: {})', [ id, contextScriptUrl,
                     JSON.stringify(dependencies), isObject(contextModule) ? contextModule.secureSource : false ]);
         }
-        else
+        else if (loggerState.debug)
         {
             logger.debug('Defining module "{}" from url "{}" (secureSource: {})', [ id, contextScriptUrl,
                     isObject(contextModule) ? contextModule.secureSource : false ]);
@@ -1948,7 +2154,10 @@
     {
         var wrapper;
 
-        logger.debug('Tagging module as special with flags {}', [ flags ]);
+        if (loggerState.debug)
+        {
+            logger.debug('Tagging module as special with flags {}', [ flags ]);
+        }
         wrapper = new SpecialModuleWrapper(module);
 
         if (Array.isArray(flags))
@@ -1994,7 +2203,10 @@
             module = moduleRegistry.getModule(normalizedModuleId);
             if (!isObject(module) || module === DUMMY_MODULE)
             {
-                logger.debug('Pre-loading module "{}"', normalizedModuleId);
+                if (loggerState.debug)
+                {
+                    logger.debug('Pre-loading module "{}"', normalizedModuleId);
+                }
                 moduleManagement.loadModule(normalizedModuleId, true);
 
                 // if it a module has been registered with the expected name initialize it too
@@ -2087,7 +2299,10 @@
             {
                 var url = new URL('rawclasspath', null, -1, 'de/axelfaust/alfresco/nashorn/repo/loaders/' + normalizedId, streamHandler);
 
-                logger.debug('Loading loader module {} from classpath', normalizedId);
+                if (loggerState.debug)
+                {
+                    logger.debug('Loading loader module {} from classpath', normalizedId);
+                }
 
                 load(url, true);
             }
