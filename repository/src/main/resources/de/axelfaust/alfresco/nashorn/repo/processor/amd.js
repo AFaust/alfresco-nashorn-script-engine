@@ -163,6 +163,27 @@
     }());
 
     /**
+     * The callback for successfull resolution of modules via the {@link require} function.
+     * 
+     * @callback requireResolutionCallback
+     * @param {...object}
+     *            module - the resolved module in the order of the dependencies list
+     */
+
+    /**
+     * The callback for failed resolutions of modules via the {@link require} function.
+     * 
+     * @callback requireResolutionErrorCallback
+     * @param {string[]}
+     *            dependencies - the list of dependencies requested
+     * @param {object[]}
+     *            modules - the list of resolved modules in the order of the dependencies list
+     * @param {object[]}
+     *            implicitResults - the list of implicit return values from loading the module script files, even if files did not define an
+     *            actual module (in the order of the dependencies list)
+     */
+
+    /**
      * Immediately resolves a dependency or set of dependencies. This function can be used to get a reference to an already initialized
      * single module by invoking it with just a single string parameter, or to resolve (and implicitly load if necessary) one or more
      * modules with a success and optional failure callback.
@@ -171,12 +192,10 @@
      * @param {string|string[]}
      *            dependencies - the dependency/depenendcies that need to be resolved - if this is an array of modules then the callback
      *            variant of this function must be used
-     * @param {function}
-     *            [callback] - the callback function to execute when the dependencies have been loaded / initialized (arguments will be the
-     *            resolved modules in the order of the dependencies array)
-     * @param {function}
-     *            [errCallback] - the callback function to execute when the dependencies could not be loaded / initialized (signature:
-     *            fn(dependencies[], moduleResolutions[], implicitResolutions[])
+     * @param {requireResolutionCallback}
+     *            [callback] - the callback function to execute when the dependencies have been loaded / initialized
+     * @param {requireResolutionErrorCallback}
+     *            [errCallback] - the callback function to execute when the dependencies could not be loaded / initialized
      */
     require = function amd__require(dependencies, callback, errCallback)
     {
@@ -1822,6 +1841,18 @@
             };
         };
 
+        /**
+         * Retrieves the URL of the script file calling the caller. The script URL is determined from the current stack and excludes both
+         * the script of this operation as well as the immediate caller. Unless explicitly specified not to, this function will respect any
+         * fixed caller script URL tagged in the current execution context.
+         * 
+         * @instance
+         * @memberof require
+         * @param {boolean}
+         *            suppressTaggedCaller - if this function should ignore the current tagged caller state and lookup the real caller
+         *            script file
+         * @returns {string} the URL of the calling script file
+         */
         require.getCallerScriptURL = function amd__require__getCallerScriptURL(suppressTaggedCaller)
         {
             var contextScriptUrl;
@@ -1840,6 +1871,18 @@
         };
         require.getCallerScriptURL._specialHandling = false;
 
+        /**
+         * Retrieves the ID of the module defined by a specific script file.
+         * 
+         * @instance
+         * @memberof require
+         * @param {string}
+         *            contextScriptUrl - the script file URL for which to retrieve the defined module ID
+         * @returns {string|undefined} the module ID for the script file - since script files loaded via a loader module always define at
+         *          least an implicit module based on the implicit return value, the only time the result may be undefined would be if no
+         *          script file identified by the URL has been loaded at all, or the implicit result value was undefined and the script file
+         *          did not explicitly define any module
+         */
         require.getScriptFileModuleId = function amd__require__getScriptFileModuleId(contextScriptUrl)
         {
             var contextModule, moduleId;
@@ -1860,6 +1903,15 @@
         };
         require.getScriptFileModuleId._specialHandling = false;
 
+        /**
+         * Retrieves the name of the loader module used to load a specific script file.
+         * 
+         * @instance
+         * @memberof require
+         * @param {string}
+         *            contextScriptUrl - the script file URL for which to retrieve the loader module name
+         * @returns {string|undefined} the loader module name if the script file identified by the URL has been loaded via a loader
+         */
         require.getScriptFileModuleLoader = function amd__require__getScriptFileModuleLoader(contextScriptUrl)
         {
             var contextModule, moduleLoader;
@@ -1967,6 +2019,14 @@
     }());
 
     /**
+     * The factory callback for modules defined via the {@link define} function.
+     * 
+     * @callback defineModuleFactory
+     * @param {...object}
+     *            module - the resolved module(s) in the order specified in the modules dependencies list
+     */
+
+    /**
      * Defines a new module that can then be requested / required from client code or other modules.
      * 
      * @global
@@ -1975,7 +2035,7 @@
      *            an implicit ID from the current execution context (e.g. references used to load the currently executed script file)
      * @param {string[]}
      *            [dependencies] - the list of module dependencies for the module to be defined
-     * @param {function}
+     * @param {defineModuleFactory}
      *            factory - the factory callback to construct the module if it is requested / required
      */
     define = function amd__define()
@@ -2111,6 +2171,7 @@
      * @param {string[]}
      *            flags - the feature flags to be applied to the module
      */
+    // TODO Turn string[] parameter into vararg (less costly callsite handling)
     define.asSpecialModule = function amd__define_asSpecialModule(module, flags)
     {
         var wrapper;
