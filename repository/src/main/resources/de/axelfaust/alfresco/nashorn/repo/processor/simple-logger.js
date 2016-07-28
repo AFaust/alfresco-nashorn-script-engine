@@ -4,461 +4,170 @@
 (function simple_logger()
 {
     'use strict';
-    var SimpleLogger, LoggerFactory, Throwable, NativeLogger, NativeLogMessageArgumentWrapper, processMessageParams;
+    var NativeLogger;
 
-    LoggerFactory = Java.type('org.slf4j.LoggerFactory');
-    Throwable = Java.type('java.lang.Throwable');
     NativeLogger = Java.type('de.axelfaust.alfresco.nashorn.repo.utils.NativeLogger');
-    NativeLogMessageArgumentWrapper = Java.type('de.axelfaust.alfresco.nashorn.repo.utils.NativeLogMessageArgumentWrapper');
-
-    processMessageParams = function simple_logger__processMessageParams(params)
-    {
-        var processedParams = [], idx;
-
-        for (idx = 0; idx < params.length; idx++)
-        {
-            switch (typeof params[idx])
-            {
-                case 'object':
-                case 'function':
-                    // typeof null === 'object' so exclude here
-                    // also: typeof javaObj === 'object' so add instanceof check against native prototype too
-                    if (params[idx] !== null && (params[idx] instanceof Object || params[idx] instanceof Function))
-                    {
-                        // script objects passed to logger would not have their JS toString called
-                        processedParams.push(new NativeLogMessageArgumentWrapper(params[idx]));
-                    }
-                    else
-                    {
-                        processedParams.push(params[idx]);
-                    }
-                    break;
-                default:
-                    processedParams.push(params[idx]);
-            }
-        }
-
-        return processedParams;
-    };
 
     /**
-     * Create a new facade to a SLF4J logger instance with the provided name.
+     * A wrapper around a SLF4J logger for script interoperability. The constructor can't be called by any script code
      * 
-     * @class
-     * @param {string}
-     *            loggerName the name of the underlying logger to facade
+     * @class SimpleLogger
+     * @private
      */
-    SimpleLogger = function simple_logger__constructor(loggerName)
-    {
-        Object.defineProperty(this, 'logger', {
-            value : LoggerFactory.getLogger(loggerName)
-        });
-    };
 
-    // TODO Find out why jsdoc3 is so difficult to handle in documenting class members
-    SimpleLogger.prototype = {
+    /**
+     * Flag representing enablement of the trace log level
+     * 
+     * @name SimpleLogger#traceEnabled
+     * @type {boolean}
+     * @readonly
+     */
 
-        __noSuchProperty__ : function simple_logger__noSuchProperty__(name)
-        {
-            var result, level, enabledIndex;
+    /**
+     * Checks if the trace log level is enabled for this instance.
+     * 
+     * @function
+     * @name SimpleLogger#isTraceEnabled
+     * @returns {boolean} true if the trace log level is enabled, false otherwise
+     */
 
-            // switch-case with hard redirect instead of dynamic lookup
-            // this "should" cause callsites to be more stable performance-wise
-            enabledIndex = name.indexOf('Enabled');
-            if (enabledIndex !== -1)
-            {
-                level = name.substring(0, enabledIndex);
+    /**
+     * Flag representing enablement of the debug log level
+     * 
+     * @name SimpleLogger#debugEnabled
+     * @type {boolean}
+     * @readonly
+     */
 
-                switch (level)
-                {
-                    case 'trace':
-                        result = this.isTraceEnabled();
-                        break;
-                    case 'debug':
-                        result = this.isDebugEnabled();
-                        break;
-                    case 'info':
-                        result = this.isInfoEnabled();
-                        break;
-                    case 'warn':
-                        result = this.isWarnEnabled();
-                        break;
-                    case 'error':
-                        result = this.isErrorEnabled();
-                        break;
-                }
-            }
-            else
-            {
-                // lookup and store varArgs log method handles for better runtime performance
-                // (repeated lookup of a "SingleDynamicMethod"/"OverloadedDynamicMethod" via linker is expensive)
-                // use of Function.prototype.bind ensures proper "this" context (simple .call(this, ...) does not work on handle)
-                switch (name)
-                {
-                    case '_traceVarArgs':
-                        Object.defineProperty(this, '_traceVarArgs', {
-                            value : Function.prototype.bind.call(this.logger['trace(java.lang.String,java.lang.Object[])'], this.logger)
-                        });
-                        result = this._traceVarArgs;
-                        break;
-                    case '_debugVarArgs':
-                        Object.defineProperty(this, '_debugVarArgs', {
-                            value : Function.prototype.bind.call(this.logger['debug(java.lang.String,java.lang.Object[])'], this.logger)
-                        });
-                        result = this._debugVarArgs;
-                        break;
-                    case '_infoVarArgs':
-                        Object.defineProperty(this, '_infoVarArgs', {
-                            value : Function.prototype.bind.call(this.logger['info(java.lang.String,java.lang.Object[])'], this.logger)
-                        });
-                        result = this._traceVarArgs;
-                        break;
-                    case '_warnVarArgs':
-                        Object.defineProperty(this, '_warnVarArgs', {
-                            value : Function.prototype.bind.call(this.logger['warn(java.lang.String,java.lang.Object[])'], this.logger)
-                        });
-                        result = this._traceVarArgs;
-                        break;
-                    case '_errorVarArgs':
-                        Object.defineProperty(this, '_errorVarArgs', {
-                            value : Function.prototype.bind.call(this.logger['error(java.lang.String,java.lang.Object[])'], this.logger)
-                        });
-                        result = this._traceVarArgs;
-                        break;
-                }
-            }
+    /**
+     * Checks if the debug log level is enabled for this instance.
+     * 
+     * @function
+     * @name SimpleLogger#isDebugEnabled
+     * @returns {boolean} true if the debug log level is enabled, false otherwise
+     */
 
-            return result;
-        },
+    /**
+     * Flag representing enablement of the info log level
+     * 
+     * @name SimpleLogger#infoEnabled
+     * @type {boolean}
+     * @readonly
+     */
 
-        /**
-         * Flag representing enablement of the trace log level
-         * 
-         * @instance
-         * @memberof SimpleLogger
-         * @var traceEnabled
-         * @type {boolean}
-         * @readonly
-         */
-        /**
-         * Checks if the trace log level is enabled for this instance.
-         * 
-         * @instance
-         * @memberof SimpleLogger
-         * @returns {boolean} true if the trace log level is enabled, false otherwise
-         */
-        isTraceEnabled : function simple_logger__isTraceEnabled()
-        {
-            return this.logger.traceEnabled;
-        },
+    /**
+     * Checks if the trace info level is enabled for this instance.
+     * 
+     * @function
+     * @name SimpleLogger#isInfoEnabled
+     * @returns {boolean} true if the info log level is enabled, false otherwise
+     */
 
-        /**
-         * Flag representing enablement of the debug log level
-         * 
-         * @instance
-         * @memberof SimpleLogger
-         * @var debugEnabled
-         * @type {boolean}
-         * @readonly
-         */
-        /**
-         * Checks if the debug log level is enabled for this instance.
-         * 
-         * @instance
-         * @memberof SimpleLogger
-         * @returns {boolean} true if the debug log level is enabled, false otherwise
-         */
-        isDebugEnabled : function simple_logger__isDebugEnabled()
-        {
-            return this.logger.debugEnabled;
-        },
+    /**
+     * Flag representing enablement of the warn log level
+     * 
+     * @name SimpleLogger#warnEnabled
+     * @type {boolean}
+     * @readonly
+     */
 
-        /**
-         * Flag representing enablement of the info log level
-         * 
-         * @instance
-         * @memberof SimpleLogger
-         * @var infoEnabled
-         * @type {boolean}
-         * @readonly
-         */
-        /**
-         * Checks if the trace info level is enabled for this instance.
-         * 
-         * @instance
-         * @memberof SimpleLogger
-         * @returns {boolean} true if the info log level is enabled, false otherwise
-         */
-        isInfoEnabled : function simple_logger__isInfoEnabled()
-        {
-            return this.logger.infoEnabled;
-        },
+    /**
+     * Checks if the warn log level is enabled for this instance.
+     * 
+     * @function
+     * @name SimpleLogger#isWarnEnabled
+     * @returns {boolean} true if the warn log level is enabled, false otherwise
+     */
 
-        /**
-         * Flag representing enablement of the warn log level
-         * 
-         * @instance
-         * @memberof SimpleLogger
-         * @var warnEnabled
-         * @type {boolean}
-         * @readonly
-         */
-        /**
-         * Checks if the warn log level is enabled for this instance.
-         * 
-         * @instance
-         * @memberof SimpleLogger
-         * @returns {boolean} true if the warn log level is enabled, false otherwise
-         */
-        isWarnEnabled : function simple_logger__isWarnEnabled()
-        {
-            return this.logger.warnEnabled;
-        },
+    /**
+     * Flag representing enablement of the error log level
+     * 
+     * @name SimpleLogger#errorEnabled
+     * @type {boolean}
+     * @readonly
+     */
 
-        /**
-         * Flag representing enablement of the error log level
-         * 
-         * @instance
-         * @memberof SimpleLogger
-         * @var errorEnabled
-         * @type {boolean}
-         * @readonly
-         */
-        /**
-         * Checks if the error log level is enabled for this instance.
-         * 
-         * @instance
-         * @memberof SimpleLogger
-         * @returns {boolean} true if the error log level is enabled, false otherwise
-         */
-        isErrorEnabled : function simple_logger__isErrorEnabled()
-        {
-            return this.logger.errorEnabled;
-        },
+    /**
+     * Checks if the error log level is enabled for this instance.
+     * 
+     * @function
+     * @name SimpleLogger#isErrorEnabled
+     * @returns {boolean} true if the error log level is enabled, false otherwise
+     */
 
-        /**
-         * Logs a message at trace level.
-         * 
-         * @instance
-         * @memberof SimpleLogger
-         * @param {string}
-         *            message the message to log, potentially including value placeholders in the form of '{}'
-         * @param {Error|Throwable}
-         *            [ex] the native error or Java exception to log
-         * @param {object|array}
-         *            [params] the parameter(s) to fill placeholders in the log message (if the log level is enabled) - multiple arguments
-         *            can be provided either as an array or vararg-like list of values
-         */
-        trace : function simple_logger__trace(message, arg2)
-        {
-            var args;
+    /**
+     * Logs a message at trace level.
+     * 
+     * @function
+     * @name SimpleLogger#trace
+     * @param {string}
+     *            message - the message to log, potentially including value placeholders in the form of '{}'
+     * @param {Error|Throwable|object|object[]}
+     *            [params] - either a) the native error or Java exception to log, or b) the parameter(s) to fill placeholders in the log
+     *            message (if the log level is enabled) - multiple arguments can be provided either as an array or vararg-like list of
+     *            values
+     */
 
-            // no point wasting time if it isn't enabled
-            if (this.logger.traceEnabled)
-            {
-                if (arguments.length === 1)
-                {
-                    this.logger.trace(message);
-                }
-                else if (arguments.length === 2
-                        && (arg2 instanceof Throwable || (arg2 instanceof Error && arg2.nashornException instanceof Throwable)))
-                {
-                    this.logger.trace(message, arg2 instanceof Throwable ? arg2 : arg2.nashornException);
-                }
-                else if (arguments.length === 2 && Array.isArray(arg2))
-                {
-                    this._traceVarArgs(message, processMessageParams(arg2));
-                }
-                else if (arguments.length > 1)
-                {
-                    args = Array.prototype.slice.call(arguments, 1);
-                    this._traceVarArgs(message, processMessageParams(args));
-                }
-            }
-        },
+    /**
+     * Logs a message at debug level.
+     * 
+     * @function
+     * @name SimpleLogger#debug
+     * @param {string}
+     *            message - the message to log, potentially including value placeholders in the form of '{}'
+     * @param {Error|Throwable|object|object[]}
+     *            [params] - either a) the native error or Java exception to log, or b) the parameter(s) to fill placeholders in the log
+     *            message (if the log level is enabled) - multiple arguments can be provided either as an array or vararg-like list of
+     *            values
+     */
 
-        /**
-         * Logs a message at debug level.
-         * 
-         * @instance
-         * @memberof SimpleLogger
-         * @param {string}
-         *            message the message to log, potentially including value placeholders in the form of '{}'
-         * @param {Error|Throwable}
-         *            [ex] the native error or Java exception to log
-         * @param {object|array}
-         *            [params] the parameter(s) to fill placeholders in the log message (if the log level is enabled) - multiple arguments
-         *            can be provided either as an array or vararg-like list of values
-         */
-        debug : function simple_logger__debug(message, arg2)
-        {
-            var args;
+    /**
+     * Logs a message at info level.
+     * 
+     * @function
+     * @name SimpleLogger#info
+     * @param {string}
+     *            message - the message to log, potentially including value placeholders in the form of '{}'
+     * @param {Error|Throwable|object|object[]}
+     *            [params] - either a) the native error or Java exception to log, or b) the parameter(s) to fill placeholders in the log
+     *            message (if the log level is enabled) - multiple arguments can be provided either as an array or vararg-like list of
+     *            values
+     */
 
-            // no point wasting time if it isn't enabled
-            if (this.logger.debugEnabled)
-            {
-                if (arguments.length === 1)
-                {
-                    this.logger.debug(message);
-                }
-                else if (arguments.length === 2
-                        && (arg2 instanceof Throwable || (arg2 instanceof Error && arg2.nashornException instanceof Throwable)))
-                {
-                    this.logger.debug(message, arg2 instanceof Throwable ? arg2 : arg2.nashornException);
-                }
-                else if (arguments.length === 2 && Array.isArray(arg2))
-                {
-                    this._debugVarArgs(message, processMessageParams(arg2));
-                }
-                else if (arguments.length > 1)
-                {
-                    args = Array.prototype.slice.call(arguments, 1);
-                    this._debugVarArgs(message, processMessageParams(args));
-                }
-            }
-        },
+    /**
+     * Logs a message at warn level.
+     * 
+     * @function
+     * @name SimpleLogger#warn
+     * @param {string}
+     *            message - the message to log, potentially including value placeholders in the form of '{}'
+     * @param {Error|Throwable|object|object[]}
+     *            [params] - either a) the native error or Java exception to log, or b) the parameter(s) to fill placeholders in the log
+     *            message (if the log level is enabled) - multiple arguments can be provided either as an array or vararg-like list of
+     *            values
+     */
 
-        /**
-         * Logs a message at info level.
-         * 
-         * @instance
-         * @memberof SimpleLogger
-         * @param {string}
-         *            message the message to log, potentially including value placeholders in the form of '{}'
-         * @param {Error|Throwable}
-         *            [ex] the native error or Java exception to log
-         * @param {object|array}
-         *            [params] the parameter(s) to fill placeholders in the log message (if the log level is enabled) - multiple arguments
-         *            can be provided either as an array or vararg-like list of values
-         */
-        info : function simple_logger__info(message, arg2)
-        {
-            var args;
-
-            // no point wasting time if it isn't enabled
-            if (this.logger.infoEnabled)
-            {
-                if (arguments.length === 1)
-                {
-                    this.logger.info(message);
-                }
-                else if (arguments.length === 2
-                        && (arg2 instanceof Throwable || (arg2 instanceof Error && arg2.nashornException instanceof Throwable)))
-                {
-                    this.logger.info(message, arg2 instanceof Throwable ? arg2 : arg2.nashornException);
-                }
-                else if (arguments.length === 2 && Array.isArray(arg2))
-                {
-                    this._infoVarArgs(message, processMessageParams(arg2));
-                }
-                else if (arguments.length > 1)
-                {
-                    args = Array.prototype.slice.call(arguments, 1);
-                    this._infoVarArgs(message, processMessageParams(args));
-                }
-            }
-        },
-
-        /**
-         * Logs a message at warn level.
-         * 
-         * @instance
-         * @memberof SimpleLogger
-         * @param {string}
-         *            message the message to log, potentially including value placeholders in the form of '{}'
-         * @param {Error|Throwable}
-         *            [ex] the native error or Java exception to log
-         * @param {object|array}
-         *            [params] the parameter(s) to fill placeholders in the log message (if the log level is enabled) - multiple arguments
-         *            can be provided either as an array or vararg-like list of values
-         */
-        warn : function simple_logger__warn(message, arg2)
-        {
-            var args;
-
-            // no point wasting time if it isn't enabled
-            if (this.logger.warnEnabled)
-            {
-                if (arguments.length === 1)
-                {
-                    this.logger.warn(message);
-                }
-                else if (arguments.length === 2
-                        && (arg2 instanceof Throwable || (arg2 instanceof Error && arg2.nashornException instanceof Throwable)))
-                {
-                    this.logger.warn(message, arg2 instanceof Throwable ? arg2 : arg2.nashornException);
-                }
-                else if (arguments.length === 2 && Array.isArray(arg2))
-                {
-                    this._warnVarArgs(message, processMessageParams(arg2));
-                }
-                else if (arguments.length > 1)
-                {
-                    args = Array.prototype.slice.call(arguments, 1);
-                    this._warnVarArgs(message, processMessageParams(args));
-                }
-            }
-        },
-
-        /**
-         * Logs a message at error level.
-         * 
-         * @instance
-         * @memberof SimpleLogger
-         * @param {string}
-         *            message the message to log, potentially including value placeholders in the form of '{}'
-         * @param {Error|Throwable}
-         *            [ex] the native error or Java exception to log
-         * @param {...object|array}
-         *            [params] the parameter(s) to fill placeholders in the log message (if the log level is enabled) - multiple arguments
-         *            can be provided either as an array or vararg-like list of values
-         */
-        error : function simple_logger__error(message, arg2)
-        {
-            var args;
-
-            // no point wasting time if it isn't enabled
-            if (this.logger.errorEnabled)
-            {
-                if (arguments.length === 1)
-                {
-                    this.logger.error(message);
-                }
-                else if (arguments.length === 2
-                        && (arg2 instanceof Throwable || (arg2 instanceof Error && arg2.nashornException instanceof Throwable)))
-                {
-                    this.logger.error(message, arg2 instanceof Throwable ? arg2 : arg2.nashornException);
-                }
-                else if (arguments.length === 2 && Array.isArray(arg2))
-                {
-                    this._errorVarArgs(message, processMessageParams(arg2));
-                }
-                else if (arguments.length > 1)
-                {
-                    args = Array.prototype.slice.call(arguments, 1);
-                    this._errorVarArgs(message, processMessageParams(args));
-                }
-            }
-        }
-
-    };
-
-    Object.freeze(SimpleLogger.prototype);
-    Object.freeze(SimpleLogger);
-
-    Object.defineProperty(this, 'SimpleLogger', {
-        value : SimpleLogger,
-        enumerable : false
-    });
+    /**
+     * Logs a message at error level.
+     * 
+     * @function
+     * @name SimpleLogger#error
+     * @param {string}
+     *            message - the message to log, potentially including value placeholders in the form of '{}'
+     * @param {Error|Throwable|object|object[]}
+     *            [params] - either a) the native error or Java exception to log, or b) the parameter(s) to fill placeholders in the log
+     *            message (if the log level is enabled) - multiple arguments can be provided either as an array or vararg-like list of
+     *            values
+     */
 
     /**
      * Retrieves a new facade to a SLF4J logger instance with the provided name.
      * 
      * @global
-     * @var getSimpleLogger
      * @function
+     * @name getSimpleLogger
      * @param {string}
-     *            loggerName the name of the underlying logger to facade
+     *            loggerName - the name of the underlying logger to facade
      * @returns {SimpleLogger}
      */
     Object.defineProperty(this, 'getSimpleLogger', {

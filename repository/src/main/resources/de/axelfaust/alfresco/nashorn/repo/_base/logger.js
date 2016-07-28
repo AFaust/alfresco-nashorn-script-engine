@@ -13,17 +13,17 @@
  * the classpath in such a way that scripts in the servers extension-root can override scripts bundled with the WAR. 
  */
 /* globals -require */
-/* globals SimpleLogger: false */
-// TODO Adapt to new JSObject based logger
+/* globals getSimpleLogger: false */
 define([ 'require', 'define' ], function logger(require, define)
 {
     'use strict';
-    var loggerModule, getSimpleLogger, loggerByScriptUrl = {};
+    var loggerModule, loggerModuleProto, getLogger, loggerByScriptUrl = {};
 
-    getSimpleLogger = function logger__getSimpleLogger(callerScriptURL)
+    getLogger = function logger__getLogger()
     {
-        var callerScriptModuleId, callerScriptModuleLoader, logger;
+        var callerScriptURL, callerScriptModuleId, callerScriptModuleLoader, logger;
 
+        callerScriptURL = require.getCallerScriptURL();
         if (loggerByScriptUrl.hasOwnProperty(callerScriptURL))
         {
             logger = loggerByScriptUrl[callerScriptURL];
@@ -35,13 +35,13 @@ define([ 'require', 'define' ], function logger(require, define)
 
             if (typeof callerScriptModuleId === 'string')
             {
-                logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
+                logger = getSimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.'
                         + callerScriptModuleLoader + '.' + callerScriptModuleId.replace(/\//g, '.'));
             }
             else
             {
                 // TODO Try to simplify (common) script URLs for shorter, easier-to-handle logger names
-                logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.' + callerScriptURL);
+                logger = getSimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.' + callerScriptURL);
             }
             loggerByScriptUrl[callerScriptURL] = logger;
         }
@@ -58,7 +58,7 @@ define([ 'require', 'define' ], function logger(require, define)
      * @module _base/logger
      * @author Axel Faust
      */
-    loggerModule = {
+    loggerModuleProto = {
 
         /**
          * Log a message at "trace" level
@@ -73,13 +73,24 @@ define([ 'require', 'define' ], function logger(require, define)
          *            [params] - log message pattern substitution values to be used in rendering the full log message if the log level is
          *            enabled (mutually exclusive with error)
          */
-        // callerUrl provided via 'callerProvided' flag in special module handling
-        trace : function logger__trace(callerUrl)
+        trace : function logger__trace()
         {
-            var logger = getSimpleLogger(callerUrl);
-            if (logger.isTraceEnabled())
+            var logger = getLogger();
+            if (logger.traceEnabled)
             {
-                logger.trace.apply(logger, Array.prototype.slice.call(arguments, 1));
+                if (arguments.length <= 1)
+                {
+                    logger.trace(arguments[0]);
+                }
+                else if (arguments.length === 2)
+                {
+                    logger.trace(arguments[0], arguments[1]);
+                }
+                else
+                {
+                    // two or more varargs => safe to simply call logger with array of varargs
+                    logger.trace(arguments[0], Array.prototype.slice.call(arguments, 1));
+                }
             }
         },
 
@@ -90,11 +101,10 @@ define([ 'require', 'define' ], function logger(require, define)
          * @memberof module:_base/logger
          * @returns {boolean} true if the log level is enabled
          */
-        // callerUrl provided via 'callerProvided' flag in special module handling
-        isTraceEnabled : function logger__isTraceEnabled(callerUrl)
+        isTraceEnabled : function logger__isTraceEnabled()
         {
-            var logger = getSimpleLogger(callerUrl);
-            return logger.isTraceEnabled();
+            var logger = getLogger();
+            return logger.traceEnabled;
         },
 
         /**
@@ -110,13 +120,24 @@ define([ 'require', 'define' ], function logger(require, define)
          *            [params] - log message pattern substitution values to be used in rendering the full log message if the log level is
          *            enabled (mutually exclusive with error)
          */
-        // callerUrl provided via 'callerProvided' flag in special module handling
-        debug : function logger__debug(callerUrl)
+        debug : function logger__debug()
         {
-            var logger = getSimpleLogger(callerUrl);
-            if (logger.isDebugEnabled())
+            var logger = getLogger();
+            if (logger.debugEnabled)
             {
-                logger.debug.apply(logger, Array.prototype.slice.call(arguments, 1));
+                if (arguments.length <= 1)
+                {
+                    logger.debug(arguments[0]);
+                }
+                else if (arguments.length === 2)
+                {
+                    logger.debug(arguments[0], arguments[1]);
+                }
+                else
+                {
+                    // two or more varargs => safe to simply call logger with array of varargs
+                    logger.debug(arguments[0], Array.prototype.slice.call(arguments, 1));
+                }
             }
         },
 
@@ -127,11 +148,10 @@ define([ 'require', 'define' ], function logger(require, define)
          * @memberof module:_base/logger
          * @returns {boolean} true if the log level is enabled
          */
-        // callerUrl provided via 'callerProvided' flag in special module handling
-        isDebugEnabled : function logger__isDebugEnabled(callerUrl)
+        isDebugEnabled : function logger__isDebugEnabled()
         {
-            var logger = getSimpleLogger(callerUrl);
-            return logger.isDebugEnabled();
+            var logger = getLogger();
+            return logger.debugEnabled;
         },
 
         /**
@@ -147,13 +167,24 @@ define([ 'require', 'define' ], function logger(require, define)
          *            [params] - log message pattern substitution values to be used in rendering the full log message if the log level is
          *            enabled (mutually exclusive with error)
          */
-        // callerUrl provided via 'callerProvided' flag in special module handling
-        info : function logger__info(callerUrl)
+        info : function logger__info()
         {
-            var logger = getSimpleLogger(callerUrl);
-            if (logger.isInfoEnabled())
+            var logger = getLogger();
+            if (logger.infoEnabled)
             {
-                logger.info.apply(logger, Array.prototype.slice.call(arguments, 1));
+                if (arguments.length <= 1)
+                {
+                    logger.info(arguments[0]);
+                }
+                else if (arguments.length === 2)
+                {
+                    logger.info(arguments[0], arguments[1]);
+                }
+                else
+                {
+                    // two or more varargs => safe to simply call logger with array of varargs
+                    logger.info(arguments[0], Array.prototype.slice.call(arguments, 1));
+                }
             }
         },
 
@@ -164,11 +195,10 @@ define([ 'require', 'define' ], function logger(require, define)
          * @memberof module:_base/logger
          * @returns {boolean} true if the log level is enabled
          */
-        // callerUrl provided via 'callerProvided' flag in special module handling
-        isInfoEnabled : function logger__isInfoEnabled(callerUrl)
+        isInfoEnabled : function logger__isInfoEnabled()
         {
-            var logger = getSimpleLogger(callerUrl);
-            return logger.isInfoEnabled();
+            var logger = getLogger();
+            return logger.infoEnabled;
         },
 
         /**
@@ -184,13 +214,24 @@ define([ 'require', 'define' ], function logger(require, define)
          *            [params] - log message pattern substitution values to be used in rendering the full log message if the log level is
          *            enabled (mutually exclusive with error)
          */
-        // callerUrl provided via 'callerProvided' flag in special module handling
-        warn : function logger__warn(callerUrl)
+        warn : function logger__warn()
         {
-            var logger = getSimpleLogger(callerUrl);
-            if (logger.isWarnEnabled())
+            var logger = getLogger();
+            if (logger.warnEnabled)
             {
-                logger.warn.apply(logger, Array.prototype.slice.call(arguments, 1));
+                if (arguments.length <= 1)
+                {
+                    logger.warn(arguments[0]);
+                }
+                else if (arguments.length === 2)
+                {
+                    logger.warn(arguments[0], arguments[1]);
+                }
+                else
+                {
+                    // two or more varargs => safe to simply call logger with array of varargs
+                    logger.warn(arguments[0], Array.prototype.slice.call(arguments, 1));
+                }
             }
         },
 
@@ -201,11 +242,10 @@ define([ 'require', 'define' ], function logger(require, define)
          * @memberof module:_base/logger
          * @returns {boolean} true if the log level is enabled
          */
-        // callerUrl provided via 'callerProvided' flag in special module handling
-        isWarnEnabled : function logger__isWarnEnabled(callerUrl)
+        isWarnEnabled : function logger__isWarnEnabled()
         {
-            var logger = getSimpleLogger(callerUrl);
-            return logger.isWarnEnabled();
+            var logger = getLogger();
+            return logger.warnEnabled;
         },
 
         /**
@@ -221,13 +261,24 @@ define([ 'require', 'define' ], function logger(require, define)
          *            [params] - log message pattern substitution values to be used in rendering the full log message if the log level is
          *            enabled (mutually exclusive with error)
          */
-        // callerUrl provided via 'callerProvided' flag in special module handling
-        error : function logger__error(callerUrl)
+        error : function logger__error()
         {
-            var logger = getSimpleLogger(callerUrl);
-            if (logger.isErrorEnabled())
+            var logger = getLogger();
+            if (logger.errorEnabled)
             {
-                logger.error.apply(logger, Array.prototype.slice.call(arguments, 1));
+                if (arguments.length <= 1)
+                {
+                    logger.error(arguments[0]);
+                }
+                else if (arguments.length === 2)
+                {
+                    logger.error(arguments[0], arguments[1]);
+                }
+                else
+                {
+                    // two or more varargs => safe to simply call logger with array of varargs
+                    logger.error(arguments[0], Array.prototype.slice.call(arguments, 1));
+                }
             }
         },
 
@@ -238,15 +289,98 @@ define([ 'require', 'define' ], function logger(require, define)
          * @memberof module:_base/logger
          * @returns {boolean} true if the log level is enabled
          */
-        // callerUrl provided via 'callerProvided' flag in special module handling
-        isErrorEnabled : function logger__isErrorEnabled(callerUrl)
+        isErrorEnabled : function logger__isErrorEnabled()
         {
-            var logger = getSimpleLogger(callerUrl);
-            return logger.isErrorEnabled();
+            var logger = getLogger();
+            return logger.errorEnabled;
         }
     };
 
+    Object.freeze(loggerModuleProto);
+
+    loggerModule = Object.create(loggerModuleProto, {
+        /**
+         * Flag representing enablement of the trace log level
+         * 
+         * @instance
+         * @memberof module:_base/logger
+         * @var traceEnabled
+         * @type {boolean}
+         * @readonly
+         */
+        traceEnabled : {
+            get : function logger__traceEnabled__getter()
+            {
+                return this.isTraceEnabled();
+            },
+            enumerable : true
+        },
+        /**
+         * Flag representing enablement of the debug log level
+         * 
+         * @instance
+         * @memberof module:_base/logger
+         * @var debugEnabled
+         * @type {boolean}
+         * @readonly
+         */
+        debugEnabled : {
+            get : function logger__debugEnabled__getter()
+            {
+                return this.isDebugEnabled();
+            },
+            enumerable : true
+        },
+        /**
+         * Flag representing enablement of the info log level
+         * 
+         * @instance
+         * @memberof module:_base/logger
+         * @var infoEnabled
+         * @type {boolean}
+         * @readonly
+         */
+        infoEnabled : {
+            get : function logger__infoEnabled__getter()
+            {
+                return this.isInfoEnabled();
+            },
+            enumerable : true
+        },
+        /**
+         * Flag representing enablement of the warn log level
+         * 
+         * @instance
+         * @memberof module:_base/logger
+         * @var warnEnabled
+         * @type {boolean}
+         * @readonly
+         */
+        warnEnabled : {
+            get : function logger__warnEnabled__getter()
+            {
+                return this.isWarnEnabled();
+            },
+            enumerable : true
+        },
+        /**
+         * Flag representing enablement of the error log level
+         * 
+         * @instance
+         * @memberof module:_base/logger
+         * @var errorEnabled
+         * @type {boolean}
+         * @readonly
+         */
+        errorEnabled : {
+            get : function logger__errorEnabled__getter()
+            {
+                return this.isErrorEnabled();
+            },
+            enumerable : true
+        }
+    });
     Object.freeze(loggerModule);
 
-    return define.asSpecialModule(loggerModule, [ 'callerProvided' ]);
+    return define.asSpecialModule(loggerModule, [ 'callerTagged' ]);
 });
