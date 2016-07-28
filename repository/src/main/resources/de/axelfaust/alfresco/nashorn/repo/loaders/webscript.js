@@ -1,12 +1,12 @@
 /* globals -require */
-/* globals SimpleLogger: false */
+/* globals getSimpleLogger: false */
 define('webscript', [ 'spring!de.axelfaust.alfresco.nashorn.repo-webscriptURLStreamHandler', 'nashorn!Java' ], function webscript_loader(
         webscriptURLStreamHandler, Java)
 {
     'use strict';
     var logger, loader, URL, RepositoryNashornScriptProcessor;
 
-    logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.webscript');
+    logger = getSimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.webscript');
     URL = Java.type('java.net.URL');
     RepositoryNashornScriptProcessor = Java.type('de.axelfaust.alfresco.nashorn.repo.web.scripts.RepositoryNashornScriptProcessor');
 
@@ -45,7 +45,10 @@ define('webscript', [ 'spring!de.axelfaust.alfresco.nashorn.repo-webscriptURLStr
             {
                 if (scriptLocation.scriptModuleId === normalizedId)
                 {
-                    logger.trace('Currently part of web script execution and requested module ID matches pre-resolved web script');
+                    if (logger.traceEnabled)
+                    {
+                        logger.trace('Currently part of web script execution and requested module ID matches pre-resolved web script');
+                    }
                     script = scriptLocation.content;
                 }
             }, function webscript_loader__load_errCallback()
@@ -60,7 +63,10 @@ define('webscript', [ 'spring!de.axelfaust.alfresco.nashorn.repo-webscriptURLStr
 
             if (script !== null)
             {
-                logger.trace('Script stores contains a script {} for module id {}', [ script, normalizedId ]);
+                if (logger.debugEnabled)
+                {
+                    logger.debug('Loading web script file {} for module id {}', script, normalizedId);
+                }
                 url = new URL('webscript', null, -1, normalizedId, webscriptURLStreamHandler);
                 webscriptURLStreamHandler.bindScriptContent(url, script);
 
@@ -77,7 +83,7 @@ define('webscript', [ 'spring!de.axelfaust.alfresco.nashorn.repo-webscriptURLStr
                     throw e;
                 }
             }
-            else
+            else if (logger.traceEnabled)
             {
                 logger.trace('Script stores do not contain a script for module id {}', normalizedId);
             }

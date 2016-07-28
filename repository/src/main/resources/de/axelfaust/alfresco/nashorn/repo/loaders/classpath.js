@@ -1,5 +1,5 @@
 /* globals -require */
-/* globals SimpleLogger: false */
+/* globals getSimpleLogger: false */
 /* globals applicationContext: false */
 (function classpath_loader_root()
 {
@@ -13,7 +13,7 @@
     {
         var URL, logger, loader;
 
-        logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.classpath');
+        logger = getSimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.classpath');
         URL = Java.type('java.net.URL');
         if (streamHandler === null)
         {
@@ -54,7 +54,10 @@
             {
                 var url = new URL('rawclasspath', null, -1, normalizedId, streamHandler);
 
-                logger.trace('Loading module id {} from classpath', normalizedId);
+                if (logger.traceEnabled)
+                {
+                    logger.trace('Loading module id {} from classpath', normalizedId);
+                }
 
                 load(url, true);
             }
@@ -71,7 +74,7 @@
     {
         var URL, logger, loader;
 
-        logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.extensible-classpath');
+        logger = getSimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.extensible-classpath');
         URL = Java.type('java.net.URL');
         if (streamHandler === null)
         {
@@ -113,7 +116,10 @@
             {
                 var url = new URL('extclasspath', null, -1, normalizedId, streamHandler);
 
-                logger.trace('Loading module id {} from extensible classpath', normalizedId);
+                if (logger.traceEnabled)
+                {
+                    logger.trace('Loading module id {} from extensible classpath', normalizedId);
+                }
 
                 load(url, true);
             }

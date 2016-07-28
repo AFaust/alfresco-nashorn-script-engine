@@ -1,49 +1,14 @@
-/* globals SimpleLogger: false */
+/* globals getSimpleLogger: false */
 /* globals Java: false */
 /* globals -define */
 (function noSuchProperty__root()
 {
     'use strict';
 
-    var _this, defaultNoSuchPropertyImpl, lookupDefault, lookupLegacyRootObject, lookupArg, noSuchPropertyImpl, logger, loggerState, cachedValues;
+    var _this, defaultNoSuchPropertyImpl, lookupDefault, lookupLegacyRootObject, lookupArg, noSuchPropertyImpl, logger, cachedValues;
 
-    logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.noSuchProperty');
+    logger = getSimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.noSuchProperty');
     cachedValues = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel').newAssociativeContainer();
-
-    // we use loggerState to avoid costly call-linking (and potentially array-parameter preparation) for any log statements if the log level
-    // is not enabled at all (at the beginning of an execution / first check)
-    loggerState = (function noSuchProperty__loggerState_init()
-    {
-        var NashornScriptModel = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel');
-
-        return NashornScriptModel.newAssociativeContainer(function amd__loggerState_getLogLevelEnabled(name)
-        {
-            var result;
-
-            switch (name)
-            {
-                case 'trace':
-                    result = logger.isTraceEnabled();
-                    break;
-                case 'debug':
-                    result = logger.isDebugEnabled();
-                    break;
-                case 'info':
-                    result = logger.isInfoEnabled();
-                    break;
-                case 'warn':
-                    result = logger.isWarnEnabled();
-                    break;
-                case 'error':
-                    result = logger.isErrorEnabled();
-                    break;
-                default:
-                    result = false;
-            }
-
-            return result;
-        });
-    }());
 
     _this = this;
     defaultNoSuchPropertyImpl = this.__noSuchProperty__;
@@ -52,7 +17,7 @@
     {
         var result;
 
-        if (loggerState.trace)
+        if (logger.traceEnabled)
         {
             logger.trace('Delegating to default __noSuchProperty__ to try and load {}', propName);
         }
@@ -65,7 +30,7 @@
     {
         var result;
 
-        if (loggerState.trace)
+        if (logger.traceEnabled)
         {
             logger.trace('Trying to load legacy root object {}', propName);
         }
@@ -77,7 +42,7 @@
             {
                 require([ 'legacyRootObjects!' + propName ], function __noSuchProperty__require_innerCallback(value)
                 {
-                    if (loggerState.debug)
+                    if (logger.debugEnabled)
                     {
                         logger.debug('Resolved "{}" for legacy root object {}', value, propName);
                     }
@@ -87,7 +52,7 @@
         }
         catch (e)
         {
-            if (loggerState.debug)
+            if (logger.debugEnabled)
             {
                 logger.debug('Failed to load legacy root object', e);
             }
@@ -107,13 +72,13 @@
 
         try
         {
-            if (loggerState.trace)
+            if (logger.traceEnabled)
             {
                 logger.trace('Trying to load script argument {}', propName);
             }
             require([ 'args!' + propName ], function __noSuchProperty__require_argsCallback(value)
             {
-                if (loggerState.debug)
+                if (logger.debugEnabled)
                 {
                     logger.debug('Resolved {} from argument {}', value, propName);
                 }
@@ -122,7 +87,7 @@
         }
         catch (e)
         {
-            if (loggerState.debug)
+            if (logger.debugEnabled)
             {
                 logger.debug('Failed to load argument {}', propName);
             }
@@ -140,14 +105,14 @@
     {
         var result;
 
-        if (loggerState.trace)
+        if (logger.traceEnabled)
         {
             logger.trace('Checking previously cached __noSuchProperty__ result for {}', propName);
         }
         if (propName in cachedValues)
         {
             result = cachedValues[propName];
-            if (loggerState.debug)
+            if (logger.debugEnabled)
             {
                 logger.debug('Found previously cached __noSuchProperty__ result {} for {}', result, propName);
             }

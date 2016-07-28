@@ -14,6 +14,7 @@
  */
 /* globals -require */
 /* globals SimpleLogger: false */
+// TODO Adapt to new JSObject based logger
 define([ 'require', 'define' ], function logger(require, define)
 {
     'use strict';

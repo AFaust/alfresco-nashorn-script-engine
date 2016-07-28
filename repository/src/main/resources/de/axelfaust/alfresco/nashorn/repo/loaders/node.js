@@ -1,5 +1,5 @@
 /* globals -require */
-/* globals SimpleLogger: false */
+/* globals getSimpleLogger: false */
 // despite this file's name it has nothing to do with Node.js
 define('node', [ 'define', 'nashorn!Java', 'serviceRegistry!NamespaceService', 'serviceRegistry!DictionaryService',
         'serviceRegistry!NodeService', 'serviceRegistry!PermissionService', 'serviceRegistry!ContentService',
@@ -9,7 +9,7 @@ define('node', [ 'define', 'nashorn!Java', 'serviceRegistry!NamespaceService', '
     'use strict';
     var loader, logger, URL, NodeURLHandler, urlHandler, NashornScriptModel, executionState, UUID, isObject;
 
-    logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.node');
+    logger = getSimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.node');
     URL = Java.type('java.net.URL');
     NodeURLHandler = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.NodeURLStreamHandler');
     urlHandler = new NodeURLHandler(NamespaceService, DictionaryService, NodeService, PermissionService, ContentService, SearchService);
@@ -56,8 +56,12 @@ define('node', [ 'define', 'nashorn!Java', 'serviceRegistry!NamespaceService', '
             {
                 if (contextModule.loader === 'node')
                 {
-                    logger.trace('Context module "{}" was loaded by "node" loader too - normalizing potentially relative module id "{}"', [
-                            contextModule.id, moduleId ]);
+                    if (logger.traceEnabled)
+                    {
+                        logger.trace(
+                                'Context module "{}" was loaded by "node" loader too - normalizing potentially relative module id "{}"',
+                                contextModule.id, moduleId);
+                    }
                     baseModuleId = normalizeSimpleId(moduleId, contextModule);
                 }
                 else
@@ -78,7 +82,10 @@ define('node', [ 'define', 'nashorn!Java', 'serviceRegistry!NamespaceService', '
             }
 
             normalizedModuleId = urlHandler.normalizeModuleId(scriptContextUUID, baseModuleId);
-            logger.debug('Normalized module id "{}" to "{}"', moduleId, normalizedModuleId);
+            if (logger.debugEnabled)
+            {
+                logger.debug('Normalized module id "{}" to "{}"', moduleId, normalizedModuleId);
+            }
 
             return normalizedModuleId;
         },
@@ -101,7 +108,10 @@ define('node', [ 'define', 'nashorn!Java', 'serviceRegistry!NamespaceService', '
 
             url = new URL('node', null, -1, normalizedId, urlHandler);
 
-            logger.debug('Loading module id {} from node', normalizedId);
+            if (logger.debugEnabled)
+            {
+                logger.debug('Loading module id {} from node', normalizedId);
+            }
 
             load(url, true);
         }

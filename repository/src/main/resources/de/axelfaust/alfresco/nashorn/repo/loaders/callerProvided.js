@@ -1,5 +1,5 @@
 /* globals -require */
-/* globals SimpleLogger: false */
+/* globals getSimpleLogger: false */
 /* globals applicationContext: false */
 (function callerProvided_loader_root()
 {
@@ -12,7 +12,7 @@
     {
         var URL, CallerProvidedURLStreamHandler, logger, loader;
 
-        logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.callerProvided');
+        logger = getSimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.callerProvided');
         URL = Java.type('java.net.URL');
         CallerProvidedURLStreamHandler = Java.type('de.axelfaust.alfresco.nashorn.repo.loaders.CallerProvidedURLStreamHandler');
 
@@ -45,7 +45,10 @@
             {
                 var url = new URL('callerProvided', null, -1, normalizedId, streamHandler);
 
-                logger.trace('Loading module id {} from caller provided script', normalizedId);
+                if (logger.traceEnabled)
+                {
+                    logger.trace('Loading module id {} from caller provided script', normalizedId);
+                }
 
                 load(url, CallerProvidedURLStreamHandler.isCallerProvidedScriptSecure());
             }

@@ -1,5 +1,5 @@
 /* globals -require */
-/* globals SimpleLogger: false */
+/* globals getSimpleLogger: false */
 define('legacyRootObjects', [ 'globalProperties!nashornJavaScriptProcessor.de.axelfaust.alfresco.nashorn.repo.legacyRootObjects.*',
         'nashorn!Java' ], function legacyRootObjects_loader(legacyRootObjects, Java)
 {
@@ -7,7 +7,7 @@ define('legacyRootObjects', [ 'globalProperties!nashornJavaScriptProcessor.de.ax
 
     var logger, loader, isObject, propertyPrefix, runtimeRootObjects;
 
-    logger = new SimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.legacyRootObjects');
+    logger = getSimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.legacyRootObjects');
     propertyPrefix = 'nashornJavaScriptProcessor.de.axelfaust.alfresco.nashorn.repo.legacyRootObjects.';
     runtimeRootObjects = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel').newAssociativeContainer();
 
@@ -89,14 +89,20 @@ define('legacyRootObjects', [ 'globalProperties!nashornJavaScriptProcessor.de.ax
                     }
 
                     isSecure = legacyModuleSecure === true || legacyModuleSecure === 'true';
-                    logger.trace('Loading legacy root object module {} as secure={}', [ legacyModuleId, isSecure ]);
+                    if (logger.traceEnabled)
+                    {
+                        logger.trace('Loading legacy root object module {} as secure={}', legacyModuleId, isSecure);
+                    }
 
                     // tag our caller as the actual caller to require
                     require.withTaggedCallerScript(function legacyRootObjects_loader__load__legacyRootObject_outerCallback()
                     {
                         require([ legacyModuleId ], function legacyRootObjects_loader__load__legacyRootObject_innerCallback(value)
                         {
-                            logger.debug('Resolved {} for legacy root object {}', value, legacyModuleId);
+                            if (logger.debugEnabled)
+                            {
+                                logger.debug('Resolved {} for legacy root object {}', value, legacyModuleId);
+                            }
                             result = value;
                         });
                     }, true);

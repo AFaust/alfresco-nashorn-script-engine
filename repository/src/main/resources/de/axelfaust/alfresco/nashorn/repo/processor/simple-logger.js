@@ -4,11 +4,11 @@
 (function simple_logger()
 {
     'use strict';
-    var SimpleLogger, LoggerFactory, Throwable, Locale, NativeLogMessageArgumentWrapper, processMessageParams;
+    var SimpleLogger, LoggerFactory, Throwable, NativeLogger, NativeLogMessageArgumentWrapper, processMessageParams;
 
     LoggerFactory = Java.type('org.slf4j.LoggerFactory');
     Throwable = Java.type('java.lang.Throwable');
-    Locale = Java.type('java.util.Locale');
+    NativeLogger = Java.type('de.axelfaust.alfresco.nashorn.repo.utils.NativeLogger');
     NativeLogMessageArgumentWrapper = Java.type('de.axelfaust.alfresco.nashorn.repo.utils.NativeLogMessageArgumentWrapper');
 
     processMessageParams = function simple_logger__processMessageParams(params)
@@ -25,17 +25,8 @@
                     // also: typeof javaObj === 'object' so add instanceof check against native prototype too
                     if (params[idx] !== null && (params[idx] instanceof Object || params[idx] instanceof Function))
                     {
-                        if (!(params[idx] instanceof Function) || params[idx].name === 'toString')
-                        {
-                            // script objects passed to logger would not have their JS toString called
-                            processedParams.push(new NativeLogMessageArgumentWrapper(params[idx]));
-                        }
-                        else
-                        {
-                            // ToStringFunction functional interface captures any function, even constructors
-                            processedParams.push(new NativeLogMessageArgumentWrapper(Function.prototype.bind.call(params[idx].toString,
-                                    params[idx])));
-                        }
+                        // script objects passed to logger would not have their JS toString called
+                        processedParams.push(new NativeLogMessageArgumentWrapper(params[idx]));
                     }
                     else
                     {
@@ -460,4 +451,18 @@
         enumerable : false
     });
 
+    /**
+     * Retrieves a new facade to a SLF4J logger instance with the provided name.
+     * 
+     * @global
+     * @var getSimpleLogger
+     * @function
+     * @param {string}
+     *            loggerName the name of the underlying logger to facade
+     * @returns {SimpleLogger}
+     */
+    Object.defineProperty(this, 'getSimpleLogger', {
+        value : NativeLogger.getLogger,
+        enumerable : false
+    });
 }.call(this));

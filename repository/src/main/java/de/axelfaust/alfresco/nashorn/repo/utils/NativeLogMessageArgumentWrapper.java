@@ -13,14 +13,13 @@
  */
 package de.axelfaust.alfresco.nashorn.repo.utils;
 
+import jdk.nashorn.api.scripting.ScriptUtils;
 import jdk.nashorn.api.scripting.ScriptObjectMirror;
-import jdk.nashorn.api.scripting.NashornException;
-import jdk.nashorn.internal.objects.NativeObject;
 
 /**
  * Instances of this class act as a simple toString wrapper for native JavaScript objects used during logging. Since any log framework will
  * call the Java {@link Object#toString() toString} operation on script objects instead of the JavaScript
- * {@link NativeObject#toString(Object) toString}, delegation from the first to the latter is necessary.
+ * {@link jdk.nashorn.internal.objects.NativeObject#toString(Object) toString}, delegation from the first to the latter is necessary.
  *
  * @author Axel Faust
  */
@@ -37,31 +36,8 @@ public class NativeLogMessageArgumentWrapper
 
     public String toString()
     {
-        String result;
-
-        final Object toStringResult;
-        try
-        {
-            if (this.scriptObject.isFunction())
-            {
-                toStringResult = this.scriptObject.call(null);
-            }
-            else if (this.scriptObject.hasMember("toString"))
-            {
-                toStringResult = this.scriptObject.callMember("toString");
-            }
-            else
-            {
-                toStringResult = this.scriptObject.toString();
-            }
-
-            result = String.valueOf(toStringResult);
-        }
-        catch (final NashornException ne)
-        {
-            result = "[JS toString call error: " + ne.getClass().getSimpleName() + "]";
-        }
-
+        final Object converted = ScriptUtils.convert(this.scriptObject, String.class);
+        final String result = String.valueOf(converted);
         return result;
     }
 }
