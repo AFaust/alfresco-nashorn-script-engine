@@ -50,7 +50,8 @@ public abstract class AbstractNodeScriptFile implements ScriptFile
     private static final String CACHE_DIRECTORY_NAME = "Alfresco-Nashorn-NodeScriptCache";
 
     private static final File CACHE_DIRECTORY = TempFileProvider.getTempDir(CACHE_DIRECTORY_NAME + "-" + System.currentTimeMillis());
-    static {
+    static
+    {
         CACHE_DIRECTORY.deleteOnExit();
     }
 
@@ -65,6 +66,8 @@ public abstract class AbstractNodeScriptFile implements ScriptFile
     protected transient long size = -1;
 
     protected transient File cacheFile;
+
+    protected transient FileChannel cacheFileChannel;
 
     protected transient MappedByteBuffer byteBuffer;
 
@@ -160,6 +163,7 @@ public abstract class AbstractNodeScriptFile implements ScriptFile
             {
                 this.size = -1;
                 this.byteBuffer = null;
+                IOUtils.closeQuietly(this.cacheFileChannel);
                 this.cacheFile.delete();
             }
         }
@@ -203,6 +207,7 @@ public abstract class AbstractNodeScriptFile implements ScriptFile
     {
         this.size = -1;
         this.byteBuffer = null;
+        IOUtils.closeQuietly(this.cacheFileChannel);
         this.cacheFile.delete();
 
     }
@@ -222,13 +227,16 @@ public abstract class AbstractNodeScriptFile implements ScriptFile
             }
 
             this.size = this.cacheFile.length();
-            this.byteBuffer = FileChannel.open(this.cacheFile.toPath(), StandardOpenOption.READ).map(MapMode.READ_ONLY, 0, this.size);
+            this.cacheFileChannel = FileChannel.open(this.cacheFile.toPath(), StandardOpenOption.READ);
+            this.byteBuffer = this.cacheFileChannel.map(MapMode.READ_ONLY, 0, this.size);
+            this.byteBuffer.load();
         }
         catch (final IOException ioex)
         {
             LOGGER.debug("Error caching script file", ioex);
 
             this.byteBuffer = null;
+            IOUtils.closeQuietly(this.cacheFileChannel);
             this.cacheFile.delete();
             this.size = -1;
 

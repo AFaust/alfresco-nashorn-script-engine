@@ -46,7 +46,8 @@ public class ClasspathScriptFile implements ScriptFile
     private static final String CACHE_DIRECTORY_NAME = "Alfresco-Nashorn-ClasspathScriptCache";
 
     private static final File CACHE_DIRECTORY = TempFileProvider.getTempDir(CACHE_DIRECTORY_NAME + "-" + System.currentTimeMillis());
-    static {
+    static
+    {
         CACHE_DIRECTORY.deleteOnExit();
     }
 
@@ -71,6 +72,8 @@ public class ClasspathScriptFile implements ScriptFile
     protected transient ClassPathResource resource;
 
     protected transient File cacheFile;
+
+    protected transient FileChannel cacheFileChannel;
 
     protected transient MappedByteBuffer byteBuffer;
 
@@ -112,6 +115,7 @@ public class ClasspathScriptFile implements ScriptFile
                             this.lastModifiedCheck = -1;
 
                             this.byteBuffer = null;
+                            IOUtils.closeQuietly(this.cacheFileChannel);
                             this.cacheFile.delete();
                             this.size = -1;
                         }
@@ -195,6 +199,7 @@ public class ClasspathScriptFile implements ScriptFile
                                 if (this.lastModified != -1 && lastModified != this.lastModified)
                                 {
                                     this.byteBuffer = null;
+                                    IOUtils.closeQuietly(this.cacheFileChannel);
                                     this.cacheFile.delete();
                                     this.size = -1;
                                 }
@@ -207,6 +212,7 @@ public class ClasspathScriptFile implements ScriptFile
                                 this.exists = this.existsInJarFile = false;
 
                                 this.byteBuffer = null;
+                                IOUtils.closeQuietly(this.cacheFileChannel);
                                 this.cacheFile.delete();
                                 this.size = -1;
                             }
@@ -267,6 +273,7 @@ public class ClasspathScriptFile implements ScriptFile
         this.lastModifiedCheck = -1;
 
         this.byteBuffer = null;
+        IOUtils.closeQuietly(this.cacheFileChannel);
         this.cacheFile.delete();
         this.size = -1;
     }
@@ -284,7 +291,9 @@ public class ClasspathScriptFile implements ScriptFile
             }
 
             this.size = this.cacheFile.length();
-            this.byteBuffer = FileChannel.open(this.cacheFile.toPath(), StandardOpenOption.READ).map(MapMode.READ_ONLY, 0, this.size);
+            this.cacheFileChannel = FileChannel.open(this.cacheFile.toPath(), StandardOpenOption.READ);
+            this.byteBuffer = this.cacheFileChannel.map(MapMode.READ_ONLY, 0, this.size);
+            this.byteBuffer.load();
         }
         catch (final IOException ioex)
         {
@@ -293,6 +302,7 @@ public class ClasspathScriptFile implements ScriptFile
             this.exists = this.existsInJarFile = false;
 
             this.byteBuffer = null;
+            IOUtils.closeQuietly(this.cacheFileChannel);
             this.cacheFile.delete();
             this.size = -1;
 
