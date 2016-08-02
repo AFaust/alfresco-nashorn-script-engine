@@ -5,13 +5,18 @@
  * Console addon.
  * 
  * @requires module:require
+ * @requires module:legacyRootObjects
+ * @requires module:_base/logger
+ * @requires module:nashorn!Java
  * @author Axel Faust
  */
-define([ 'require', 'legacyRootObjects', 'args!_printOutput' ], function execute__factory(require, legacyRootObjects, printOutput)
+define([ 'require', 'legacyRootObjects', 'args!_printOutput', '_base/logger', 'nashorn!Java' ], function execute__factory(require,
+        legacyRootObjects, printOutput, logger, Java)
 {
     'use strict';
+    var print, MessageFormatter, Throwable, NativeLogMessageArgumentWrapper, loggerHook;
 
-    legacyRootObjects.registerRootObject('print', function execute__print(msg)
+    print = function execute__print(msg)
     {
         if (typeof msg === 'string')
         {
@@ -48,9 +53,66 @@ define([ 'require', 'legacyRootObjects', 'args!_printOutput' ], function execute
             printOutput.add(String(msg));
         }
 
-    }, false);
-    
-    // TODO Preload additional modules
+    };
+
+    MessageFormatter = Java.type('org.slf4j.helpers.MessageFormatter');
+    Throwable = Java.type('java.lang.Throwable');
+    NativeLogMessageArgumentWrapper = Java.type('de.axelfaust.alfresco.nashorn.repo.utils.NativeLogMessageArgumentWrapper');
+
+    loggerHook = function execute__loggerHook(level)
+    {
+        var msg, baseMsg, params;
+
+        msg = level + ' - ';
+
+        if (arguments.length === 2)
+        {
+            msg += arguments[1];
+        }
+        else if (arguments.length >= 3)
+        {
+            if (arguments[2] instanceof Error)
+            {
+                msg += arguments[1] + '\n';
+                msg += arguments[2].nashornException;
+            }
+            else if (arguments[2] instanceof Throwable)
+            {
+                msg += arguments[1] + '\n';
+                msg += arguments[2];
+            }
+            else
+            {
+                baseMsg = arguments[1];
+                if (arguments.length === 3 && Array.isArray(arguments[2]))
+                {
+                    params = arguments[2].slice(0);
+                }
+                else
+                {
+                    params = Array.prototype.slice.call(arguments, 2);
+                }
+
+                params.forEach(function execute__loggerHook_forEachParam(param, index, arr)
+                {
+                    if (param !== null && (param instanceof Object || param instanceof Function))
+                    {
+                        arr[index] = new NativeLogMessageArgumentWrapper(param);
+                    }
+                });
+
+                msg += MessageFormatter.arrayFormat(baseMsg, params).message;
+            }
+        }
+
+        print(msg);
+    };
+
+    legacyRootObjects.registerRootObject('print', print, false);
+    logger.addLoggerHook('debug', Function.prototype.bind.call(loggerHook, undefined, 'DEBUG'));
+    logger.addLoggerHook('info', Function.prototype.bind.call(loggerHook, undefined, 'INFO'));
+    logger.addLoggerHook('warn', Function.prototype.bind.call(loggerHook, undefined, 'WARN'));
+    logger.addLoggerHook('error', Function.prototype.bind.call(loggerHook, undefined, 'ERROR'));
 
     return function execute()
     {

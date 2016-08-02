@@ -14,10 +14,10 @@
  */
 /* globals -require */
 /* globals getSimpleLogger: false */
-define([ 'require', 'define' ], function logger(require, define)
+define([ 'require', 'define', 'nashorn!Java' ], function logger(require, define, Java)
 {
     'use strict';
-    var loggerModule, loggerModuleProto, getLogger, loggerByScriptUrl = {};
+    var loggerModule, loggerModuleProto, getLogger, loggerByScriptUrl = {}, loggerHooks;
 
     getLogger = function logger__getLogger()
     {
@@ -49,6 +49,12 @@ define([ 'require', 'define' ], function logger(require, define)
         return logger;
     };
 
+    loggerHooks = (function logger__initLoggerHooks()
+    {
+        var NashornScriptModel = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel');
+        return NashornScriptModel.newAssociativeContainer();
+    }());
+
     // TODO Provide option to hook in dynamic log delegates (i.e. for JavaScript Console)
     /**
      * This module provides basic logging capabilities and delegates to SLF4J (which in turn will most likely be backed by Log4J). The
@@ -59,6 +65,25 @@ define([ 'require', 'define' ], function logger(require, define)
      * @author Axel Faust
      */
     loggerModuleProto = {
+
+        /**
+         * Adds a hook to be called whenever a logging call is made on a specific level. Only one hook can be registered for a specific log
+         * level. Hooks are only registered for the duration of the script execution.
+         * 
+         * @instance
+         * @memberOf module:_base/logger
+         * @param {string}
+         *            level - the logging level to hook into
+         * @param {function}
+         *            hook - the log method to call (exact same signature as the log functions of this module)
+         */
+        addLoggerHook : function logger__addLoggerHook(level, hook)
+        {
+            if (typeof level === 'string' && typeof hook === 'function')
+            {
+                loggerHooks[level] = hook;
+            }
+        },
 
         /**
          * Log a message at "trace" level
@@ -91,6 +116,11 @@ define([ 'require', 'define' ], function logger(require, define)
                     // two or more varargs => safe to simply call logger with array of varargs
                     logger.trace(arguments[0], Array.prototype.slice.call(arguments, 1));
                 }
+            }
+
+            if ('trace' in loggerHooks)
+            {
+                loggerHooks.trace.apply(null, arguments);
             }
         },
 
@@ -139,6 +169,11 @@ define([ 'require', 'define' ], function logger(require, define)
                     logger.debug(arguments[0], Array.prototype.slice.call(arguments, 1));
                 }
             }
+
+            if ('debug' in loggerHooks)
+            {
+                loggerHooks.debug.apply(null, arguments);
+            }
         },
 
         /**
@@ -185,6 +220,11 @@ define([ 'require', 'define' ], function logger(require, define)
                     // two or more varargs => safe to simply call logger with array of varargs
                     logger.info(arguments[0], Array.prototype.slice.call(arguments, 1));
                 }
+            }
+
+            if ('info' in loggerHooks)
+            {
+                loggerHooks.info.apply(null, arguments);
             }
         },
 
@@ -233,6 +273,11 @@ define([ 'require', 'define' ], function logger(require, define)
                     logger.warn(arguments[0], Array.prototype.slice.call(arguments, 1));
                 }
             }
+
+            if ('warn' in loggerHooks)
+            {
+                loggerHooks.warn.apply(null, arguments);
+            }
         },
 
         /**
@@ -279,6 +324,11 @@ define([ 'require', 'define' ], function logger(require, define)
                     // two or more varargs => safe to simply call logger with array of varargs
                     logger.error(arguments[0], Array.prototype.slice.call(arguments, 1));
                 }
+            }
+
+            if ('error' in loggerHooks)
+            {
+                loggerHooks.error.apply(null, arguments);
             }
         },
 

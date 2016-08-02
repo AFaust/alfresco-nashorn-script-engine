@@ -23,7 +23,7 @@ define('legacyRootObjects', [ 'globalProperties!nashornJavaScriptProcessor.de.ax
      * nashornJavaScriptProcessor.de.axelfaust.alfresco.nashorn.repo.legacyRootObjects.* configuration in the alfresco-global.properties
      * file(s) and the script argument model.
      * 
-     * @exports legacyRootObject
+     * @exports legacyRootObjects
      * @author Axel Faust
      */
     loader = {
