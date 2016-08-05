@@ -1,15 +1,28 @@
 /* globals -require */
 /* globals getSimpleLogger: false */
-define('args', [ 'nashorn!Java', '_base/ConversionService' ], function args_loader(Java, ConversionService)
+define('args', [ 'nashorn!Java', 'require' ], function args_loader(Java, requre)
 {
     'use strict';
 
-    var loader, logger, NashornScriptModel, executionState;
+    var loader, logger, NashornScriptModel, ConversionService, executionState;
 
     logger = getSimpleLogger('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader.args');
 
     NashornScriptModel = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel');
     executionState = NashornScriptModel.newAssociativeContainer();
+
+    // ConversionService should be treated as an optional dependency
+    try
+    {
+        requre([ '_base/ConversionService' ], function args_loader_obtainConversionService_success(ConversionServiceModule)
+        {
+            ConversionService = ConversionServiceModule;
+        });
+    }
+    catch (e)
+    {
+        logger.info('Failed to obtain ConversionService', e);
+    }
 
     /**
      * This loader module provides the capability to load entries from the script argument model as AMD modules.
@@ -47,7 +60,10 @@ define('args', [ 'nashorn!Java', '_base/ConversionService' ], function args_load
             }
 
             // convert potential Java object into script representation e.g. NodeRef into an instanceof of a ScriptNode-like module
-            result = ConversionService.convertToScript(result);
+            if (ConversionService !== undefined)
+            {
+                result = ConversionService.convertToScript(result);
+            }
 
             if (logger.debugEnabled)
             {
