@@ -190,7 +190,7 @@ public class NativeLogger extends AbstractJSObject
                     }
                 }
 
-                // second pass: look for special cases for one additional argument
+                // second pass: look for special cases with exactly one additional argument
                 if (realArgs.length == 1)
                 {
                     if (realArgs[0] instanceof ScriptObjectMirror)
@@ -234,14 +234,23 @@ public class NativeLogger extends AbstractJSObject
                         default: // NO-OP
                     }
                 }
-                else
+                else if (realArgs.length > 0)
                 {
                     // third pass: turn script object into Java-toString-able wrappers
+                    // special handling for objects with "nashornException" property - some logging frameworks may handle exception in
+                    // parameter array specially (i.e. Logback)
                     for (int idx = 0; idx < realArgs.length; idx++)
                     {
                         if (realArgs[idx] instanceof ScriptObjectMirror)
                         {
-                            realArgs[idx] = new NativeLogMessageArgumentWrapper((ScriptObjectMirror) realArgs[idx]);
+                            if (((ScriptObjectMirror) realArgs[idx]).hasMember("nashornException"))
+                            {
+                                realArgs[idx] = ((ScriptObjectMirror) realArgs[idx]).getMember("nashornException");
+                            }
+                            else
+                            {
+                                realArgs[idx] = new NativeLogMessageArgumentWrapper((ScriptObjectMirror) realArgs[idx]);
+                            }
                         }
                     }
 
@@ -261,6 +270,28 @@ public class NativeLogger extends AbstractJSObject
                             break;
                         case "error":
                             logger.error(message, realArgs);
+                            break;
+                        default: // NO-OP
+                    }
+                }
+                else
+                {
+                    switch (this.logMethodName)
+                    {
+                        case "trace":
+                            logger.trace(message);
+                            break;
+                        case "debug":
+                            logger.debug(message);
+                            break;
+                        case "info":
+                            logger.info(message);
+                            break;
+                        case "warn":
+                            logger.warn(message);
+                            break;
+                        case "error":
+                            logger.error(message);
                             break;
                         default: // NO-OP
                     }
