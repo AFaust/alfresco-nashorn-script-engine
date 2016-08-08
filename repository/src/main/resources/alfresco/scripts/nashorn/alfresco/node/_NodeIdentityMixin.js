@@ -592,7 +592,6 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
                         result = this.getExists();
                         break;
                     default:
-                        // TODO Determine why this doesn't find __call__ in ProxySupport
                         result = this.inherited(alfresco_node_NodeIdentity__call__, arguments);
                 }
             }

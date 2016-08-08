@@ -89,8 +89,11 @@ define(
              * @param {function|string}
              *            fn - the identity handle or name of the function calling inherited (name should only be passed from the most
              *            specialized function of an inheritance chain
-             * @param {object}
+             * @param {object|array}
              *            arguments - the arguments to the function call
+             * @param {array}
+             *            [overrideArguments] - override-arguments for the function call (elements will override elements of arguments with
+             *            same index or add to overall length of effective arguments)
              */
             inherited = function declare__inherited()
             {
@@ -200,7 +203,8 @@ define(
                         }
                         else
                         {
-                            clsFound = ctor.fnClsName === fnClsName;
+                            clsFound = ctor.fnClsName.indexOf(fnClsName) === 0
+                                    && (ctor.fnClsName.length === fnClsName.length || ctor.fnClsName.substring(fnClsName.length) === '-derived');
                             if (clsFound === true)
                             {
                                 logger.trace('Found caller class in linearized classes');
