@@ -53,8 +53,7 @@ define(
 
             /**
              * Checks if this instance is an instance of a specific class considering single inheritance as well as the multi-inheritance
-             * constructs this module supports. This method will be included in the prototype of any class created via
-             * {@link module:_base/declare~declare}
+             * constructs this module supports. This method will be included in the prototype of any class created via [declare]{@link module:_base/declare#declare}
              * 
              * @public
              * @function
@@ -83,7 +82,7 @@ define(
             /**
              * Calls a specific function inherited from a base class using the next base class in the linearization of base classes relative
              * to the function passed as the currently executed function. This method will be included in the prototype of any class created
-             * via {@link module:_base/declare~declare}
+             * via [declare]{@link module:_base/declare#declare}
              * 
              * @public
              * @function
@@ -543,7 +542,7 @@ define(
 
             /**
              * Creates a new class from a defined class structure and optional base classes. This function is the identity of
-             * {@link module:_base/declare}.
+             * [_base/declare]{@link module:_base/declare}.
              * 
              * @public
              * @function

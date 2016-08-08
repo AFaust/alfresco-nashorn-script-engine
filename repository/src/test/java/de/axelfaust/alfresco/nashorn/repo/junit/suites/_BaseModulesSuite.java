@@ -11,25 +11,18 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
+package de.axelfaust.alfresco.nashorn.repo.junit.suites;
 
-(function testDemo()
+import org.junit.runner.RunWith;
+
+import de.axelfaust.alfresco.nashorn.repo.junit.runners.ScriptSuite;
+
+/**
+ * @author Axel Faust
+ */
+@RunWith(ScriptSuite.class)
+@ScriptSuite.SuiteFolders({ "/junit/tests/_base" })
+public class _BaseModulesSuite
 {
-    var testObj = {
-        getTestFunctionNames : function testDemo_getTestFunctionNames()
-        {
-            return Java.to([ 'successfulTest', 'failingTest' ], 'java.util.List');
-        },
 
-        successfulTest : function testDemo_sucessfulTest(testCase)
-        {
-            print('Successful test');
-        },
-
-        failingTest : function testDemo_failingTest(testCase)
-        {
-            // TODO Support optional hook to check if an error is expected for a test case
-            throw new Error('This fails');
-        }
-    };
-    return testObj;
-}());
+}
