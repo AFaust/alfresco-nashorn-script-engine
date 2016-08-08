@@ -55,13 +55,15 @@ define([ 'require', 'define', 'nashorn!Java' ], function logger(require, define,
         return NashornScriptModel.newAssociativeContainer();
     }());
 
-    // TODO Provide option to hook in dynamic log delegates (i.e. for JavaScript Console)
     /**
      * This module provides basic logging capabilities and delegates to SLF4J (which in turn will most likely be backed by Log4J). The
      * logging functionality of this module is caller-aware, meaning that each script will log into a distinct logger depending on its
      * module ID or - when no module ID can be determined for a caller - the URL it was loaded from.
      * 
      * @module _base/logger
+     * @requires module:require
+     * @requires module:define
+     * @requires module:nashorn!Java
      * @author Axel Faust
      */
     loggerModuleProto = {

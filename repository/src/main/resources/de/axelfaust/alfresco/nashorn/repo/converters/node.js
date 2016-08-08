@@ -1,11 +1,14 @@
 /* globals -define */
-require([ '_base/ConversionService', 'alfresco/node/ScriptNode' ], function nodeConverters_root(ConversionService, ScriptNode)
+require([ '_base/ConversionService', 'alfresco/node/ScriptNode', '_base/logger' ], function nodeConverters_root(ConversionService,
+        ScriptNode, logger)
 {
     'use strict';
     ConversionService.registerJavaToScriptConverter('org.alfresco.service.cmr.repository.NodeRef',
             function nodeConverters_convertNodeRefToScript(nodeRef)
             {
                 var result;
+
+                logger.trace('Converting NodeRef {} to alfresco/node/ScriptNode', nodeRef);
 
                 result = new ScriptNode(nodeRef);
 
@@ -17,6 +20,8 @@ require([ '_base/ConversionService', 'alfresco/node/ScriptNode' ], function node
             function nodeConverters_convertScriptNodeToScript(scriptNode)
             {
                 var result;
+
+                logger.trace('Converting ScriptNode {} to alfresco/node/ScriptNode', scriptNode.nodeRef);
 
                 // luckily we can access ScriptNode.getNodeRef() without an active Rhino context
                 result = new ScriptNode(scriptNode.nodeRef);

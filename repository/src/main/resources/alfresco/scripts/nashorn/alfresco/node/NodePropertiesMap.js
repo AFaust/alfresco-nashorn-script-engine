@@ -462,14 +462,14 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '_base/Conver
 
                 /**
                  * Retrieves the Java map-based representation of all the properties that would be persisted by a call to
-                 * {@link module:alfresco/node/NodePropertiesMap~save} at this time. This operation is intended for other modules in this
+                 * [save]{@link module:alfresco/node/NodePropertiesMap#save} at this time. This operation is intended for other modules in this
                  * package that may need to persist current properties without going through the call to save.
                  * 
                  * @instance
                  * @protected
                  * @function
                  * @returns {Map} the Java map instance holding all properties that would be persisted by a call to
-                 *          {@link module:alfresco/node/NodePropertiesMap~save} at this time
+                 *          [save]{@link module:alfresco/node/NodePropertiesMap#save} at this time
                  */
                 _getModifiedPropertiesMap : function alfresco_node_NodePropertiesMap__getModifiedPropertiesMap()
                 {

@@ -185,7 +185,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', '.
         },
 
         /**
-         * Provides a human readable string representation of this instance based on {@link module:alfresco/common/QName~prefixString}
+         * Provides a human readable string representation of this instance based on [prefixString]{@link module:alfresco/common/QName#prefixString}
          * 
          * @instance
          * @returns {string} the human readable string representation

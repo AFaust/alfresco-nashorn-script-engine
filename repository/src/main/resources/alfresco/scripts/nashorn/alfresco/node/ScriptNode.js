@@ -8,20 +8,35 @@
  * @mixes module:_base/JavaConvertableMixin
  * @mixes module:alfresco/node/_NodeIdentityMixin
  * @mixes module:alfresco/node/_NodePropertiesMixin
+ * @mixes module:_base/ProxySupport
  * @requires module:_base/declare
  * @author Axel Faust
  */
-define([ '_base/declare', '_base/JavaConvertableMixin', './_NodeIdentityMixin', './_NodePropertiesMixin' ],
-        function alfresco_node_ScriptNode_root(declare, JavaConvertableMixin, _NodeIdentityMixin, _NodePropertiesMixin)
+define([ '_base/declare', '_base/JavaConvertableMixin', './_NodeIdentityMixin', './_NodePropertiesMixin', '_base/ProxySupport' ],
+        function alfresco_node_ScriptNode_root(declare, JavaConvertableMixin, _NodeIdentityMixin, _NodePropertiesMixin, ProxySupport)
         {
             'use strict';
-            return declare([ JavaConvertableMixin, _NodeIdentityMixin, _NodePropertiesMixin ], {
+            return declare([ JavaConvertableMixin, _NodeIdentityMixin, _NodePropertiesMixin, ProxySupport ], {
+
+                '--proxy-support-enabled' : true,
+
+                '--proxy-getter-redirection-enabled' : true,
+
+                '--proxy-setter-redirection-enabled' : true,
 
                 _internalJavaValueProperty : 'nodeRef',
 
                 /**
+                 * The name of this node
+                 * 
+                 * @var name
+                 * @type {string}
+                 * @instance
+                 * @memberof module:alfresco/node/ScriptNode
+                 */
+                /**
                  * Retrieves the name of this node. This operation will consider and respect any non-committed/unsaved change to the name of
-                 * the node either via {@link module:alfresco/node/ScriptNode~setName} or the map of properties.
+                 * the node either via [setName]{@link module:alfresco/node/ScriptNode#setName} or the map of properties.
                  * 
                  * @instance
                  * @returns {string} the name of the node

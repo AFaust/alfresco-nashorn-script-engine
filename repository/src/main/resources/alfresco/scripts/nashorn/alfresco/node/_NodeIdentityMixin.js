@@ -125,8 +125,8 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
         },
 
         /**
-         * The store type fragment of the NodeRef - this is equivalent to {@link module:alfresco/node/_NodeIdentityMixin~protocol} for
-         * compatibility reasons with legacy API
+         * The store type fragment of the NodeRef - this is equivalent to [protocol]{@link module:alfresco/node/_NodeIdentityMixin#protocol}
+         * for compatibility reasons with legacy API
          * 
          * @var storeType
          * @type {string}
@@ -135,8 +135,8 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
          * @memberof module:alfresco/node/_NodeIdentityMixin
          */
         /**
-         * Retrieves the store type fragment of the underlying NodeRef - this is equivalent to
-         * {@link module:alfresco/node/_NodeIdentityMixin~getProtocol} for compatibility reasons with legacy API
+         * Retrieves the store type fragment of the underlying NodeRef - this is equivalent to [getProtocol]{@link module:alfresco/node/_NodeIdentityMixin#getProtocol}
+         * for compatibility reasons with legacy API
          * 
          * @instance
          * @returns {string} the store type fragment
@@ -201,9 +201,9 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
         },
 
         /**
-         * The type qname for this node - this is equivalent to {@link module:alfresco/node/_NodeIdentityMixin~qnameType} for compatibility
-         * reasons with legacy API. Setting this property will try to specialize the type of the node and fail if the types are
-         * incompatible.
+         * The type qname for this node - this is equivalent to [qnameType]{@link module:alfresco/node/_NodeIdentityMixin#qnameType} for
+         * compatibility reasons with legacy API. Setting this property will try to specialize the type of the node and fail if the types
+         * are incompatible.
          * 
          * @var qNameType
          * @type {module:alfresco/common/QName}
@@ -211,8 +211,8 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
          * @memberof module:alfresco/node/_NodeIdentityMixin
          */
         /**
-         * Retrieves the type qname of this node - this is equivalent to {@link module:alfresco/node/_NodeIdentityMixin~getQnameType} for
-         * compatibility reasons with legacy API.
+         * Retrieves the type qname of this node - this is equivalent to [getQnameType]{@link module:alfresco/node/_NodeIdentityMixin#getQnameType}
+         * for compatibility reasons with legacy API.
          * 
          * @instance
          * @return {module:alfresco/common/QName} the type qname
@@ -234,8 +234,8 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
         },
 
         /**
-         * Sets the type of the node to a specialized sub-type if possible - this is equivalent to
-         * {@link module:alfresco/node/_NodeIdentityMixin~setQnameType} for compatibility reasons with legacy API.
+         * Sets the type of the node to a specialized sub-type if possible - this is equivalent to [setQnameType]{@link module:alfresco/node/_NodeIdentityMixin#setQnameType}
+         * for compatibility reasons with legacy API.
          * 
          * @instance
          * @param {module:alfresco/common/QName}
@@ -481,7 +481,7 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
 
             return this.aspectQNames;
         },
-        
+
         // TODO Aspect addition / removal
 
         /**
@@ -576,14 +576,28 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '../foundatio
         __call__ : function alfresco_node_NodeIdentity__call__(name)
         {
             var result;
-            if (name === 'exists')
+
+            logger.trace('__call__ called for {}', name);
+
+            if (typeof this[name] === 'function')
             {
-                result = this.getExists();
+                // better performance if we short-cut
+                result = this[name].apply(this, Array.prototype.slice.call(arguments, 1));
             }
             else
             {
-                result = this.inherited(alfresco_node_NodeIdentity__call__, arguments);
+                switch (name)
+                {
+                    case 'exists':
+                        result = this.getExists();
+                        break;
+                    default:
+                        // TODO Determine why this doesn't find __call__ in ProxySupport
+                        result = this.inherited(alfresco_node_NodeIdentity__call__, arguments);
+                }
             }
+
+            logger.trace('__call__ for {} yielded {}', name, result);
 
             return result;
         },

@@ -76,7 +76,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', '.
                         }
                     }
 
-                    logger.debug('__get__ for {} yielded {}', prop, value);
+                    logger.trace('__get__ for {} yielded {}', prop, value);
 
                     return value;
                 },
@@ -105,7 +105,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', '.
 
                     result = result || this.inherited(alfresco_common_QNameMapWrapper__has__, arguments);
 
-                    logger.debug('__has__ for {} yielded {}', prop, result);
+                    logger.trace('__has__ for {} yielded {}', prop, result);
 
                     return result;
                 },
@@ -130,7 +130,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', '.
                         }
                     }
 
-                    logger.debug('__put__ for {} and value {} yielded {}', prop, value, result);
+                    logger.trace('__put__ for {} and value {} yielded {}', prop, value, result);
 
                     return result;
                 },
@@ -199,7 +199,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', '.
                         }
                     }
 
-                    logger.debug('__delete__ for {} yielded {}', prop, result);
+                    logger.trace('__delete__ for {} yielded {}', prop, result);
 
                     return result;
                 },
@@ -211,22 +211,30 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', '.
 
                     logger.trace('__call__ called for {}', name);
 
-                    switch (name)
+                    if (typeof this[name] === 'function')
                     {
-                        case 'clear':
-                            /* falls through */
-                        case 'size':
-                            if (arguments.length === 1)
-                            {
-                                result = this.backingMap[name]();
-                                break;
-                            }
-                            /* falls through */
-                        default:
-                            result = this.inherited(alfresco_common_QNameMapWapper__call__, arguments);
+                        // better performance if we short-cut
+                        result = this[name].apply(this, Array.prototype.slice.call(arguments, 1));
+                    }
+                    else
+                    {
+                        switch (name)
+                        {
+                            case 'clear':
+                                /* falls through */
+                            case 'size':
+                                if (arguments.length === 1)
+                                {
+                                    result = this.backingMap[name]();
+                                    break;
+                                }
+                                /* falls through */
+                            default:
+                                result = this.inherited(alfresco_common_QNameMapWapper__call__, arguments);
+                        }
                     }
 
-                    logger.debug('__call__ for {} yielded {}', name, result);
+                    logger.trace('__call__ for {} yielded {}', name, result);
 
                     return result;
                 },
