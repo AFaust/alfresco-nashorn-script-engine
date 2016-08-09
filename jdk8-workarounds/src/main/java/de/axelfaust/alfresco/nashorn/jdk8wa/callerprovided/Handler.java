@@ -11,7 +11,7 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package de.axelfaust.alfresco.nashorn.jdk8wa.callerProvided;
+package de.axelfaust.alfresco.nashorn.jdk8wa.callerprovided;
 
 import java.net.URL;
 import java.net.URLConnection;

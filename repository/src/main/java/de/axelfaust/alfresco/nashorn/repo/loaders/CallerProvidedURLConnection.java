@@ -151,7 +151,7 @@ public class CallerProvidedURLConnection extends URLConnection
      * {@inheritDoc}
      */
     @Override
-    public InputStream getInputStream() throws IOException
+    public synchronized InputStream getInputStream() throws IOException
     {
         final InputStream is;
 
@@ -162,6 +162,7 @@ public class CallerProvidedURLConnection extends URLConnection
         }
 
         is = new ByteArrayInputStream(this.byteBuffer);
+
         return is;
     }
 

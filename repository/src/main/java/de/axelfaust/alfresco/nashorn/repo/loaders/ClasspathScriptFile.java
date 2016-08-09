@@ -14,15 +14,12 @@
 package de.axelfaust.alfresco.nashorn.repo.loaders;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
-import java.nio.MappedByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.channels.FileChannel.MapMode;
-import java.nio.file.StandardOpenOption;
 import java.text.MessageFormat;
 import java.util.UUID;
 
@@ -73,10 +70,6 @@ public class ClasspathScriptFile implements ScriptFile
 
     protected transient File cacheFile;
 
-    protected transient FileChannel cacheFileChannel;
-
-    protected transient MappedByteBuffer byteBuffer;
-
     public ClasspathScriptFile(final String filePath)
     {
         ParameterCheck.mandatoryString("filePath", filePath);
@@ -114,8 +107,6 @@ public class ClasspathScriptFile implements ScriptFile
                         {
                             this.lastModifiedCheck = -1;
 
-                            this.byteBuffer = null;
-                            IOUtils.closeQuietly(this.cacheFileChannel);
                             this.cacheFile.delete();
                             this.size = -1;
                         }
@@ -149,11 +140,11 @@ public class ClasspathScriptFile implements ScriptFile
     @Override
     public long getSize(final boolean force)
     {
-        long size = -1;
+        long size = this.exists(force) ? this.size : -1;
 
         if (this.exists)
         {
-            if (force || this.size == -1)
+            if (force || size == -1)
             {
                 synchronized (this)
                 {
@@ -161,10 +152,10 @@ public class ClasspathScriptFile implements ScriptFile
                     {
                         this.cacheScriptFile();
                     }
+                    size = this.size;
                 }
 
             }
-            size = this.size;
         }
 
         return size;
@@ -177,11 +168,9 @@ public class ClasspathScriptFile implements ScriptFile
     @Override
     public long getLastModified(final boolean force)
     {
-        long lastModified = -1;
+        long lastModified = this.exists(force) ? this.lastModified : -1;
         if (this.exists)
         {
-            lastModified = this.lastModified;
-
             final long currentTimeMillis = System.currentTimeMillis();
             if (force || currentTimeMillis - this.lastModifiedCheck > DEFAULT_LAST_MODIFIED_CHECK_INTERVAL)
             {
@@ -198,8 +187,6 @@ public class ClasspathScriptFile implements ScriptFile
 
                                 if (this.lastModified != -1 && lastModified != this.lastModified)
                                 {
-                                    this.byteBuffer = null;
-                                    IOUtils.closeQuietly(this.cacheFileChannel);
                                     this.cacheFile.delete();
                                     this.size = -1;
                                 }
@@ -211,18 +198,12 @@ public class ClasspathScriptFile implements ScriptFile
                                 lastModified = this.lastModified = -1;
                                 this.exists = this.existsInJarFile = false;
 
-                                this.byteBuffer = null;
-                                IOUtils.closeQuietly(this.cacheFileChannel);
                                 this.cacheFile.delete();
                                 this.size = -1;
                             }
 
                             this.lastModifiedCheck = currentTimeMillis;
                         }
-                    }
-                    else
-                    {
-                        lastModified = -1;
                     }
                 }
             }
@@ -235,27 +216,35 @@ public class ClasspathScriptFile implements ScriptFile
      * {@inheritDoc}
      */
     @Override
-    public InputStream getInputStream()
+    public synchronized InputStream getInputStream()
     {
         InputStream is;
 
-        if (this.byteBuffer == null)
+        if (this.exists(false))
         {
-            synchronized (this)
+            if (!this.cacheFile.exists())
             {
-                if (this.byteBuffer == null)
-                {
-                    this.cacheScriptFile();
-                }
+                this.cacheScriptFile();
+            }
+
+            if (!this.cacheFile.exists())
+            {
+                throw new ScriptException("Script can't be loaded");
+            }
+
+            try
+            {
+                is = new FileInputStream(this.cacheFile);
+            }
+            catch (final IOException ioex)
+            {
+                throw new ScriptException("Error loading cached script file", ioex);
             }
         }
-
-        if (this.byteBuffer == null)
+        else
         {
-            throw new ScriptException("Script can't be loaded");
+            throw new ScriptException("Script file does not exist");
         }
-
-        is = new ByteBufferInputStream(this.byteBuffer);
 
         return is;
     }
@@ -272,8 +261,6 @@ public class ClasspathScriptFile implements ScriptFile
         this.lastModified = -1;
         this.lastModifiedCheck = -1;
 
-        this.byteBuffer = null;
-        IOUtils.closeQuietly(this.cacheFileChannel);
         this.cacheFile.delete();
         this.size = -1;
     }
@@ -291,9 +278,6 @@ public class ClasspathScriptFile implements ScriptFile
             }
 
             this.size = this.cacheFile.length();
-            this.cacheFileChannel = FileChannel.open(this.cacheFile.toPath(), StandardOpenOption.READ);
-            this.byteBuffer = this.cacheFileChannel.map(MapMode.READ_ONLY, 0, this.size);
-            this.byteBuffer.load();
         }
         catch (final IOException ioex)
         {
@@ -301,8 +285,6 @@ public class ClasspathScriptFile implements ScriptFile
 
             this.exists = this.existsInJarFile = false;
 
-            this.byteBuffer = null;
-            IOUtils.closeQuietly(this.cacheFileChannel);
             this.cacheFile.delete();
             this.size = -1;
 

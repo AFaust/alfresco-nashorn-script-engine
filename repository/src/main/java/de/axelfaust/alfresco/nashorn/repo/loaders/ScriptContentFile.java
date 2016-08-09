@@ -13,11 +13,10 @@
  */
 package de.axelfaust.alfresco.nashorn.repo.loaders;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
-
 import org.alfresco.scripts.ScriptException;
 import org.alfresco.util.ParameterCheck;
 import org.apache.commons.io.IOUtils;
@@ -35,7 +34,7 @@ public class ScriptContentFile implements ScriptFile
 
     protected final ScriptContent scriptContent;
 
-    protected transient ByteBuffer byteBuffer;
+    protected transient byte[] byteBuffer;
 
     protected transient long size = -1;
 
@@ -58,17 +57,11 @@ public class ScriptContentFile implements ScriptFile
      * {@inheritDoc}
      */
     @Override
-    public long getSize(final boolean force)
+    public synchronized long getSize(final boolean force)
     {
         if (this.size == -1)
         {
-            synchronized (this)
-            {
-                if (this.size == -1)
-                {
-                    this.cacheScriptFile();
-                }
-            }
+            this.cacheScriptFile();
         }
         return this.size;
     }
@@ -87,20 +80,16 @@ public class ScriptContentFile implements ScriptFile
      * {@inheritDoc}
      */
     @Override
-    public InputStream getInputStream()
+    public synchronized InputStream getInputStream()
     {
         InputStream is;
+
         if (this.byteBuffer == null)
         {
-            synchronized (this)
-            {
-                if (this.byteBuffer == null)
-                {
-                    this.cacheScriptFile();
-                }
-            }
+            this.cacheScriptFile();
         }
-        is = new ByteBufferInputStream(this.byteBuffer);
+
+        is = new ByteArrayInputStream(this.byteBuffer);
         return is;
     }
 
@@ -124,14 +113,11 @@ public class ScriptContentFile implements ScriptFile
                 {
                     IOUtils.copy(is, os);
 
-                    final byte[] bytes = os.toByteArray();
-                    this.byteBuffer = ByteBuffer.allocate(bytes.length);
-                    this.byteBuffer.put(bytes);
-                    this.byteBuffer.position(0);
+                    this.byteBuffer = os.toByteArray();
                 }
             }
 
-            this.size = this.byteBuffer.limit();
+            this.size = this.byteBuffer.length;
         }
         catch (final IOException ioex)
         {

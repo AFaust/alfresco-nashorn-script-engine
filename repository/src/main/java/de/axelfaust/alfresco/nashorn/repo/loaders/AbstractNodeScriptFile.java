@@ -14,15 +14,12 @@
 package de.axelfaust.alfresco.nashorn.repo.loaders;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
-import java.nio.MappedByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.channels.FileChannel.MapMode;
-import java.nio.file.StandardOpenOption;
 import java.sql.Date;
 import java.text.MessageFormat;
 
@@ -66,10 +63,6 @@ public abstract class AbstractNodeScriptFile implements ScriptFile
     protected transient long size = -1;
 
     protected transient File cacheFile;
-
-    protected transient FileChannel cacheFileChannel;
-
-    protected transient MappedByteBuffer byteBuffer;
 
     public AbstractNodeScriptFile(final NodeRef nodeRef, final NodeService nodeService,
             final RetryingTransactionHelper retryingTransactionHelper)
@@ -115,9 +108,9 @@ public abstract class AbstractNodeScriptFile implements ScriptFile
     @Override
     public long getSize(final boolean force)
     {
-        long size = -1;
+        long size = this.size;
 
-        if (force || this.size == -1)
+        if (force || size == -1)
         {
             synchronized (this)
             {
@@ -125,10 +118,10 @@ public abstract class AbstractNodeScriptFile implements ScriptFile
                 {
                     this.cacheScriptFile();
                 }
+                size = this.size;
             }
 
         }
-        size = this.size;
 
         return size;
     }
@@ -162,8 +155,6 @@ public abstract class AbstractNodeScriptFile implements ScriptFile
             synchronized (this)
             {
                 this.size = -1;
-                this.byteBuffer = null;
-                IOUtils.closeQuietly(this.cacheFileChannel);
                 this.cacheFile.delete();
             }
         }
@@ -175,27 +166,29 @@ public abstract class AbstractNodeScriptFile implements ScriptFile
      * {@inheritDoc}
      */
     @Override
-    public InputStream getInputStream()
+    public synchronized InputStream getInputStream()
     {
         InputStream is;
 
-        if (this.byteBuffer == null)
+        if (!this.cacheFile.exists())
         {
-            synchronized (this)
-            {
-                if (this.byteBuffer == null)
-                {
-                    this.cacheScriptFile();
-                }
-            }
+            this.cacheScriptFile();
         }
 
-        if (this.byteBuffer == null)
+        if (!this.cacheFile.exists())
         {
             throw new ScriptException("Script can't be loaded");
         }
 
-        is = new ByteBufferInputStream(this.byteBuffer);
+        try
+        {
+            is = new FileInputStream(this.cacheFile);
+        }
+        catch (final IOException ioex)
+        {
+            throw new ScriptException("Error loading cached script file", ioex);
+        }
+
         return is;
     }
 
@@ -206,8 +199,6 @@ public abstract class AbstractNodeScriptFile implements ScriptFile
     public synchronized void reset()
     {
         this.size = -1;
-        this.byteBuffer = null;
-        IOUtils.closeQuietly(this.cacheFileChannel);
         this.cacheFile.delete();
 
     }
@@ -227,16 +218,11 @@ public abstract class AbstractNodeScriptFile implements ScriptFile
             }
 
             this.size = this.cacheFile.length();
-            this.cacheFileChannel = FileChannel.open(this.cacheFile.toPath(), StandardOpenOption.READ);
-            this.byteBuffer = this.cacheFileChannel.map(MapMode.READ_ONLY, 0, this.size);
-            this.byteBuffer.load();
         }
         catch (final IOException ioex)
         {
             LOGGER.debug("Error caching script file", ioex);
 
-            this.byteBuffer = null;
-            IOUtils.closeQuietly(this.cacheFileChannel);
             this.cacheFile.delete();
             this.size = -1;
 
