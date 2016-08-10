@@ -2,7 +2,7 @@
 <extension>
     <modules>
         <module>
-            <id>${project.name} - JavaScritp Console (Aikau) Extension</id>
+            <id>${project.name} - JavaScript Console (Aikau) - Nashorn Repository Web Script Backend Extension</id>
             <auto-deploy>true</auto-deploy>
             <version>${noSnapshotVersion}</version>
 
@@ -11,7 +11,7 @@
                 <!-- Console Tools framework forced JS Console Aikau page not to use a proper package name + depth -->
                 <customization>
                     <targetPackageRoot>de.axelfaust.pages</targetPackageRoot>
-                    <sourcePackageRoot>de.axelfaust.nashorn.jsconsole</sourcePackageRoot>
+                    <sourcePackageRoot>de.axelfaust.nashorn.customizations.jsconsole.repositoryWebScriptBackend</sourcePackageRoot>
                 </customization>
 
             </customizations>
