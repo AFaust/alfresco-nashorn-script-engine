@@ -6,8 +6,9 @@
  * 
  * @module alfresco/node/NodePropertiesMap
  * @mixes module:_base/ProxySupport
- * @requires module:alfresco/common/QName
  * @requires module:_base/declare
+ * @requires module:alfresco/common/QName
+ * @requires module:_base/ConversionService
  * @requires module:alfresco/foundation/DictionaryService
  * @requires module:alfresco/foundation/NodeService
  * @requires module:alfresco/foundation/FileFolderService
