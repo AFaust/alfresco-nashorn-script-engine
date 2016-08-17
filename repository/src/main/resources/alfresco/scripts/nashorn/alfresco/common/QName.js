@@ -146,7 +146,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', '.
         {
             if (!this.hasOwnProperty('prefixString'))
             {
-                logger.debug('Defining prefixString on {}', this.qname);
+                logger.trace('Defining prefixString on {}', this.qname);
                 // just a cached value to avoid redundant toPrefixString execution
                 Object.defineProperty(this, 'prefixString', {
                     value : this.qname.toPrefixString(NamespaceService),
@@ -175,7 +175,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', '.
         {
             if (!this.hasOwnProperty('fullString'))
             {
-                logger.debug('Defining fullString on {}', this.qname);
+                logger.trace('Defining fullString on {}', this.qname);
                 // just a cached value
                 Object.defineProperty(this, 'fullString', {
                     value : String(this.qname)
