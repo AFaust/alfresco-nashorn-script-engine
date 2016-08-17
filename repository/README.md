@@ -114,3 +114,17 @@ Currently, the following loader modules are defined by default:
 - *callerProvided* - special loader to load scripts that have been provided as inline strings (without any real file); primarily used for internal purposes
 
 **NOTE**: Any module ID is typically free of file extensions, but may have one if necessary. The default lookup order for script files is no, "nashornjs" and "js" extension.
+
+### Root scope objects
+Technically speaking, the execution context of the Nashorn engine only contains the following root scope objects:
+
+- *require* - the global require-function
+- *define* - the global define-function
+- *getSimpleLogger* - a function to retrieve a logger instance for a specific name
+
+In order to provide a comparable scripting experience to the old Rhino engine, lazy-lookup hooks are used to provide similar feature modules. These lazy-lookup hooks are also responsible for providing the elements from the script model provided to the ScriptService API as virtual root variables, even though all scripts run in a shared global scope (see "Concepts").
+The following additional root scope objects are currently being provided:
+
+- *msg* - (web scripts only) the I18n helper utility specific for web script controllers
+- *logger* - the script logger (note: logs to de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger.<loaderModuleId>.<moduleId> based on the caller)
+- *search* - the (work-in-progress) service module to provide search operations
