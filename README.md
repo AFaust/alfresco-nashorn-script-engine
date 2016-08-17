@@ -3,7 +3,7 @@ This project aims to provide an alternative JavaScript engine to Alfresco based 
 
 It started with my [Enhanced Script Environment](https://github.com/AFaust/alfresco-enhanced-script-environment/) ([Summit 2013 session](https://summit.alfresco.com/barcelona/sessions/enhanced-script-api-dynamic-import-batch-processing)) which aimed to address various issues with Rhino based integration in standard Alfresco, especially Java <-> JavaScript conversions as well as transparent, native-like use of Java lists and maps, and avoiding leaks of JavaScript objects into Java or FreeMarker environments. After realizing that this was unachievable without a complete refactoring of the Alfresco Rhino integration or ending up with an unmaintainable mess, I started a [proof of concept branch](https://github.com/AFaust/alfresco-enhanced-script-environment/tree/nashorn_PoC) for using the Nashorn engine in Alfresco ([Summit 2014 Lightning Talk](https://youtu.be/t50IVAxpD3E?t=1057)).
 
-This project now is about implementing a proper, production-ready script engine for Alfresco based on Nashorn. It is designed to implement a completely isolated, separate script engine to allow both Rhino and Nashorn to be used on the same Alfresco instance side-by-side without any side-effects. To ensure safe coexistence, the script engine provides a separate script API implementation, which draws inspiration from the existing API (and tries to come as close as possible), but tries to cut off as many legacy Rhino hacks / weirdness as possible. The new script API is designed to support modularisation from the get-go and uses a variant of the AMD module loading mechanism also used in Aikau.
+This project now is about implementing a proper, production-ready script engine for Alfresco based on Nashorn. It is designed to implement a completely isolated, separate script engine to allow both Rhino and Nashorn to be used on the same Alfresco instance side-by-side without any side-effects. To ensure safe coexistence, the script engine provides a separate script API implementation, which draws inspiration from the existing API (and tries to come as close as possible), but aims to cut off as many legacy Rhino hacks / weirdness as possible. The new script API is designed to support modularisation from the start and uses a variant of the AMD module loading mechanism also used in Aikau, so anyone who has written Aikau modules before should feel right at home.
 
 # Current state
 This project contains three modules. The Repository-tier module is currently the only one that provides a custom script engine (implementing a Nashorn script engine for Share / Surf is a planned TODO-item for the future). The Share-tier module provides a customization / extension to the work-in-progress [Aikau-ified JavaScript Console](https://github.com/AFaust/js-console/tree/js-console-v2) so new script API modules can be easily prototyped in a running system and don't require frequent restarts to test.
@@ -26,3 +26,10 @@ mvn site
 ```
 
 It is possible to combine a normal build with the generation of a site by simply listing both `install` and `site` as parameters to the Maven executable.
+
+# Usage details
+Details about the usage of the Nashorn script engine modules is separated into the README files of the individual modules:
+
+- [Repository-tier](./repository)
+- [Share-tier](./share)
+- [JDK 8 workarounds](./jdk8-workarounds)
