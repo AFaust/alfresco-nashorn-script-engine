@@ -19,10 +19,10 @@ The Nashorn script engine has been implemented with the following base concepts:
 # Script paths
 The following (abstract) paths are used by this module to handle scripts for specific purposes:
 
-- *classpath:alfresco/templates/webscripts/path/to/my/webscript.\*.nashornjs* - regular path for web script controller scripts
-- *classpath\*:alfresco/extension/templates/webscripts/path/to/my/webscript.\*.nashornjs* - regular path for web script controller script overrides
-- *classpath:alfresco/scripts/nashorn/alfresco/my/module(.(nashorn)?js)?* - path for script modules  in the **alfresco** package, in this case the module with ID *alfresco/my/module* (custom package names are technically supported though convenient configuration is an open TODO)
-- *classpath\*:alfresco/extension/scripts/nashorn/alfresco/my/module(.(nashorn)?js)?* - override path for script modules  in the **alfresco** package, in this case the module with ID *alfresco/my/module*
+- _classpath:alfresco/templates/webscripts/path/to/my/webscript.*.nashornjs_ - regular path for web script controller scripts
+- _classpath\*:alfresco/extension/templates/webscripts/path/to/my/webscript.*.nashornjs_ - regular path for web script controller script overrides
+- _classpath:alfresco/scripts/nashorn/alfresco/my/module(.(nashorn)?js)?_ - path for script modules  in the *alfresco* package, in this case the module with ID *alfresco/my/module* (custom package names are technically supported though convenient configuration is an open TODO)
+- _classpath*:alfresco/extension/scripts/nashorn/alfresco/my/module(.(nashorn)?js)?_ - override path for script modules  in the *alfresco* package, in this case the module with ID *alfresco/my/module*
 
 The modularisation / AMD API technically allows to load scripts from any source as long as a corresponding module loader has been registered, i.e. the default *classpath* module loader allows to load script files from any classpath-accessible file structure.
 
@@ -111,4 +111,6 @@ Currently, the following loader modules are defined by default:
 - *args* - loader to load objects provided via the script model
 - *globalProperties* - loader to load single values or collections of values from the aggregated *alfresco-global.properties* set
 - *legacyRootObjects* - loader to load modules / utilities which were provided as root scope objects in the Rhino script API
-- *callerProvided* - special loader to load scripts that have been provided as inline strings (without any real file); primarily used for internal purposes 
+- *callerProvided* - special loader to load scripts that have been provided as inline strings (without any real file); primarily used for internal purposes
+
+**NOTE**: Any module ID is typically free of file extensions, but may have one if necessary. The default lookup order for script files is no, "nashornjs" and "js" extension.
