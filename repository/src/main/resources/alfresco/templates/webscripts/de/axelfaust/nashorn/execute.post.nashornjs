@@ -109,6 +109,7 @@ define([ 'require', 'legacyRootObjects', 'args!_printOutput', '_base/logger', 'n
     };
 
     legacyRootObjects.registerRootObject('print', print, false);
+    // TODO Provide client-side configuration options to specify which log levels to hook
     logger.addLoggerHook('debug', Function.prototype.bind.call(loggerHook, undefined, 'DEBUG'));
     logger.addLoggerHook('info', Function.prototype.bind.call(loggerHook, undefined, 'INFO'));
     logger.addLoggerHook('warn', Function.prototype.bind.call(loggerHook, undefined, 'WARN'));
