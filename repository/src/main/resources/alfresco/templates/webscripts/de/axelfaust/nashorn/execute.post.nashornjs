@@ -42,7 +42,7 @@ define([ 'require', 'legacyRootObjects', 'args!_printOutput', '_base/logger', 'n
                 }
                 else
                 {
-                    line += String(msg);
+                    line += String(element);
                 }
 
                 printOutput.add(line);
