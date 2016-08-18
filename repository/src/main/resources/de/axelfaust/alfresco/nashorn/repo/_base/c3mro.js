@@ -102,7 +102,7 @@ define([], function()
      * @function
      * @param {function}
      *            o - the constructor of the new class
-     * @param {array}
+     * @param {function[]}
      *            [bases] - the list of base classes from which the new class should inherit
      */
     c3mro = function c3mro(o, bases)

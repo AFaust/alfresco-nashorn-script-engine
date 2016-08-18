@@ -4,28 +4,23 @@
  * 
  * @module _base/declare
  * @requires module:_base/c3mro
+ * @requires module:_base/lang
  * @requires module:_base/logger
  * @author Axel Faust
  */
 /* globals -require */
 define(
-        [ './c3mro', 'require', 'define', './logger' ],
-        function declare_root(c3mro, require, define, logger)
+        [ './c3mro', 'require', 'define', './lang', './logger' ],
+        function _base_declare__root(c3mro, require, define, lang, logger)
         {
             'use strict';
-            var anonClassCount = 0, FnCtor, DummyCtor, isObject, fn_toString, isInstanceOf, inherited, forceNew, applyNew, createStandardConstructor, standardConstructorImpl, taggedMixin, standardPrototype, declareImpl, declare;
+            var anonClassCount = 0, FnCtor, DummyCtor, fn_toString, isInstanceOf, inherited, forceNew, applyNew, createStandardConstructor, standardConstructorImpl, taggedMixin, standardPrototype, declareImpl, declare;
 
             FnCtor = Function;
 
             DummyCtor = new FnCtor();
 
-            isObject = function declare__isObject(o)
-            {
-                var result = o instanceof Object && Object.prototype.toString.call(o) === '[object Object]';
-                return result;
-            };
-
-            fn_toString = function declare__fn_toString(defaultToString)
+            fn_toString = function _base_declare__fn_toString(defaultToString)
             {
                 var result, className, fnName;
 
@@ -61,7 +56,7 @@ define(
              *            cls - the class against which to check this instance
              * @returns boolean true if this instance is an instanceof of the specified class
              */
-            isInstanceOf = function declare__isInstanceOf(cls)
+            isInstanceOf = function _base_declare__isInstanceOf(cls)
             {
                 var linearization = this.constructor._c3mro_linearization, isBase = false, idx;
 
@@ -95,7 +90,7 @@ define(
              *            [overrideArguments] - override-arguments for the function call (elements will override elements of arguments with
              *            same index or add to overall length of effective arguments)
              */
-            inherited = function declare__inherited()
+            inherited = function _base_declare__inherited()
             {
                 var result, fnName, fnClsName, callerFn, args, overrides, effectiveArgs, idx, lastLookup, ctor, proto, fn, clsFound;
 
@@ -253,7 +248,7 @@ define(
                 return result;
             };
 
-            forceNew = function declare__forceNew(ctor)
+            forceNew = function _base_declare__forceNew(ctor)
             {
                 var instance;
 
@@ -266,7 +261,7 @@ define(
                 return instance;
             };
 
-            applyNew = function declare__applyNew(args, ctor)
+            applyNew = function _base_declare__applyNew(args, ctor)
             {
                 var instance = forceNew(ctor), altInstance;
 
@@ -285,7 +280,7 @@ define(
                 return instance;
             };
 
-            standardConstructorImpl = function declare__standardConstructorImpl(standardCtor, args)
+            standardConstructorImpl = function _base_declare__standardConstructorImpl(standardCtor, args)
             {
                 var result, idx, ctor, linearization, curAltResult, altResult;
 
@@ -331,11 +326,12 @@ define(
                 return result;
             };
 
-            createStandardConstructor = function declare__createStandardConstructor()
+            createStandardConstructor = function _base_declare__createStandardConstructor()
             {
                 // we need a separate standardConstructor instance for every class due to inidividual prototype
                 // fn should be as thin as possible - oursourcing most logic to common code in standardConstructorImpl
-                var standardCtor = function declare__standardConstructor()
+                // TODO Find out how to avoid recompilation on EVERY invocation (trashes performance)
+                var standardCtor = function _base_declare__standardConstructor()
                 {
                     var result = standardConstructorImpl.call(this, standardCtor, arguments);
                     return result;
@@ -344,7 +340,7 @@ define(
                 return standardCtor;
             };
 
-            taggedMixin = function declare__taggedMixin(target, source)
+            taggedMixin = function _base_declare__taggedMixin(target, source)
             {
                 var name, value;
 
@@ -375,7 +371,7 @@ define(
                 }
             };
 
-            standardPrototype = function declare__standardPrototype(cls, classStructure)
+            standardPrototype = function _base_declare__standardPrototype(cls, classStructure)
             {
                 var superClass, proto, ctor, superLin, slLen, clsLin, clLen, startWithSuperClass = true, base, offset, name;
 
@@ -454,7 +450,7 @@ define(
                 {
                     logger.trace('Starting with empty prototype for {}', cls._declare_meta.className);
                     proto = {
-                        toString : function declare_class__defaultToString()
+                        toString : function _base_declare_class__defaultToString()
                         {
                             var className, toString;
 
@@ -478,7 +474,7 @@ define(
                 return proto;
             };
 
-            declareImpl = function declare__declareImpl(className, superClass, bases, classStructure)
+            declareImpl = function _base_declare__declareImpl(className, superClass, bases, classStructure)
             {
                 var ctor, proto, meta, structure;
 
@@ -497,7 +493,7 @@ define(
 
                 structure = {};
 
-                Object.keys(classStructure).forEach(function declare__declareImpl_forEach_classStructure(key)
+                Object.keys(classStructure).forEach(function _base_declare__declareImpl_forEach_classStructure(key)
                 {
                     if (key !== 'constructor')
                     {
@@ -552,19 +548,19 @@ define(
              * @function
              * @param {string}
              *            [name] - the name of the new class-like construct
-             * @param {array}
+             * @param {function[]}
              *            [bases] - the list of base classes from which the new class should inherit
              * @param {object}
              *            structure - the "body" of the new class definining its properties and functions
              */
             // callerUrl provided via 'callerProvided' flag in special module handling
-            declare = function declare__declare(callerUrl)
+            declare = function _base_declare__declare(callerUrl)
             {
                 var args, className, bases, superClass, structure;
 
                 args = Array.prototype.slice.call(arguments, 1);
 
-                args.forEach(function declare__declare_forEachArg(value, idx)
+                args.forEach(function _base_declare__declare_forEachArg(value, idx)
                 {
                     if (idx === 0 && typeof value === 'string')
                     {
@@ -579,14 +575,14 @@ define(
                     if (idx < 2 && bases === undefined && structure === undefined && Array.isArray(value))
                     {
                         bases = [];
-                        value.forEach(function declare__declare_forEachArg_forEachBaseClass(fn)
+                        value.forEach(function _base_declare__declare_forEachArg_forEachBaseClass(fn)
                         {
                             if (typeof fn !== 'function')
                             {
                                 throw new Error('Base ' + fn + ' is not a callable constructor');
                             }
 
-                            if (!isObject(fn._declare_meta) || typeof fn._declare_meta.className !== 'string')
+                            if (!lang.isObject(fn._declare_meta, false, true) || typeof fn._declare_meta.className !== 'string')
                             {
                                 throw new Error('Base ' + fn + ' appears not to have been defined via declare');
                             }
@@ -595,7 +591,7 @@ define(
                         });
                     }
 
-                    if (idx < 3 && structure === undefined && isObject(value))
+                    if (idx < 3 && structure === undefined && lang.isObject(value, false, true))
                     {
                         structure = value;
                     }

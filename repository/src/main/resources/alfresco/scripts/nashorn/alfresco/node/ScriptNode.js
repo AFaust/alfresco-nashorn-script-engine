@@ -5,17 +5,18 @@
  * documented on the affected operations.
  * 
  * @module alfresco/node/ScriptNode
- * @mixes module:_base/JavaConvertableMixin
+ * @extends module:_base/JavaConvertableMixin
  * @mixes module:alfresco/node/_NodeIdentityMixin
  * @mixes module:alfresco/node/_NodeTypesAndAspectsMixin
  * @mixes module:alfresco/node/_NodePropertiesMixin
  * @mixes module:_base/ProxySupport
  * @requires module:_base/declare
+ * @requires module:_base/lang
  * @author Axel Faust
  */
 define([ '_base/declare', '_base/JavaConvertableMixin', './_NodeIdentityMixin', './_NodeTypesAndAspectsMixin', './_NodePropertiesMixin',
-        '_base/ProxySupport' ], function alfresco_node_ScriptNode_root(declare, JavaConvertableMixin, _NodeIdentityMixin,
-        _NodeTypesAndAspectsMixin, _NodePropertiesMixin, ProxySupport)
+        '_base/ProxySupport', '_base/lang' ], function alfresco_node_ScriptNode__root(declare, JavaConvertableMixin, _NodeIdentityMixin,
+        _NodeTypesAndAspectsMixin, _NodePropertiesMixin, ProxySupport, lang)
 {
     'use strict';
     return declare([ JavaConvertableMixin, _NodeIdentityMixin, _NodeTypesAndAspectsMixin, _NodePropertiesMixin, ProxySupport ], {
@@ -67,7 +68,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', './_NodeIdentityMixin', 
         },
 
         /**
-         * Sets the type of the node to a specialized sub-type. This operation implicitly persists any changed properties and synchronizes
+         * Sets the type of the node to a specialized sub-type. This operation implicitly discards any changed properties and synchronizes
          * the internal properties state if the specialization succeeds.
          * 
          * @instance
@@ -80,14 +81,64 @@ define([ '_base/declare', '_base/JavaConvertableMixin', './_NodeIdentityMixin', 
             var specialized, properties;
 
             properties = this.getProperties();
-            specialized = this.inherited(arguments);
+            specialized = this.inherited(alfresco_node_ScriptNode__specializeType, arguments);
 
             if (specialized)
             {
-                properties.save();
+                this.resetPropertyCaches();
             }
 
             return specialized;
+        },
+
+        /**
+         * Applies an aspect to the node, optionally adding relevant aspect properties too. This operation implicitly discards any changed
+         * properties and synchronizes the internal properties state if the aspect application succeeds or custom properties are set via
+         * this operation.
+         * 
+         * @instance
+         * @param {string|QName|module:alfresco/common/QName}
+         *            aspect the aspect to apply
+         * @param {object}
+         *            properties the properties to add to the node with this operation
+         * @returns {boolean} true if a new aspect was added, false otherwise i.e. if the aspect was already applied
+         */
+        addAspect : function alfresco_node_ScriptNode__addAspect()
+        {
+            var aspectApplied;
+
+            aspectApplied = this.inherited(alfresco_node_ScriptNode__addAspect, arguments);
+
+            if (aspectApplied || (lang.isObject(arguments[1], null, true) && Object.keys(arguments[1]).length > 0))
+            {
+                this.resetPropertyCaches();
+            }
+
+            return aspectApplied;
+        },
+
+        /**
+         * Removes an aspect from the node. This operation implicitly discards any changed properties and synchronizes the internal
+         * properties state if the aspect removal succeeds.
+         * 
+         * @instance
+         * @param {string|QName|module:alfresco/common/QName}
+         *            aspect the aspect to remove
+         * @returns {boolean} true if an aspect was removed, false otherwise i.e. if the aspect was not previously applied or wasn't
+         *          effectively removed (i.e. due to being a mandatory aspect)
+         */
+        removeAspect : function alfresco_node_ScriptNode__removeAspect()
+        {
+            var aspectRemoved;
+
+            aspectRemoved = this.inherited(alfresco_node_ScriptNode__removeAspect, arguments);
+
+            if (aspectRemoved)
+            {
+                this.resetPropertyCaches();
+            }
+
+            return aspectRemoved;
         }
     });
 });

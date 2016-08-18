@@ -7,15 +7,15 @@
  * @module _legacy/webscript/msg
  * @requires nashorn!Java
  * @requires nashorn!JSAdapter
+ * @requires _base/lang
  * @requires _base/ConversionService
  * @author Axel Faust
  */
-define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter', '_base/ConversionService' ], function msg(rhinoMsg, Java, JSAdapter,
-        ConversionService)
+define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter', '_base/lang', '_base/ConversionService' ], function _legacy_webscript_msg(
+        rhinoMsg, Java, JSAdapter, lang, ConversionService)
 {
     'use strict';
-
-    var Map, List, ScriptMessage, ScriptableObject, RhinoUtils, isObject, result;
+    var Map, List, ScriptMessage, ScriptableObject, RhinoUtils, result;
 
     Map = Java.type('java.util.Map');
     List = Java.type('java.util.List');
@@ -23,16 +23,10 @@ define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter', '_base/ConversionServi
     ScriptableObject = Java.type('org.mozilla.javascript.ScriptableObject');
     RhinoUtils = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.RhinoUtils');
 
-    isObject = function msg__isObject(o)
-    {
-        var result = o !== undefined && o !== null && Object.prototype.toString.call(o) === '[object Object]';
-        return result;
-    };
-
     if (rhinoMsg instanceof ScriptMessage)
     {
         result = new JSAdapter({
-            toString : function msg__toString()
+            toString : function _legacy_webscript_msg__toString()
             {
                 return rhinoMsg.toString();
             }
@@ -49,25 +43,25 @@ define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter', '_base/ConversionServi
              *            [args] the arguments to be used to replace any placeholders in the resolved message
              */
             // overrides/prototype with a "normal" get to expose the legacy API of ScriptMessage
-            get : function msg__get(msgId, args)
+            get : function _legacy_webscript_msg__get(msgId, args)
             {
                 var msgValue;
 
-                if (isObject(args) || args instanceof Map || Array.isArray(args) || args instanceof List)
+                if (lang.isObject(args, false, true) || args instanceof Map || Array.isArray(args) || args instanceof List)
                 {
                     // need to construct a Scriptable to pass to ScriptMessage
-                    msgValue = RhinoUtils.inRhino(function msg__get_inRhino(cx, scope)
+                    msgValue = RhinoUtils.inRhino(function _legacy_webscript_msg__get_inRhino(cx, scope)
                     {
                         var scriptable, msgValue, arr;
 
-                        if (isObject(args) || args instanceof Map)
+                        if (lang.isObject(args, false, true) || args instanceof Map)
                         {
                             // TODO Transparently map object/Map with numeric String keys into an array
                             // default ScriptMessage does not support object as parameter but in case an extended variant does we
                             // cover this case here
                             scriptable = cx.newObject(scope);
 
-                            if (isObject(args))
+                            if (lang.isObject(args, true))
                             {
                                 arr = Object.keys(args);
                             }
@@ -77,7 +71,7 @@ define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter', '_base/ConversionServi
                             }
 
                             // either JS Array.forEach or Iterable.forEach
-                            arr.forEach(function msg__get_forEachKey(key)
+                            arr.forEach(function _legacy_webscript_msg__get_forEachKey(key)
                             {
                                 var javaValue = ConversionService.convertToJava(args[key]);
                                 ScriptableObject.putProperty(scriptable, key, javaValue);
@@ -87,7 +81,7 @@ define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter', '_base/ConversionServi
                         {
                             arr = [];
                             // either JS Array.forEach or Iterable.forEach
-                            args.forEach(function msg__get_forEachElement(element)
+                            args.forEach(function _legacy_webscript_msg__get_forEachElement(element)
                             {
                                 arr.push(ConversionService.convertToJava(element));
                             });
@@ -109,7 +103,7 @@ define([ 'args!msg', 'nashorn!Java', 'nashorn!JSAdapter', '_base/ConversionServi
             }
         }, {
             // __get__ used to allow simple msg[msgId] accesss
-            __get__ : function msg__virtualGet(name)
+            __get__ : function _legacy_webscript_msg__virtualGet(name)
             {
                 var msgValue = result.get(name);
                 return msgValue;

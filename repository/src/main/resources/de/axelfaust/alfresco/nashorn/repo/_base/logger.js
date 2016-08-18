@@ -14,12 +14,12 @@
  */
 /* globals -require */
 /* globals getSimpleLogger: false */
-define([ 'require', 'define', 'nashorn!Java' ], function logger(require, define, Java)
+define([ 'require', 'define', 'nashorn!Java' ], function _base_logger__root(require, define, Java)
 {
     'use strict';
     var loggerModule, loggerModuleProto, getLogger, loggerByScriptUrl = {}, loggerHooks;
 
-    getLogger = function logger__getLogger()
+    getLogger = function _base_logger__getLogger()
     {
         var callerScriptURL, callerScriptModuleId, callerScriptModuleLoader, logger;
 
@@ -49,7 +49,7 @@ define([ 'require', 'define', 'nashorn!Java' ], function logger(require, define,
         return logger;
     };
 
-    loggerHooks = (function logger__initLoggerHooks()
+    loggerHooks = (function _base_logger__initLoggerHooks()
     {
         var NashornScriptModel = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModel');
         return NashornScriptModel.newAssociativeContainer();
@@ -79,7 +79,7 @@ define([ 'require', 'define', 'nashorn!Java' ], function logger(require, define,
          * @param {function}
          *            hook - the log method to call (exact same signature as the log functions of this module)
          */
-        addLoggerHook : function logger__addLoggerHook(level, hook)
+        addLoggerHook : function _base_logger__addLoggerHook(level, hook)
         {
             if (typeof level === 'string' && typeof hook === 'function')
             {
@@ -100,7 +100,7 @@ define([ 'require', 'define', 'nashorn!Java' ], function logger(require, define,
          *            [params] - log message pattern substitution values to be used in rendering the full log message if the log level is
          *            enabled (mutually exclusive with error)
          */
-        trace : function logger__trace()
+        trace : function _base_logger__trace()
         {
             var logger = getLogger();
             if (logger.traceEnabled)
@@ -133,7 +133,7 @@ define([ 'require', 'define', 'nashorn!Java' ], function logger(require, define,
          * @memberof module:_base/logger
          * @returns {boolean} true if the log level is enabled
          */
-        isTraceEnabled : function logger__isTraceEnabled()
+        isTraceEnabled : function _base_logger__isTraceEnabled()
         {
             var logger = getLogger();
             return logger.traceEnabled;
@@ -152,7 +152,7 @@ define([ 'require', 'define', 'nashorn!Java' ], function logger(require, define,
          *            [params] - log message pattern substitution values to be used in rendering the full log message if the log level is
          *            enabled (mutually exclusive with error)
          */
-        debug : function logger__debug()
+        debug : function _base_logger__debug()
         {
             var logger = getLogger();
             if (logger.debugEnabled)
@@ -185,7 +185,7 @@ define([ 'require', 'define', 'nashorn!Java' ], function logger(require, define,
          * @memberof module:_base/logger
          * @returns {boolean} true if the log level is enabled
          */
-        isDebugEnabled : function logger__isDebugEnabled()
+        isDebugEnabled : function _base_logger__isDebugEnabled()
         {
             var logger = getLogger();
             return logger.debugEnabled;
@@ -204,7 +204,7 @@ define([ 'require', 'define', 'nashorn!Java' ], function logger(require, define,
          *            [params] - log message pattern substitution values to be used in rendering the full log message if the log level is
          *            enabled (mutually exclusive with error)
          */
-        info : function logger__info()
+        info : function _base_logger__info()
         {
             var logger = getLogger();
             if (logger.infoEnabled)
@@ -237,7 +237,7 @@ define([ 'require', 'define', 'nashorn!Java' ], function logger(require, define,
          * @memberof module:_base/logger
          * @returns {boolean} true if the log level is enabled
          */
-        isInfoEnabled : function logger__isInfoEnabled()
+        isInfoEnabled : function _base_logger__isInfoEnabled()
         {
             var logger = getLogger();
             return logger.infoEnabled;
@@ -256,7 +256,7 @@ define([ 'require', 'define', 'nashorn!Java' ], function logger(require, define,
          *            [params] - log message pattern substitution values to be used in rendering the full log message if the log level is
          *            enabled (mutually exclusive with error)
          */
-        warn : function logger__warn()
+        warn : function _base_logger__warn()
         {
             var logger = getLogger();
             if (logger.warnEnabled)
@@ -289,7 +289,7 @@ define([ 'require', 'define', 'nashorn!Java' ], function logger(require, define,
          * @memberof module:_base/logger
          * @returns {boolean} true if the log level is enabled
          */
-        isWarnEnabled : function logger__isWarnEnabled()
+        isWarnEnabled : function _base_logger__isWarnEnabled()
         {
             var logger = getLogger();
             return logger.warnEnabled;
@@ -308,7 +308,7 @@ define([ 'require', 'define', 'nashorn!Java' ], function logger(require, define,
          *            [params] - log message pattern substitution values to be used in rendering the full log message if the log level is
          *            enabled (mutually exclusive with error)
          */
-        error : function logger__error()
+        error : function _base_logger__error()
         {
             var logger = getLogger();
             if (logger.errorEnabled)
@@ -341,7 +341,7 @@ define([ 'require', 'define', 'nashorn!Java' ], function logger(require, define,
          * @memberof module:_base/logger
          * @returns {boolean} true if the log level is enabled
          */
-        isErrorEnabled : function logger__isErrorEnabled()
+        isErrorEnabled : function _base_logger__isErrorEnabled()
         {
             var logger = getLogger();
             return logger.errorEnabled;
@@ -361,7 +361,7 @@ define([ 'require', 'define', 'nashorn!Java' ], function logger(require, define,
          * @readonly
          */
         traceEnabled : {
-            get : function logger__traceEnabled__getter()
+            get : function _base_logger__traceEnabled__getter()
             {
                 return this.isTraceEnabled();
             },
@@ -377,7 +377,7 @@ define([ 'require', 'define', 'nashorn!Java' ], function logger(require, define,
          * @readonly
          */
         debugEnabled : {
-            get : function logger__debugEnabled__getter()
+            get : function _base_logger__debugEnabled__getter()
             {
                 return this.isDebugEnabled();
             },
@@ -393,7 +393,7 @@ define([ 'require', 'define', 'nashorn!Java' ], function logger(require, define,
          * @readonly
          */
         infoEnabled : {
-            get : function logger__infoEnabled__getter()
+            get : function _base_logger__infoEnabled__getter()
             {
                 return this.isInfoEnabled();
             },
@@ -409,7 +409,7 @@ define([ 'require', 'define', 'nashorn!Java' ], function logger(require, define,
          * @readonly
          */
         warnEnabled : {
-            get : function logger__warnEnabled__getter()
+            get : function _base_logger__warnEnabled__getter()
             {
                 return this.isWarnEnabled();
             },
@@ -425,7 +425,7 @@ define([ 'require', 'define', 'nashorn!Java' ], function logger(require, define,
          * @readonly
          */
         errorEnabled : {
-            get : function logger__errorEnabled__getter()
+            get : function _base_logger__errorEnabled__getter()
             {
                 return this.isErrorEnabled();
             },
