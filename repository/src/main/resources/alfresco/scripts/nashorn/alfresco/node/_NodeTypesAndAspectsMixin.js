@@ -511,11 +511,7 @@ define([ '_base/declare', '_base/ProxySupport', '_base/lang', '../common/QName',
                     logger.debug('Aspect {} removed from {} (removal effective: {})', aspect, this.nodeRef, result);
 
                     // reset cache
-                    if (this.hasOwnProperty('_aspectQNames'))
-                    {
-                        logger.trace('Resetting cached aspects for {}', this.nodeRef);
-                        delete this._aspectQNames;
-                    }
+                    logger.trace('Resetting cached aspects for {}', this.nodeRef);
 
                     return false;
                 },
@@ -530,11 +526,7 @@ define([ '_base/declare', '_base/ProxySupport', '_base/lang', '../common/QName',
                     this.inherited(alfresco_node_NodeTypesAndAspectsMixin__save, arguments);
 
                     // aspects may have changed - reset cache
-                    if (this.hasOwnProperty('_aspectQNames'))
-                    {
-                        logger.trace('Resetting cached aspects for {}', this.nodeRef);
-                        delete this._aspectQNames;
-                    }
+                    logger.trace('Resetting cached aspects for {}', this.nodeRef);
                 },
 
                 /**
@@ -555,17 +547,9 @@ define([ '_base/declare', '_base/ProxySupport', '_base/lang', '../common/QName',
                 resetTypeCaches : function alfresco_node_NodeTypesAndAspectsMixin__resetTypeCaches()
                 {
                     // reset cached values (that may have been changed externally)
-                    if (!this.hasOwnProperty('_typeQName'))
-                    {
-                        logger.debug('Resetting cached type for {}', this.nodeRef);
-                        delete this._typeQName;
-                    }
-
-                    if (this.hasOwnProperty('_aspectQNames'))
-                    {
-                        logger.debug('Resetting cached aspects for {}', this.nodeRef);
-                        delete this._aspectQNames;
-                    }
+                    logger.debug('Resetting type and aspects data for {}', this.nodeRef);
+                    delete this._typeQName;
+                    delete this._aspectQNames;
                 }
             });
         });

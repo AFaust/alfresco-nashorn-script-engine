@@ -9,17 +9,19 @@
  * @mixes module:alfresco/node/_NodeIdentityMixin
  * @mixes module:alfresco/node/_NodeTypesAndAspectsMixin
  * @mixes module:alfresco/node/_NodePropertiesMixin
+ * @mixes module:alfresco/node/_NodeHierarchyMixin
  * @mixes module:_base/ProxySupport
  * @requires module:_base/declare
  * @requires module:_base/lang
  * @author Axel Faust
  */
 define([ '_base/declare', '_base/JavaConvertableMixin', './_NodeIdentityMixin', './_NodeTypesAndAspectsMixin', './_NodePropertiesMixin',
-        '_base/ProxySupport', '_base/lang' ], function alfresco_node_ScriptNode__root(declare, JavaConvertableMixin, _NodeIdentityMixin,
-        _NodeTypesAndAspectsMixin, _NodePropertiesMixin, ProxySupport, lang)
+        './_NodeHierarchyMixin', '_base/ProxySupport', '_base/lang' ], function alfresco_node_ScriptNode__root(declare,
+        JavaConvertableMixin, _NodeIdentityMixin, _NodeTypesAndAspectsMixin, _NodePropertiesMixin, _NodeHierarchyMixin, ProxySupport, lang)
 {
     'use strict';
-    return declare([ JavaConvertableMixin, _NodeIdentityMixin, _NodeTypesAndAspectsMixin, _NodePropertiesMixin, ProxySupport ], {
+    return declare([ JavaConvertableMixin, _NodeIdentityMixin, _NodeTypesAndAspectsMixin, _NodePropertiesMixin, _NodeHierarchyMixin,
+            ProxySupport ], {
 
         '--proxy-support-enabled' : true,
 
