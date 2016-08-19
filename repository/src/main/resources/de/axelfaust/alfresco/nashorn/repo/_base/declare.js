@@ -14,7 +14,7 @@ define(
         function _base_declare__root(c3mro, require, define, lang, logger)
         {
             'use strict';
-            var anonClassCount = 0, FnCtor, DummyCtor, fn_toString, isInstanceOf, inherited, forceNew, applyNew, createStandardConstructor, standardConstructorImpl, taggedMixin, standardPrototype, declareImpl, declare;
+            var anonClassCount = 0, FnCtor, DummyCtor, fn_toString, isInstanceOf, inherited, forceNew, applyNew, createStandardConstructor, standardConstructorImpl, taggedMixin, setupPrototype, declareImpl, declare;
 
             FnCtor = Function;
 
@@ -371,9 +371,9 @@ define(
                 }
             };
 
-            standardPrototype = function _base_declare__standardPrototype(cls, classStructure)
+            setupPrototype = function _base_declare__setupPrototype(cls, classStructure)
             {
-                var superClass, proto, ctor, superLin, slLen, clsLin, clLen, startWithSuperClass = true, base, offset, name;
+                var superClass, proto, ctor, superLin, slLen, clsLin, clLen, startWithSuperClass = true, base, transferProtoProperty, offset;
 
                 superClass = cls._declare_meta.superClass;
 
@@ -405,10 +405,17 @@ define(
                         offset = 2;
                     }
 
+                    transferProtoProperty = function _base_declare__setupPrototype_transferProtoProperty(name)
+                    {
+                        if (name !== 'constructor')
+                        {
+                            proto[name] = base.prototype[name];
+                        }
+                    };
+
                     while (offset < clLen)
                     {
                         proto = forceNew(superClass);
-
                         base = clsLin[clLen - offset];
 
                         if (logger.isTraceEnabled())
@@ -417,23 +424,24 @@ define(
                                     .getOwnPropertyNames(base.prototype), base.fnClsName || base.name, cls._declare_meta.className);
                         }
 
-                        for (name in base.prototype)
-                        {
-                            if (base.prototype.hasOwnProperty(name))
-                            {
-                                if (name !== 'constructor')
-                                {
-                                    proto[name] = base.prototype[name];
-                                }
-                            }
-                        }
+                        Object.keys(base.prototype).forEach(transferProtoProperty);
 
                         ctor = new FnCtor();
-                        ctor.superClass = superClass;
                         ctor.prototype = proto;
-                        ctor.fnClsName = base._declare_meta.className + '-derived';
-                        ctor.fnName = 'constructor';
-                        ctor.toString = fn_toString;
+                        Object.defineProperties(ctor, {
+                            superClass : {
+                                value : superClass
+                            },
+                            fnClsName : {
+                                value : base._declare_meta.className + '-derived'
+                            },
+                            fnName : {
+                                value : 'constructor'
+                            },
+                            toString : {
+                                value : fn_toString
+                            }
+                        });
                         proto.constructor = ctor;
 
                         Object.freeze(ctor);
@@ -449,34 +457,63 @@ define(
                 else
                 {
                     logger.trace('Starting with empty prototype for {}', cls._declare_meta.className);
-                    proto = {
-                        toString : function _base_declare_class__defaultToString()
-                        {
-                            var className, toString;
+                    proto = Object.create(Object.prototype, {
+                        toString : {
+                            value : function _base_declare_class__defaultToString()
+                            {
+                                var className, toString;
 
-                            className = this.constructor._declare_meta.className;
-                            toString = '[object ' + className + ']';
+                                className = this.constructor._declare_meta.className;
+                                toString = '[object ' + className + ']';
 
-                            return toString;
+                                return toString;
+                            }
+                        },
+                        inherited : {
+                            value : inherited
+                        },
+                        isInstanceOf : {
+                            value : isInstanceOf
                         }
-                    };
+                    });
                 }
 
                 cls.prototype = proto;
                 proto.constructor = cls;
-                proto.declaredClass = cls._declare_meta.className;
-                cls.superClass = superClass || null;
-                cls.fnClsName = cls._declare_meta.className;
-                cls.fnName = 'constructor';
+
+                Object.defineProperty(proto, 'declaredClass', {
+                    value : cls._declare_meta.className
+                });
+
+                Object.defineProperties(cls, {
+                    superClass : {
+                        value : superClass || null
+                    }
+                });
+
+                // MAYBE Add special functions (extend / createSubclass) to ctor (if we need to support them)
+
+                if (proto.isInstanceOf !== isInstanceOf)
+                {
+                    Object.defineProperty(proto, 'isInstanceOf', {
+                        value : isInstanceOf
+                    });
+                }
+                if (proto.inherited !== inherited)
+                {
+                    Object.defineProperty(proto, 'inherited', {
+                        value : inherited
+                    });
+                }
+
+                // TODO Add 'standard' methods to proto
 
                 taggedMixin(proto, classStructure);
-
-                return proto;
             };
 
             declareImpl = function _base_declare__declareImpl(className, superClass, bases, classStructure)
             {
-                var ctor, proto, meta, structure;
+                var ctor, meta, structure;
 
                 logger.debug('Declaring class {} wit super-class {} and {} additional bases', className, superClass !== undefined
                         && superClass !== null ? superClass.fnClsName || superClass.name : 'n/a', bases.length);
@@ -516,20 +553,23 @@ define(
                             .getOwnPropertyNames(classStructure));
                 }
 
-                Object.defineProperty(ctor, '_declare_meta', {
-                    value : meta
+                Object.defineProperties(ctor, {
+                    _declare_meta : {
+                        value : meta
+                    },
+                    fnClsName : {
+                        value : meta.className
+                    },
+                    fnName : {
+                        value : 'constructor'
+                    },
+                    toString : {
+                        value : fn_toString
+                    }
                 });
-                ctor.toString = fn_toString;
 
                 logger.debug('Setting up prototype for {}', className);
-                proto = standardPrototype(ctor, classStructure);
-
-                // MAYBE Add special functions (extend / createSubclass) to ctor (if we need to support them)
-
-                // TODO instead of mixing in these fns, create a transparent base class to inherit them from
-                proto.isInstanceOf = isInstanceOf;
-                proto.inherited = inherited;
-                // TODO Add 'standard' methods to proto
+                setupPrototype(ctor, classStructure);
 
                 Object.freeze(meta);
                 Object.freeze(bases);
