@@ -22,7 +22,7 @@ define([ 'require', 'legacyRootObjects', 'args!_printOutput', '_base/logger', 'n
         {
             printOutput.add(msg);
         }
-        else if (typeof msg === 'function')
+        else if (typeof msg === 'function' && msg.toString === Function.prototype.toString)
         {
             printOutput.add('Function ' + msg.name);
         }
@@ -36,7 +36,7 @@ define([ 'require', 'legacyRootObjects', 'args!_printOutput', '_base/logger', 'n
                 {
                     line += element;
                 }
-                else if (typeof element === 'function')
+                else if (typeof element === 'function' && element.toString === Function.prototype.toString)
                 {
                     line += 'Function ' + element.name;
                 }
