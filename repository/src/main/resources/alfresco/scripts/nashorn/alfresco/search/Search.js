@@ -1,7 +1,5 @@
-/* globals -require */
-define([ 'require', '_base/declare', 'alfresco/foundation/NodeService', 'alfresco/foundation/PermissionService', '_base/logger',
-        'nashorn!Java' ],
-        function alfresco_search_Search__root(require, declare, NodeService, PermissionService, logger, Java)
+define([ '_base/declare', 'alfresco/foundation/NodeService', 'alfresco/foundation/PermissionService', '_base/logger', 'nashorn!Java' ],
+        function alfresco_search_Search__root(declare, NodeService, PermissionService, logger, Java)
         {
             'use strict';
             var StoreRef, NodeRef, IllegalArgumentException, PermissionServiceAPI, AccessStatus, convertNode, convertNodes, module;
@@ -12,7 +10,6 @@ define([ 'require', '_base/declare', 'alfresco/foundation/NodeService', 'alfresc
             PermissionServiceAPI = Java.type('org.alfresco.service.cmr.security.PermissionService');
             AccessStatus = Java.type('org.alfresco.service.cmr.security.AccessStatus');
 
-            // TODO Find out why "new NodeModule(ref)" results in function instead of instance
             convertNode = function alfresco_search_Search__convertNode(nodeRef, nodeModuleId)
             {
                 var result;
@@ -20,13 +17,19 @@ define([ 'require', '_base/declare', 'alfresco/foundation/NodeService', 'alfresc
                 require([ nodeModuleId || 'alfresco/node/ScriptNode' ], function alfresco_search_Search__convertNode_requireCallback(
                         NodeModule)
                 {
-                    if (typeof NodeModule.valueOf === 'function')
+                    if (typeof NodeModule.valueOf === 'function' && NodeModule.valueOf !== Object.prototype.valueOf)
                     {
+                        logger.trace('Node module {} provides a valueOf', nodeModuleId);
                         result = NodeModule.valueOf(nodeRef);
+                    }
+                    else if (typeof NodeModule === 'function')
+                    {
+                        logger.trace('Node module {} assumed to be instantiable', nodeModuleId);
+                        result = new NodeModule(nodeRef);
                     }
                     else
                     {
-                        result = new NodeModule(nodeRef);
+                        throw new IllegalArgumentException('Unsupported node module: ' + nodeModuleId);
                     }
                 });
 
@@ -40,6 +43,19 @@ define([ 'require', '_base/declare', 'alfresco/foundation/NodeService', 'alfresc
                 require([ nodeModuleId || 'alfresco/node/ScriptNode' ], function alfresco_search_Search__convertNodes_requireCallback(
                         NodeModule)
                 {
+                    if (typeof NodeModule.valueOf === 'function' && NodeModule.valueOf !== Object.prototype.valueOf)
+                    {
+                        logger.trace('Node module {} provides a valueOf', nodeModuleId);
+                    }
+                    else if (typeof NodeModule === 'function')
+                    {
+                        logger.trace('Node module {} assumed to be instantiable', nodeModuleId);
+                    }
+                    else
+                    {
+                        throw new IllegalArgumentException('Unsupported node module: ' + nodeModuleId);
+                    }
+
                     nodeRefs.forEach(function alfresco_search_Search__convertNodes_requireCallback_forEachNodeRef(nodeRef)
                     {
                         var node;
@@ -63,7 +79,6 @@ define([ 'require', '_base/declare', 'alfresco/foundation/NodeService', 'alfresc
              * Search does. Functions that behave differently than the Rhino-based implementation are documentated accordingly.
              * 
              * @module alfresco/search/Search
-             * @requires module:require
              * @requires module:_base/declare
              * @requires module:alfresco/foundation/NodeService
              * @requires module:alfresco/foundation/PermissionService
