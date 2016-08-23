@@ -641,8 +641,28 @@
                             getModuleByUrl : {
                                 value : function amd__moduleRegistry__getModuleByUrl(moduleUrl)
                                 {
-                                    // use case does not require us to check backup since only active modules can cause this fn to be called
-                                    return active.modulesByUrl[moduleUrl];
+                                    var module, backedUpModules;
+
+                                    if (moduleUrl in active.modulesByUrl)
+                                    {
+                                        module = active.modulesByUrl[moduleUrl];
+                                    }
+                                    else
+                                    {
+                                        backedUpModules = backup.modules;
+                                        Object.keys(backedUpModules).forEach(
+                                                function amd__moduleRegistry__getModuleByUrl_forEachModuleId(moduleId)
+                                                {
+                                                    if (module === undefined && backedUpModules[moduleId].url === moduleUrl)
+                                                    {
+                                                        // this inheritantly marks the module as "active" in current execution context to
+                                                        // improve future lookups by url
+                                                        module = internal.getModule(moduleId);
+                                                    }
+                                                });
+                                    }
+
+                                    return module;
                                 }
                             },
 
