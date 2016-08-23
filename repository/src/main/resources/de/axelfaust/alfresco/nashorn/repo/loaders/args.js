@@ -1,6 +1,5 @@
-/* globals -require */
 /* globals getSimpleLogger: false */
-define('args', [ 'nashorn!Java', 'require' ], function args_loader(Java, requre)
+define('args', [ 'nashorn!Java' ], function args_loader(Java)
 {
     'use strict';
 
@@ -14,7 +13,7 @@ define('args', [ 'nashorn!Java', 'require' ], function args_loader(Java, requre)
     // ConversionService should be treated as an optional dependency
     try
     {
-        requre([ '_base/ConversionService' ], function args_loader_obtainConversionService_success(ConversionServiceModule)
+        require([ '_base/ConversionService' ], function args_loader_obtainConversionService_success(ConversionServiceModule)
         {
             ConversionService = ConversionServiceModule;
         });
@@ -28,6 +27,7 @@ define('args', [ 'nashorn!Java', 'require' ], function args_loader(Java, requre)
      * This loader module provides the capability to load entries from the script argument model as AMD modules.
      * 
      * @exports args
+     * @requires module:nashorn!Java
      * @author Axel Faust
      */
     loader = {

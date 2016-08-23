@@ -44,7 +44,7 @@
                 {
                     if (logger.debugEnabled)
                     {
-                        logger.debug('Resolved "{}" for legacy root object {}', value, propName);
+                        logger.debug('Resolved {} for legacy root object {}', value, propName);
                     }
                     result = value;
                 });

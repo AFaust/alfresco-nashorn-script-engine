@@ -8,10 +8,9 @@
  * @requires module:_base/logger
  * @author Axel Faust
  */
-/* globals -require */
 define(
-        [ './c3mro', 'require', 'define', './lang', './logger' ],
-        function _base_declare__root(c3mro, require, define, lang, logger)
+        [ './c3mro', './lang', './logger' ],
+        function _base_declare__root(c3mro, lang, logger)
         {
             'use strict';
             var anonClassCount = 0, FnCtor, DummyCtor, fn_toString, isInstanceOf, inherited, forceNew, applyNew, createStandardConstructor, standardConstructorImpl, taggedMixin, setupPrototype, declareImpl, declare;

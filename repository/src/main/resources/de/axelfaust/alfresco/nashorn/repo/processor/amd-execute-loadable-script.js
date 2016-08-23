@@ -1,7 +1,6 @@
-/* globals -require */
 // wrapped as a module so any other modules behave properly (i.e. logger)
-define('executeAMDLoadableScript', [ 'require', '_base/logger', '_base/ConversionService' ], function amd_execute_loadable_script(
-        require, logger, ConversionService)
+define('executeAMDLoadableScript', [ '_base/logger', '_base/ConversionService' ], function amd_execute_loadable_script(logger,
+        ConversionService)
 {
     'use strict';
     var executeFn;
@@ -15,7 +14,7 @@ define('executeAMDLoadableScript', [ 'require', '_base/logger', '_base/Conversio
             // module may have been declared as a main()-style entry function
             if (typeof module === 'function')
             {
-                logger.trace('Module "{}" registered as a function', moduleName);
+                logger.trace('Module {} registered as a function', moduleName);
                 result = module();
             }
             // TODO Consider providing optional/special base class (via declare) with script lifecycle callbacks
@@ -24,8 +23,6 @@ define('executeAMDLoadableScript', [ 'require', '_base/logger', '_base/Conversio
                 // module may be the result itself
                 result = module;
             }
-
-            logger.trace('Module "{}" yielded result "{}"', [ moduleName, result ]);
         };
 
         fnResolveFailed = function amd_execute_loadable_script__executeScript_onModuleResolutionFailed(dependencies, modules,
@@ -39,7 +36,7 @@ define('executeAMDLoadableScript', [ 'require', '_base/logger', '_base/Conversio
             if (typeof module === 'function')
             {
                 // both cases are actually surprising because then why was error handler called?
-                logger.trace('Module "{}" registered as a function', moduleName);
+                logger.trace('Module {} registered as a function', moduleName);
                 result = module();
             }
             // TODO Consider providing optional/special base class (via declare) with script lifecycle callbacks
@@ -51,17 +48,23 @@ define('executeAMDLoadableScript', [ 'require', '_base/logger', '_base/Conversio
             else
             {
                 // may be a simple (non-module) script (that may use require imperatively)
+                logger.trace('A module {} has not been defined as an AMD-style module', moduleName);
+
                 // since actual script execution error will not trigger this we simply use the implicit result / return value
                 result = implicitModules[implicitModules.length - 1];
-
-                logger.trace('A module "{}" has not been defined as an AMD-style module', moduleName);
             }
-
-            logger.trace('Module "{}" yielded result "{}"', [ moduleName, result ]);
         };
 
         require([ moduleName ], fnResolved, fnResolveFailed);
-        result = ConversionService.convertToJava(result);
+
+        if (result !== undefined && result !== null)
+        {
+            logger.trace('Converting result of {} from {} to Java representation', moduleName, result);
+            result = ConversionService.convertToJava(result);
+        }
+
+        logger.debug('Module {} yielded result {}', moduleName, result);
+
         return result;
     };
 

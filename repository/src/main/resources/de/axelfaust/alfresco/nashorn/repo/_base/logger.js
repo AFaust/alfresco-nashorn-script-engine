@@ -12,9 +12,8 @@
  * An example scriptUrl might be "extensible-classpath://scripts/my-script.js" for a script that is resolved against
  * the classpath in such a way that scripts in the servers extension-root can override scripts bundled with the WAR. 
  */
-/* globals -require */
 /* globals getSimpleLogger: false */
-define([ 'require', 'define', 'nashorn!Java' ], function _base_logger__root(require, define, Java)
+define([ 'define', 'nashorn!Java' ], function _base_logger__root(define, Java)
 {
     'use strict';
     var loggerModule, loggerModuleProto, getLogger, loggerByScriptUrl = {}, loggerHooks;

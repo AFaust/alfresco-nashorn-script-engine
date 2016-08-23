@@ -58,8 +58,7 @@ define('node', [ 'define', 'nashorn!Java', 'serviceRegistry!NamespaceService', '
                 {
                     if (logger.traceEnabled)
                     {
-                        logger.trace(
-                                'Context module "{}" was loaded by "node" loader too - normalizing potentially relative module id "{}"',
+                        logger.trace('Context module {} was loaded by node loader too - normalizing potentially relative module id {}',
                                 contextModule.id, moduleId);
                     }
                     baseModuleId = normalizeSimpleId(moduleId, contextModule);
@@ -84,7 +83,7 @@ define('node', [ 'define', 'nashorn!Java', 'serviceRegistry!NamespaceService', '
             normalizedModuleId = urlHandler.normalizeModuleId(scriptContextUUID, baseModuleId);
             if (logger.debugEnabled)
             {
-                logger.debug('Normalized module id "{}" to "{}"', moduleId, normalizedModuleId);
+                logger.debug('Normalized module id {} to {}', moduleId, normalizedModuleId);
             }
 
             return normalizedModuleId;

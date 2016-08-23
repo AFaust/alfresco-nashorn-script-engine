@@ -58,7 +58,7 @@ define([ 'nashorn!Java', './JavaConvertableMixin', './lang', './logger' ], funct
             {
                 result = scriptObject.getJavaValue();
             }
-            else if (scriptObject.javaValue !== undefined && scriptObject.javaValue !== null)
+            else if (lang.isObject(scriptObject.javaValue))
             {
                 result = scriptObject.javaValue;
             }
