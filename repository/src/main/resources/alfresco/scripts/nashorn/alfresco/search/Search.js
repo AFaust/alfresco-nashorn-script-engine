@@ -1,10 +1,11 @@
-define([ '_base/declare', 'alfresco/foundation/NodeService', 'alfresco/foundation/PermissionService', '_base/logger', 'nashorn!Java' ],
-        function alfresco_search_Search__root(declare, NodeService, PermissionService, logger, Java)
+define([ '_base/declare', 'alfresco/foundation/NamespaceService', 'alfresco/foundation/NodeService',
+        'alfresco/foundation/PermissionService', 'alfresco/foundation/SearchService', '_base/logger', 'nashorn!Java' ],
+        function alfresco_search_Search__root(declare, NamespaceService, NodeService, PermissionService, SearchService, logger, Java)
         {
             'use strict';
             var StoreRef, NodeRef, IllegalArgumentException, PermissionServiceAPI, AccessStatus, convertNode, convertNodes, module;
 
-            StoreRef = Java.type('org.alfresco.service.cmr.repository.NodeRef');
+            StoreRef = Java.type('org.alfresco.service.cmr.repository.StoreRef');
             NodeRef = Java.type('org.alfresco.service.cmr.repository.NodeRef');
             IllegalArgumentException = Java.type('java.lang.IllegalArgumentException');
             PermissionServiceAPI = Java.type('org.alfresco.service.cmr.security.PermissionService');
@@ -76,12 +77,16 @@ define([ '_base/declare', 'alfresco/foundation/NodeService', 'alfresco/foundatio
 
             /**
              * This module provides the same abstraction for querying / looking up nodes in the Alfresco repository as the Rhino-based class
-             * Search does. Functions that behave differently than the Rhino-based implementation are documentated accordingly.
+             * Search does. Functions that behave differently than the Rhino-based implementation are documentated accordingly. The
+             * operations luceneSearch and xpathSearch are not provided as they correspond to internal / technical search languages. These
+             * languages are still accessible via [query]{@link module:alfresco/search/Search#query}.
              * 
              * @module alfresco/search/Search
              * @requires module:_base/declare
+             * @requires module:alfresco/foundation/NamespaceService
              * @requires module:alfresco/foundation/NodeService
              * @requires module:alfresco/foundation/PermissionService
+             * @requires module:alfresco/foundation/SearchService
              * @requires module:_base/logger
              * @requires module:nashorn!Java
              * @author Axel Faust
@@ -106,6 +111,9 @@ define([ '_base/declare', 'alfresco/foundation/NodeService', 'alfresco/foundatio
                 {
                     var storeRef, nodeRef, result = null;
 
+                    logger.trace('Called findRootNode for storeType {}, storeId {} and custom node module {}', storeType, storeId,
+                            nodeModuleId);
+
                     // we could rely on StoreRef constructor validation but this is better
                     if (typeof storeType !== 'string' || storeType.trim() === '')
                     {
@@ -122,20 +130,18 @@ define([ '_base/declare', 'alfresco/foundation/NodeService', 'alfresco/foundatio
                         throw new IllegalArgumentException('nodeModuleId should be a non-empty string');
                     }
 
-                    logger.trace('Looking up root node of {}://{}', storeType, storeId);
-
                     storeRef = new StoreRef(storeType, storeId);
 
                     if (NodeService.exists(storeRef))
                     {
                         nodeRef = NodeService.getRootNode(storeRef);
                         result = convertNode(nodeRef, nodeModuleId);
-                        logger.debug('Node {} resolved as root of {}://{} and converted into {}', nodeRef, storeType, storeId, nodeModuleId
+                        logger.debug('Node {} resolved as root of {} and converted into {}', nodeRef, storeRef, nodeModuleId
                                 || 'alfresco/node/ScriptNode');
                     }
                     else
                     {
-                        logger.debug('Store {}://{} does not exist', storeType, storeId);
+                        logger.debug('Store {} does not exist', storeRef);
                     }
 
                     return result;
@@ -161,6 +167,8 @@ define([ '_base/declare', 'alfresco/foundation/NodeService', 'alfresco/foundatio
                 {
                     var nodeRef, result = null;
 
+                    logger.trace('Called findNode for ref {} and custom node module {}', ref, nodeModuleId);
+
                     // we could rely on NodeRef constructor validation but this is better
                     if (typeof ref !== 'string' || ref.trim() === '' || !NodeRef.isNodeRef(ref))
                     {
@@ -172,20 +180,59 @@ define([ '_base/declare', 'alfresco/foundation/NodeService', 'alfresco/foundatio
                         throw new IllegalArgumentException('nodeModuleId should be a non-empty string');
                     }
 
-                    logger.trace('Looking up node {}', ref);
-
                     nodeRef = new NodeRef(ref);
 
                     if (NodeService.exists(nodeRef)
                             && PermissionService.hasPermission(nodeRef, PermissionServiceAPI.READ) === AccessStatus.ALLOWED)
                     {
                         result = convertNode(nodeRef, nodeModuleId);
-                        logger.debug('Node {} resolved and converted into {}', ref, nodeModuleId || 'alfresco/node/ScriptNode');
+                        logger.debug('Node {} resolved and converted into {}', nodeRef, nodeModuleId || 'alfresco/node/ScriptNode');
                     }
                     else
                     {
-                        logger.debug('Node {} does not exist', ref);
+                        logger.debug('Node {} does not exist', nodeRef);
                     }
+
+                    return result;
+                },
+
+                /**
+                 * Queries nodes using a service-/database-bound selectNodes XPath lookup.
+                 * 
+                 * @instance
+                 * @memberOf module:alfresco/search/Search
+                 * @param {string}
+                 *            xpath the actual xpath query
+                 * @param {string}
+                 *            [store] the store to search as a stringified store reference
+                 * @param {string}
+                 *            [nodeModuleId] the name of the script module to use for representing the node (defaults to
+                 *            [alfresco/node/ScriptNode]{@link module:alfresco/node/ScriptNode})
+                 * @returns {array} the script representation of the result nodes
+                 */
+                selectNodes : function alfresco_search_Search__selectNodes(xpath, store, nodeModuleId)
+                {
+                    var result, rootNode, nodeRefs;
+
+                    logger.trace('Called selectNodes for store {}, xpath {} and custom node module {}', store, xpath, nodeModuleId);
+
+                    if (typeof xpath !== 'string' || xpath.trim() === '')
+                    {
+                        throw new IllegalArgumentException('xpath should be a non-empty string');
+                    }
+
+                    if (store !== undefined && store !== null
+                            && (typeof store !== 'string' || store.replace(/(:\/)?\//ig, '').trim() === ''))
+                    {
+                        throw new IllegalArgumentException('store should be a non-empty string in stringified StoreRef-form');
+                    }
+
+                    store = store || 'workspace://SpacesStore';
+                    rootNode = this.findRootNode(store.substring(0, store.indexOf('://')), store.substring(store.indexOf('://') + 3));
+                    nodeRefs = SearchService.selectNodes(rootNode.nodeRef, xpath, null, NamespaceService, false);
+                    result = convertNodes(nodeRefs, nodeModuleId || 'alfresco/node/ScriptNode');
+
+                    logger.debug('Found {} nodes using selectNodes for store {} and xpath {}', store, xpath);
 
                     return result;
                 }
