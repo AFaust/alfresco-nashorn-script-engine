@@ -1,79 +1,16 @@
-define([ '_base/declare', 'alfresco/foundation/NamespaceService', 'alfresco/foundation/NodeService',
-        'alfresco/foundation/PermissionService', 'alfresco/foundation/SearchService', '_base/logger', 'nashorn!Java' ],
-        function alfresco_search_Search__root(declare, NamespaceService, NodeService, PermissionService, SearchService, logger, Java)
+define([ 'alfresco/foundation/NamespaceService', 'alfresco/foundation/NodeService', 'alfresco/foundation/PermissionService',
+        'alfresco/foundation/SearchService', 'alfresco/node/nodeConversionUtils', '_base/logger', 'nashorn!Java' ],
+        function alfresco_search_Search__root(NamespaceService, NodeService, PermissionService, SearchService, nodeConversionUtils, logger,
+                Java)
         {
             'use strict';
-            var StoreRef, NodeRef, IllegalArgumentException, PermissionServiceAPI, AccessStatus, convertNode, convertNodes, module;
+            var StoreRef, NodeRef, IllegalArgumentException, PermissionServiceAPI, AccessStatus, module;
 
             StoreRef = Java.type('org.alfresco.service.cmr.repository.StoreRef');
             NodeRef = Java.type('org.alfresco.service.cmr.repository.NodeRef');
             IllegalArgumentException = Java.type('java.lang.IllegalArgumentException');
             PermissionServiceAPI = Java.type('org.alfresco.service.cmr.security.PermissionService');
             AccessStatus = Java.type('org.alfresco.service.cmr.security.AccessStatus');
-
-            convertNode = function alfresco_search_Search__convertNode(nodeRef, nodeModuleId)
-            {
-                var result;
-
-                require([ nodeModuleId || 'alfresco/node/ScriptNode' ], function alfresco_search_Search__convertNode_requireCallback(
-                        NodeModule)
-                {
-                    if (typeof NodeModule.valueOf === 'function' && NodeModule.valueOf !== Object.prototype.valueOf)
-                    {
-                        logger.trace('Node module {} provides a valueOf', nodeModuleId);
-                        result = NodeModule.valueOf(nodeRef);
-                    }
-                    else if (typeof NodeModule === 'function')
-                    {
-                        logger.trace('Node module {} assumed to be instantiable', nodeModuleId);
-                        result = new NodeModule(nodeRef);
-                    }
-                    else
-                    {
-                        throw new IllegalArgumentException('Unsupported node module: ' + nodeModuleId);
-                    }
-                });
-
-                return result;
-            };
-
-            convertNodes = function alfresco_search_Search__convertNodes(nodeRefs, nodeModuleId)
-            {
-                var result = [];
-
-                require([ nodeModuleId || 'alfresco/node/ScriptNode' ], function alfresco_search_Search__convertNodes_requireCallback(
-                        NodeModule)
-                {
-                    if (typeof NodeModule.valueOf === 'function' && NodeModule.valueOf !== Object.prototype.valueOf)
-                    {
-                        logger.trace('Node module {} provides a valueOf', nodeModuleId);
-                    }
-                    else if (typeof NodeModule === 'function')
-                    {
-                        logger.trace('Node module {} assumed to be instantiable', nodeModuleId);
-                    }
-                    else
-                    {
-                        throw new IllegalArgumentException('Unsupported node module: ' + nodeModuleId);
-                    }
-
-                    nodeRefs.forEach(function alfresco_search_Search__convertNodes_requireCallback_forEachNodeRef(nodeRef)
-                    {
-                        var node;
-                        if (typeof NodeModule.valueOf === 'function')
-                        {
-                            node = NodeModule.valueOf(nodeRef);
-                        }
-                        else
-                        {
-                            node = new NodeModule(nodeRef);
-                        }
-                        result.push(node);
-                    });
-                });
-
-                return result;
-            };
 
             /**
              * This module provides the same abstraction for querying / looking up nodes in the Alfresco repository as the Rhino-based class
@@ -135,7 +72,7 @@ define([ '_base/declare', 'alfresco/foundation/NamespaceService', 'alfresco/foun
                     if (NodeService.exists(storeRef))
                     {
                         nodeRef = NodeService.getRootNode(storeRef);
-                        result = convertNode(nodeRef, nodeModuleId);
+                        result = nodeConversionUtils.convertNode(nodeRef, nodeModuleId);
                         logger.debug('Node {} resolved as root of {} and converted into {}', nodeRef, storeRef, nodeModuleId
                                 || 'alfresco/node/ScriptNode');
                     }
@@ -185,7 +122,7 @@ define([ '_base/declare', 'alfresco/foundation/NamespaceService', 'alfresco/foun
                     if (NodeService.exists(nodeRef)
                             && PermissionService.hasPermission(nodeRef, PermissionServiceAPI.READ) === AccessStatus.ALLOWED)
                     {
-                        result = convertNode(nodeRef, nodeModuleId);
+                        result = nodeConversionUtils.convertNode(nodeRef, nodeModuleId);
                         logger.debug('Node {} resolved and converted into {}', nodeRef, nodeModuleId || 'alfresco/node/ScriptNode');
                     }
                     else
@@ -230,7 +167,7 @@ define([ '_base/declare', 'alfresco/foundation/NamespaceService', 'alfresco/foun
                     store = store || 'workspace://SpacesStore';
                     rootNode = this.findRootNode(store.substring(0, store.indexOf('://')), store.substring(store.indexOf('://') + 3));
                     nodeRefs = SearchService.selectNodes(rootNode.nodeRef, xpath, null, NamespaceService, false);
-                    result = convertNodes(nodeRefs, nodeModuleId || 'alfresco/node/ScriptNode');
+                    result = nodeConversionUtils.convertNodes(nodeRefs, nodeModuleId || 'alfresco/node/ScriptNode');
 
                     logger.debug('Found {} nodes using selectNodes for store {} and xpath {}', store, xpath);
 
