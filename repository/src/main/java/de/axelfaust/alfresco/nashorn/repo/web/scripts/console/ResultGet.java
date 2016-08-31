@@ -27,6 +27,7 @@ import org.alfresco.util.PropertyCheck;
 import org.json.JSONException;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.extensions.webscripts.AbstractWebScript;
+import org.springframework.extensions.webscripts.Cache;
 import org.springframework.extensions.webscripts.Status;
 import org.springframework.extensions.webscripts.WebScriptException;
 import org.springframework.extensions.webscripts.WebScriptRequest;
@@ -85,6 +86,10 @@ public class ResultGet extends AbstractWebScript implements InitializingBean
 
         if (resultChannel != null && resultChannel.trim().length() > 0)
         {
+            final Cache cache = new Cache();
+            cache.setNeverCache(true);
+            response.setCache(cache);
+
             response.setContentEncoding(StandardCharsets.UTF_8.name());
             response.setContentType(MimetypeMap.MIMETYPE_JSON);
 

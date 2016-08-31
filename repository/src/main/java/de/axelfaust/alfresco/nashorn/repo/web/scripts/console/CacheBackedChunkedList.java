@@ -76,11 +76,12 @@ public class CacheBackedChunkedList<K extends Serializable, E extends Serializab
     @Override
     public void add(final int index, final E e)
     {
-        if (index == (this.backingInMemoryList.size() + ((this.lastChunkTransferred + 1) * this.chunkSize)))
+        final int size = this.size();
+        if (index == size)
         {
             this.backingInMemoryList.add(e);
 
-            if (this.backingInMemoryList.size() >= this.chunkSize)
+            while (this.backingInMemoryList.size() >= this.chunkSize)
             {
                 final int nextChunk = this.lastChunkTransferred + 1;
                 final List<E> toTransfer = this.backingInMemoryList.subList(0, this.chunkSize);
@@ -96,7 +97,7 @@ public class CacheBackedChunkedList<K extends Serializable, E extends Serializab
         }
         else
         {
-            throw new UnsupportedOperationException();
+            throw new UnsupportedOperationException("Only appending to list is supported, not inserting at any position");
         }
     }
 
