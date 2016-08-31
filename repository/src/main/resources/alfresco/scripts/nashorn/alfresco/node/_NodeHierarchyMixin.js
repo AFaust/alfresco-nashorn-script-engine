@@ -6,14 +6,15 @@
  * @requires module:_base/declare
  * @requires module:alfresco/common/QName
  * @requires module:alfresco/foundation/NodeService
+ * @requires module:alfresco/node/ChildAssociation
  * @requires module:alfresco/node/nodeConversionUtils
  * @requires module:_base/logger
  * @requires module:nashorn!Java
  * @author Axel Faust
  */
-define([ '_base/declare', '_base/ProxySupport', 'alfresco/common/QName', 'alfresco/foundation/NodeService', './nodeConversionUtils',
-        '_base/logger', 'nashorn!Java' ], function alfresco_node_NodeHierarchyMixin__root(declare, ProxySupport, QName, NodeService,
-        nodeConversionUtils, logger, Java)
+define([ '_base/declare', '_base/ProxySupport', 'alfresco/common/QName', 'alfresco/foundation/NodeService', './ChildAssociation',
+        './nodeConversionUtils', '_base/logger', 'nashorn!Java' ], function alfresco_node_NodeHierarchyMixin__root(declare, ProxySupport,
+        QName, NodeService, ChildAssociation, nodeConversionUtils, logger, Java)
 {
     'use strict';
     var IllegalArgumentException;
@@ -36,13 +37,13 @@ define([ '_base/declare', '_base/ProxySupport', 'alfresco/common/QName', 'alfres
          * @memberof module:alfresco/node/_NodeHierarchyMixin
          */
         /**
-         * Retrieves the parent of this node.
+         * Retrieves the primary parent of this node.
          * 
          * @instance
          * @param {string}
          *            [nodeModuleId] the name of the script module to use for representing the parent node (defaults to the type of this
          *            node)
-         * @returns {object} the parent of this node - only null for a root node
+         * @returns {object} the primary parent of this node - only null for a root node
          */
         getParent : function alfresco_node_NodeHierarchyMixin__getParent(nodeModuleId)
         {
@@ -74,6 +75,45 @@ define([ '_base/declare', '_base/ProxySupport', 'alfresco/common/QName', 'alfres
             {
                 logger.debug('Converting parent of {} to use representation module {}', this.nodeRef, nodeModuleId);
                 result = nodeConversionUtils.convertNode(result, nodeModuleId);
+            }
+
+            return result;
+        },
+
+        /**
+         * The primary parent association of this node
+         * 
+         * @var parentAssoc
+         * @type {module:alfresco/node/ChildAssociation}
+         * @instance
+         * @readonly
+         * @memberof module:alfresco/node/_NodeHierarchyMixin
+         */
+        /**
+         * Retrieves the primary parent association of this node.
+         * 
+         * @instance
+         * @returns {object} the primary parent association of this node
+         */
+        getParentAssoc : function alfresco_node_NodeHierarchyMixin__getParentAssoc()
+        {
+            var result, parentAssoc;
+
+            if (!this.hasOwnProperty('parentAssoc'))
+            {
+                logger.debug('Initialising parentAssoc of {}', this.nodeRef);
+                parentAssoc = NodeService.getPrimaryParent(this.nodeRef);
+
+                result = new ChildAssociation(parentAssoc);
+                Object.defineProperty(this, 'parentAssoc', {
+                    value : result,
+                    enumerable : true,
+                    configurable : true
+                });
+            }
+            else
+            {
+                result = this.parentAssoc;
             }
 
             return result;
@@ -229,6 +269,7 @@ define([ '_base/declare', '_base/ProxySupport', 'alfresco/common/QName', 'alfres
             // reset cached values (that may have been changed externally)
             logger.debug('Resetting hierarchy data of {}', this.nodeRef);
             delete this.parent;
+            delete this.parentAssoc;
             delete this.parents;
             delete this.children;
         }

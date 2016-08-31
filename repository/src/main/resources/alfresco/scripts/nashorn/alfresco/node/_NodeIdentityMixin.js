@@ -55,8 +55,6 @@ define([ '_base/declare', '_base/ProxySupport', '../foundation/DictionaryService
                 throw new IllegalArgumentException('nodeRef value invalid: ' + nodeRef);
             }
 
-            // this is intended to be our only apparent property
-            // defined this way since we want it to be immutable
             Object.defineProperty(this, 'nodeRef', {
                 value : internalNodeRef,
                 enumerable : true
