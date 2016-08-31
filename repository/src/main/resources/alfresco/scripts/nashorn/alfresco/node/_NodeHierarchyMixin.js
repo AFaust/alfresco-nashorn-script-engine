@@ -271,7 +271,20 @@ define([ '_base/declare', '_base/ProxySupport', 'alfresco/common/QName', 'alfres
             delete this.parent;
             delete this.parentAssoc;
             delete this.parents;
+            
             delete this.children;
+        },
+
+        /**
+         * This function provides a specific hook for other modules to call to reset only cached data regarding parent node hierarchies when
+         * other operations may have changed the specific node state.
+         */
+        resetParentHierarchyCaches : function alfresco_node_NodeHierarchyMixin__resetParentHierarchyCaches()
+        {
+            logger.debug('Resetting parent hierarchy data of {}', this.nodeRef);
+            delete this.parent;
+            delete this.parentAssoc;
+            delete this.parents;
         }
     });
 });
