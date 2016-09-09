@@ -1,8 +1,11 @@
 /* globals -require */
 /**
- * This module provides the equivalent of the Rhino-ScriptNode API internal properties map for a particular node. Other than the Rhino-based
- * properties map, this module will not pre-emptively convert all node properties into their script representation and will not attempt to
- * save/store any properties that have not been accessed, avoiding accidental overrides of properties set via policies.
+ * This module provides the equivalent of the Rhino-ScriptNode API internal
+ * properties map for a particular node. Other than the Rhino-based properties
+ * map, this module will not pre-emptively convert all node properties into
+ * their script representation and will not attempt to save/store any properties
+ * that have not been accessed, avoiding accidental overrides of properties set
+ * via policies.
  * 
  * @module alfresco/node/NodePropertiesMap
  * @mixes module:_base/ProxySupport
@@ -79,17 +82,18 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '_base/Conver
                         explicitlyAccessedProperties : {
                             value : []
                         },
-                        // map of Alfresco properties as previously retrieved (for checking against potential co-modification in other
-                        // APIs)
+                        // map of Alfresco properties as previously retrieved (for checking against potential co-modification in other APIs)
                         nodeProperties : {
-                            value : {}
+                            value : null,
+                            writable : true
                         }
                     });
                     this._loadNodeProperties();
                 },
 
                 /**
-                 * (Re-)Loads the current properties of the node via the underlying NodeService.
+                 * (Re-)Loads the current properties of the node via the
+                 * underlying NodeService.
                  * 
                  * @instance
                  * @private
@@ -97,17 +101,9 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '_base/Conver
                  */
                 _loadNodeProperties : function alfresco_node_NodeProperties__loadNodeProperties()
                 {
-                    var nodeProperties, qnameKey, qname;
+                    var qname;
 
                     logger.debug('Loading actual node properties for {}', this.nodeRef);
-                    // clear old state
-                    for (qname in this.nodeProperties)
-                    {
-                        if (this.nodeProperties.hasOwnProperty(qname))
-                        {
-                            delete this.nodeProperties[qname];
-                        }
-                    }
 
                     // clear cached properties unless they have been explicitly accessed
                     for (qname in this.effectiveScriptProperties)
@@ -119,21 +115,11 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '_base/Conver
                         }
                     }
 
-                    nodeProperties = NodeService.getProperties(this.nodeRef);
-                    for (qnameKey in nodeProperties)
-                    {
-                        // don't map null values
-                        if (nodeProperties[qnameKey] !== null)
-                        {
-                            qname = QName.valueOf(qnameKey);
-                            this.nodeProperties[qname] = nodeProperties[qnameKey];
-                        }
-                    }
-                    logger.debug('Loaded {} node property entries for {}', Object.keys(this.nodeProperties).length, this.nodeRef);
+                    this.nodeProperties = NodeService.getProperties(this.nodeRef);
+                    logger.debug('Loaded {} node property entries for {}', this.nodeProperties.size(), this.nodeRef);
                 },
 
-                // this overrides standard __get__ from ProxySupport
-                // implicitAccess only provided when called internally, not via ProxySupport
+                // this overrides standard __get__ from ProxySupport implicitAccess only provided when called internally, not via ProxySupport
                 __get__ : function alfresco_node_NodePropertiesMap__get__(prop, implicitAccess)
                 {
                     var qname, value, property, tempArray;
@@ -160,9 +146,9 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '_base/Conver
                                     {
                                         value = this.effectiveScriptProperties[qname];
                                     }
-                                    else if (this.nodeProperties.hasOwnProperty(qname))
+                                    else if (this.nodeProperties.containsKey(qname.qname))
                                     {
-                                        value = this.nodeProperties[qname];
+                                        value = this.nodeProperties[qname.qname];
                                         property = DictionaryService.getProperty(qname.qname);
                                         if (property !== null && property.multiValued)
                                         {
@@ -229,7 +215,7 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '_base/Conver
                                 default:
                                     qname = QName.valueOf(prop);
                                     result = this.effectiveScriptProperties.hasOwnProperty(qname)
-                                            || this.nodeProperties.hasOwnProperty(qname);
+                                            || this.nodeProperties.containsKey(qname.qname);
                             }
                         }
                     }
@@ -297,13 +283,14 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '_base/Conver
                         }
                     }
 
-                    for (qname in this.nodeProperties)
+                    this.nodeProperties.keys().forEach(function alfresco_node_NodePropertiesMap__getIds__forEachNodePropertyKey(key)
                     {
-                        if (this.nodeProperties.hasOwnProperty(qname) && !this.effectiveScriptProperties.hasOwnProperty(qname))
+                        qname = QName.valueOf(key);
+                        if (!this.effectiveScriptProperties.hasOwnProperty(qname))
                         {
-                            ids.push(qname.prefixString || qname);
+                            ids.push(qname.prefixString);
                         }
-                    }
+                    });
 
                     return ids;
                 },
@@ -349,7 +336,8 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '_base/Conver
                                     break;
                                 default:
                                     qname = QName.valueOf(prop);
-                                    if (this.effectiveScriptProperties.hasOwnProperty(qname) || this.nodeProperties.hasOwnProperty(qname))
+                                    if (this.effectiveScriptProperties.hasOwnProperty(qname)
+                                            || this.nodeProperties.containsKey(qname.qname))
                                     {
                                         this.effectiveScriptProperties[qname] = null;
 
@@ -374,7 +362,8 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '_base/Conver
                 },
 
                 /**
-                 * Resets the internal state of this instance, dropping any potential property modifications and reloading all properties
+                 * Resets the internal state of this instance, dropping any
+                 * potential property modifications and reloading all properties
                  * from the actual node.
                  * 
                  * @instance
@@ -398,8 +387,10 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '_base/Conver
                 },
 
                 /**
-                 * Saves the internal state of this instance, persisting any potential property modifications and reloading all properties
-                 * from the actual node. This operation will also respect the FileFolderService contract for renaming nodes.
+                 * Saves the internal state of this instance, persisting any
+                 * potential property modifications and reloading all properties
+                 * from the actual node. This operation will also respect the
+                 * FileFolderService contract for renaming nodes.
                  * 
                  * @instance
                  * @function
@@ -436,15 +427,18 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '_base/Conver
                 },
 
                 /**
-                 * Retrieves the Java map-based representation of all the properties that would be persisted by a call to
-                 * [save]{@link module:alfresco/node/NodePropertiesMap#save} at this time. This operation is intended for other modules in this
-                 * package that may need to persist current properties without going through the call to save.
+                 * Retrieves the Java map-based representation of all the
+                 * properties that would be persisted by a call to [save]{@link module:alfresco/node/NodePropertiesMap#save}
+                 * at this time. This operation is intended for other modules in
+                 * this package that may need to persist current properties
+                 * without going through the call to save.
                  * 
                  * @instance
                  * @protected
                  * @function
-                 * @returns {Map} the Java map instance holding all properties that would be persisted by a call to
-                 *          [save]{@link module:alfresco/node/NodePropertiesMap#save} at this time
+                 * @returns {Map} the Java map instance holding all properties
+                 *          that would be persisted by a call to [save]{@link module:alfresco/node/NodePropertiesMap#save}
+                 *          at this time
                  */
                 _getModifiedPropertiesMap : function alfresco_node_NodePropertiesMap__getModifiedPropertiesMap()
                 {
@@ -488,7 +482,8 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '_base/Conver
                  * 
                  * @instance
                  * @function
-                 * @returns {number} the number of non-null properties on the node
+                 * @returns {number} the number of non-null properties on the
+                 *          node
                  */
                 size : function alfresco_node_NodePropertiesMap__size()
                 {
@@ -501,11 +496,13 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '_base/Conver
                 },
 
                 /**
-                 * Provides a human-readable representation of the properties of the node.
+                 * Provides a human-readable representation of the properties of
+                 * the node.
                  * 
                  * @instance
                  * @function
-                 * @returns {string} human-readable presentation of the node properties
+                 * @returns {string} human-readable presentation of the node
+                 *          properties
                  */
                 toString : function alfresco_node_NodePropertiesMap__toString()
                 {
