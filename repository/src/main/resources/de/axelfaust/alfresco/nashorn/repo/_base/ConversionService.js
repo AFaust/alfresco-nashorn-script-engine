@@ -38,7 +38,8 @@ define([ 'nashorn!Java', './JavaConvertableMixin', './lang', './logger' ], funct
     {
         var jsDate;
 
-        jsDate = Date.parse(ISO8601DateFormat.format(date));
+        // parse only yields the milliseconds value since 1970-01-01
+        jsDate = new Date(Date.parse(ISO8601DateFormat.format(date)));
 
         return jsDate;
     };
