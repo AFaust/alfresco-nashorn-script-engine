@@ -116,7 +116,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', 'a
          * The parent in this child association
          * 
          * @var parent
-         * @type {module:alfresco/node/ScriptNode}
+         * @type {module:alfresco/node/Node}
          * @instance
          * @readonly
          * @memberof module:alfresco/node/ChildAssociation
@@ -127,7 +127,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', 'a
          * @instance
          * @param {string}
          *            [nodeModuleId] the name of the script module to use for representing the parent node (defaults to
-         *            [alfresco/node/ScriptNode]{@link module:alfresco/node/ScriptNode})
+         *            [alfresco/node/Node]{@link module:alfresco/node/Node})
          * @returns {object} the parent in this child association - only null for the parent association of a root node
          */
         getParent : function alfresco_node_ChildAssociation__getParent(nodeModuleId)
@@ -166,7 +166,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', 'a
          * The child in this child association
          * 
          * @var child
-         * @type {module:alfresco/node/ScriptNode}
+         * @type {module:alfresco/node/Node}
          * @instance
          * @readonly
          * @memberof module:alfresco/node/ChildAssociation
@@ -177,7 +177,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', 'a
          * @instance
          * @param {string}
          *            [nodeModuleId] the name of the script module to use for representing the child node (defaults to
-         *            [alfresco/node/ScriptNode]{@link module:alfresco/node/ScriptNode})
+         *            [alfresco/node/Node]{@link module:alfresco/node/Node})
          * @returns {object} the child in this child association
          */
         getChild : function alfresco_node_ChildAssociation__getChild(nodeModuleId)

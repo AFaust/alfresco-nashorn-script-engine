@@ -1,5 +1,5 @@
 /* globals -define */
-require([ '_base/ConversionService', 'alfresco/node/ScriptNode', '_base/logger' ], function nodeConverters_root(ConversionService,
+require([ '_base/ConversionService', 'alfresco/node/Node', '_base/logger' ], function nodeConverters_root(ConversionService,
         ScriptNode, logger)
 {
     'use strict';
@@ -8,7 +8,7 @@ require([ '_base/ConversionService', 'alfresco/node/ScriptNode', '_base/logger' 
             {
                 var result;
 
-                logger.trace('Converting NodeRef {} to alfresco/node/ScriptNode', nodeRef);
+                logger.trace('Converting NodeRef {} to alfresco/node/Node', nodeRef);
 
                 result = new ScriptNode(nodeRef);
 
@@ -21,7 +21,7 @@ require([ '_base/ConversionService', 'alfresco/node/ScriptNode', '_base/logger' 
             {
                 var result;
 
-                logger.trace('Converting ScriptNode {} to alfresco/node/ScriptNode', scriptNode.nodeRef);
+                logger.trace('Converting ScriptNode {} to alfresco/node/Node', scriptNode.nodeRef);
 
                 // luckily we can access ScriptNode.getNodeRef() without an active Rhino context
                 result = new ScriptNode(scriptNode.nodeRef);

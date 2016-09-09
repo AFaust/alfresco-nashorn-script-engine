@@ -41,7 +41,7 @@ define([ 'alfresco/foundation/NamespaceService', 'alfresco/foundation/NodeServic
                  *            storeId the identifier of the store
                  * @param {string}
                  *            [nodeModuleId] the name of the script module to use for representing the root node (defaults to
-                 *            [alfresco/node/ScriptNode]{@link module:alfresco/node/ScriptNode})
+                 *            [alfresco/node/Node]{@link module:alfresco/node/Node})
                  * @returns {object} the script representation of the root node or null if the store could not be resolved
                  */
                 findRootNode : function alfresco_search_Search__findRootNode(storeType, storeId, nodeModuleId)
@@ -74,7 +74,7 @@ define([ 'alfresco/foundation/NamespaceService', 'alfresco/foundation/NodeServic
                         nodeRef = NodeService.getRootNode(storeRef);
                         result = nodeConversionUtils.convertNode(nodeRef, nodeModuleId);
                         logger.debug('Node {} resolved as root of {} and converted into {}', nodeRef, storeRef, nodeModuleId
-                                || 'alfresco/node/ScriptNode');
+                                || 'alfresco/node/Node');
                     }
                     else
                     {
@@ -97,7 +97,7 @@ define([ 'alfresco/foundation/NamespaceService', 'alfresco/foundation/NodeServic
                  *            ref the reference to the node in stringified NodeRef form
                  * @param {string}
                  *            [nodeModuleId] the name of the script module to use for representing the node (defaults to
-                 *            [alfresco/node/ScriptNode]{@link module:alfresco/node/ScriptNode})
+                 *            [alfresco/node/Node]{@link module:alfresco/node/Node})
                  * @returns {object} the script representation of the node or null if it could not be resolved
                  */
                 findNode : function alfresco_search_Search__findNode(ref, nodeModuleId)
@@ -123,7 +123,7 @@ define([ 'alfresco/foundation/NamespaceService', 'alfresco/foundation/NodeServic
                             && PermissionService.hasPermission(nodeRef, PermissionServiceAPI.READ) === AccessStatus.ALLOWED)
                     {
                         result = nodeConversionUtils.convertNode(nodeRef, nodeModuleId);
-                        logger.debug('Node {} resolved and converted into {}', nodeRef, nodeModuleId || 'alfresco/node/ScriptNode');
+                        logger.debug('Node {} resolved and converted into {}', nodeRef, nodeModuleId || 'alfresco/node/Node');
                     }
                     else
                     {
@@ -144,7 +144,7 @@ define([ 'alfresco/foundation/NamespaceService', 'alfresco/foundation/NodeServic
                  *            [store] the store to search as a stringified store reference
                  * @param {string}
                  *            [nodeModuleId] the name of the script module to use for representing the node (defaults to
-                 *            [alfresco/node/ScriptNode]{@link module:alfresco/node/ScriptNode})
+                 *            [alfresco/node/Node]{@link module:alfresco/node/Node})
                  * @returns {array} the script representation of the result nodes
                  */
                 selectNodes : function alfresco_search_Search__selectNodes(xpath, store, nodeModuleId)
@@ -167,7 +167,7 @@ define([ 'alfresco/foundation/NamespaceService', 'alfresco/foundation/NodeServic
                     store = store || 'workspace://SpacesStore';
                     rootNode = this.findRootNode(store.substring(0, store.indexOf('://')), store.substring(store.indexOf('://') + 3));
                     nodeRefs = SearchService.selectNodes(rootNode.nodeRef, xpath, null, NamespaceService, false);
-                    result = nodeConversionUtils.convertNodes(nodeRefs, nodeModuleId || 'alfresco/node/ScriptNode');
+                    result = nodeConversionUtils.convertNodes(nodeRefs, nodeModuleId || 'alfresco/node/Node');
 
                     logger.debug('Found {} nodes using selectNodes for store {} and xpath {}', store, xpath);
 

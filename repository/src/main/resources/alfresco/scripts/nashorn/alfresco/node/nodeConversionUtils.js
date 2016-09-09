@@ -23,14 +23,14 @@ define([ '_base/logger', 'nashorn!Java' ], function(logger, Java)
          *            node - the node-like object / (stringified) NodeRef to convert
          * @param {string}
          *            [nodeModuleId] - the name of the script module to use for representing the node (defaults to
-         *            [alfresco/node/ScriptNode]{@link module:alfresco/node/ScriptNode})
+         *            [alfresco/node/Node]{@link module:alfresco/node/Node})
          * @returns {object} the script representation of the node
          */
         convertNode : function alfresco_node_nodeConversionUtils__convertNode(node, nodeModuleId)
         {
             var result;
 
-            require([ nodeModuleId || 'alfresco/node/ScriptNode' ],
+            require([ nodeModuleId || 'alfresco/node/Node' ],
                     function alfresco_node_nodeConversionUtils__convertNode_requireCallback(NodeModule)
                     {
                         var ref = node.nodeRef || node;
@@ -62,14 +62,14 @@ define([ '_base/logger', 'nashorn!Java' ], function(logger, Java)
          *            nodes - the node-like objects / (stringified) NodeRefs to convert
          * @param {string}
          *            [nodeModuleId] - the name of the script module to use for representing the nodes (defaults to
-         *            [alfresco/node/ScriptNode]{@link module:alfresco/node/ScriptNode})
+         *            [alfresco/node/Node]{@link module:alfresco/node/Node})
          * @returns {array} the array of script representations of the nodes
          */
         convertNodes : function alfresco_node_nodeConversionUtils__convertNodes(nodes, nodeModuleId)
         {
             var result = [];
 
-            require([ nodeModuleId || 'alfresco/node/ScriptNode' ],
+            require([ nodeModuleId || 'alfresco/node/Node' ],
                     function alfresco_node_nodeConversionUtils__convertNodes_requireCallback(NodeModule)
                     {
                         if (typeof NodeModule.valueOf === 'function' && NodeModule.valueOf !== Object.prototype.valueOf)

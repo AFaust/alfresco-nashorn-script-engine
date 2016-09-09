@@ -4,7 +4,7 @@
  * part the API of this module should behave exactly as the Rhino-ScriptNode API does while explicit deviations from this rule are
  * documented on the affected operations.
  * 
- * @module alfresco/node/ScriptNode
+ * @module alfresco/node/Node
  * @extends module:_base/JavaConvertableMixin
  * @mixes module:alfresco/node/_NodeIdentityMixin
  * @mixes module:alfresco/node/_NodeTypesAndAspectsMixin
@@ -37,11 +37,11 @@ define([ '_base/declare', '_base/JavaConvertableMixin', './_NodeIdentityMixin', 
          * @var name
          * @type {string}
          * @instance
-         * @memberof module:alfresco/node/ScriptNode
+         * @memberof module:alfresco/node/Node
          */
         /**
          * Retrieves the name of this node. This operation will consider and respect any non-committed/unsaved change to the name of the
-         * node either via [setName]{@link module:alfresco/node/ScriptNode#setName} or the map of properties.
+         * node either via [setName]{@link module:alfresco/node/Node#setName} or the map of properties.
          * 
          * @instance
          * @returns {string} the name of the node
