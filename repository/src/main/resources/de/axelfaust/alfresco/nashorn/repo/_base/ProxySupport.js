@@ -240,14 +240,6 @@ define(
 																			_this);
 														}
 													},
-													__getKeys__ : {
-														get : function ProxySupport__constructor_lazyGetKeysBind() {
-															return Function.prototype.bind
-																	.call(
-																			_this.__getKeys__,
-																			_this);
-														}
-													},
 													__getValues__ : {
 														get : function ProxySupport__constructor_lazyGetValuesBind() {
 															return Function.prototype.bind
@@ -712,32 +704,7 @@ define(
 						 * @returns {string[]} the array of ids of all (public)
 						 *          properties
 						 */
-						// __getIds__ is identical to __getKeys__ (JDK 6
-						// compatibility)
 						__getIds__ : function ProxySupport__getIds__() {
-							var result;
-
-							result = this.__getKeys__();
-
-							return result;
-						},
-
-						/**
-						 * Retrieves the keys of all (public) properties of this
-						 * instance. This property handler will consider any
-						 * property that can be determined to exist on this
-						 * instance via the "in" operator (unless only getters
-						 * are set to be allowed) and any property that can
-						 * either be simulated via getters or have actual
-						 * getters implemented (if getter redirection is
-						 * enabled).
-						 * 
-						 * @instance
-						 * @protected
-						 * @returns {string[]} the array of keys of all (public)
-						 *          properties
-						 */
-						__getKeys__ : function ProxySupport__getKeys__() {
 							/* jshint forin: false */
 							var result, name, getterRedirectionEnabled, onlyGettersEnabled;
 

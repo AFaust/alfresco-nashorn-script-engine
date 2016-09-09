@@ -953,20 +953,6 @@
                         return result;
                     },
 
-                    __getKeys__ : function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__getKeys__(module)
-                    {
-                        var name, result = [];
-
-                        /* jshint forin: false */
-                        for (name in module)
-                        {
-                            result.push(name);
-                        }
-                        /* jshint forin: true */
-
-                        return result;
-                    },
-
                     __getValues__ : function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__getValues__(module,
                             descriptor, url)
                     {

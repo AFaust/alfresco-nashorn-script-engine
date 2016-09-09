@@ -308,32 +308,6 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '_base/Conver
                     return ids;
                 },
 
-                // this overrides standard __getKeys__ from ProxySupport
-                __getKeys__ : function alfresco_node_NodePropertiesMap__getKeys__()
-                {
-                    var ids = [], qname;
-
-                    logger.trace('__getKeys__ called');
-
-                    for (qname in this.effectiveScriptProperties)
-                    {
-                        if (this.effectiveScriptProperties.hasOwnProperty(qname))
-                        {
-                            ids.push(qname.prefixString || qname);
-                        }
-                    }
-
-                    for (qname in this.nodeProperties)
-                    {
-                        if (this.nodeProperties.hasOwnProperty(qname) && !this.effectiveScriptProperties.hasOwnProperty(qname))
-                        {
-                            ids.push(qname.prefixString || qname);
-                        }
-                    }
-
-                    return ids;
-                },
-
                 // this overrides standard (empty) __getValues__ from ProxySupport
                 __getValues__ : function alfresco_node_NodePropertiesMap__getValues__()
                 {

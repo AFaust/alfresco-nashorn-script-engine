@@ -150,21 +150,6 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', '.
                     return ids;
                 },
 
-                // this overrides standard __getKeys__ from ProxySupport
-                __getKeys__ : function alfresco_common_QNameMapWrapper__getKeys__()
-                {
-                    var ids = [];
-
-                    logger.trace('__getKeys__ called');
-
-                    this.backingMap.keySet().forEach(function(qname)
-                    {
-                        ids.push(String(QName.valueOf(qname)));
-                    });
-
-                    return ids;
-                },
-
                 // this overrides standard (empty) __getValues__ from ProxySupport
                 __getValues__ : function alfresco_common_QNameMapWrapper__getValues__()
                 {
