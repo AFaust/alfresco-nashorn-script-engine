@@ -23,6 +23,8 @@
 
                 <value>--debug-lines=${nashornJavaScriptProcessor.nashorn.flag.debugLines}</value>
                 <value>--debug-locals=${nashornJavaScriptProcessor.nashorn.flag.debugLocals}</value>
+                
+                <value>--log=${nashornJavaScriptProcessor.nashorn.option.logging}</value>
             </list>
         </constructor-arg>
     </bean>
