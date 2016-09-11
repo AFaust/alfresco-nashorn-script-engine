@@ -233,7 +233,8 @@ define([ './declare', 'nashorn!JSAdapter', 'nashorn!Java', './logger' ], functio
         /**
          * Handles the access to a non-existent property on this instance,
          * potentially simulating it by redirecting to either an implemented
-         * getter or the [__get__]{@link module:_base/ProxySupport~__get__} function.
+         * getter or the [__get__]{@link module:_base/ProxySupport~__get__}
+         * function.
          * 
          * @instance
          * @protected
@@ -258,6 +259,11 @@ define([ './declare', 'nashorn!JSAdapter', 'nashorn!Java', './logger' ], functio
             if (prop.startsWith('--proxy'))
             {
                 throw new ReferenceError('"' + name + '" is not defined');
+            }
+            // special function name(s) we shouldn't try to handle
+            else if (prop === 'toJSON' || prop === 'toISOString' || prop === 'toLocaleString')
+            {
+                result = undefined;
             }
             else if (this[proxyEnabledKey] === true)
             {
@@ -774,13 +780,12 @@ define([ './declare', 'nashorn!JSAdapter', 'nashorn!Java', './logger' ], functio
                                 this.constructor._declare_meta !== undefined ? this.constructor._declare_meta.className : '<unknown>');
                     }
                 }
-                // TODO Handle potential call to fn accessible
-                // via getter-redirection (if enabled)
+                // TODO Handle potential call to fn accessible via getter-redirection (if enabled)
             }
 
             if (typeof fn === 'function')
             {
-                result = fn.apply(this, Array.prototype.slice.call(arguments, 2));
+                result = fn.apply(this, Array.prototype.slice.call(arguments, 1));
             }
             else if (result === undefined && fn === undefined)
             {

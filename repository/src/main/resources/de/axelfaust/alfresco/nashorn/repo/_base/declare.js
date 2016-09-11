@@ -1,6 +1,7 @@
 /**
- * This module provides the functionality to create class-like constructs using multiple inheritance and support of calling "inherited"
- * functions from base classes in a defined resolution order.
+ * This module provides the functionality to create class-like constructs using
+ * multiple inheritance and support of calling "inherited" functions from base
+ * classes in a defined resolution order.
  * 
  * @module _base/declare
  * @requires module:_base/c3mro
@@ -46,14 +47,17 @@ define(
             };
 
             /**
-             * Checks if this instance is an instance of a specific class considering single inheritance as well as the multi-inheritance
-             * constructs this module supports. This method will be included in the prototype of any class created via [declare]{@link module:_base/declare#declare}
+             * Checks if this instance is an instance of a specific class
+             * considering single inheritance as well as the multi-inheritance
+             * constructs this module supports. This method will be included in
+             * the prototype of any class created via [declare]{@link module:_base/declare#declare}
              * 
              * @public
              * @function
              * @param {function}
-             *            cls - the class against which to check this instance
-             * @returns boolean true if this instance is an instanceof of the specified class
+             *            cls the class against which to check this instance
+             * @returns boolean true if this instance is an instanceof of the
+             *          specified class
              */
             isInstanceOf = function _base_declare__isInstanceOf(cls)
             {
@@ -74,26 +78,32 @@ define(
             };
 
             /**
-             * Calls a specific function inherited from a base class using the next base class in the linearization of base classes relative
-             * to the function passed as the currently executed function. This method will be included in the prototype of any class created
-             * via [declare]{@link module:_base/declare#declare}
+             * Calls a specific function inherited from a base class using the
+             * next base class in the linearization of base classes relative to
+             * the function passed as the currently executed function. This
+             * method will be included in the prototype of any class created via
+             * [declare]{@link module:_base/declare#declare}
              * 
              * @public
              * @function
              * @param {function|string}
-             *            fn - the identity handle or name of the function calling inherited (name should only be passed from the most
+             *            fn the identity handle or name of the function calling
+             *            inherited (name should only be passed from the most
              *            specialized function of an inheritance chain
              * @param {object|array}
-             *            arguments - the arguments to the function call
+             *            arguments the arguments to the function call
              * @param {array}
-             *            [overrideArguments] - override-arguments for the function call (elements will override elements of arguments with
-             *            same index or add to overall length of effective arguments)
+             *            [overrideArguments] override-arguments for the
+             *            function call (elements will override elements of
+             *            arguments with same index or add to overall length of
+             *            effective arguments)
              */
             inherited = function _base_declare__inherited()
             {
                 var result, fnName, fnClsName, callerFn, args, overrides, effectiveArgs, idx, lastLookup, ctor, proto, fn, clsFound;
 
-                // due to 'use strict' we can't use args.callee and have to require named function reference being passed
+                // due to 'use strict' we can't use args.callee and have to
+                // require named function reference being passed
                 logger.trace('inherited() called - analyzing arguments');
 
                 for (idx = 0; idx < arguments.length; idx++)
@@ -311,7 +321,8 @@ define(
                         }
                     }
 
-                    // class name is included in a non-enumerable field to avoid messing with potential JSON.stringify use
+                    // class name is included in a non-enumerable field to avoid
+                    // messing with potential JSON.stringify use
                     Object.defineProperty(result, '_declare_className', {
                         value : standardCtor._declare_meta.className
                     });
@@ -327,9 +338,12 @@ define(
 
             createStandardConstructor = function _base_declare__createStandardConstructor()
             {
-                // we need a separate standardConstructor instance for every class due to inidividual prototype
-                // fn should be as thin as possible - oursourcing most logic to common code in standardConstructorImpl
-                // TODO Find out how to avoid recompilation on EVERY invocation (trashes performance)
+                // we need a separate standardConstructor instance for every
+                // class due to inidividual prototype
+                // fn should be as thin as possible - oursourcing most logic to
+                // common code in standardConstructorImpl
+                // TODO Find out how to avoid recompilation on EVERY invocation
+                // (trashes performance)
                 var standardCtor = function _base_declare__standardConstructor()
                 {
                     var result = standardConstructorImpl.call(this, standardCtor, arguments);
@@ -378,10 +392,13 @@ define(
 
                 if (superClass !== null)
                 {
-                    // Check if expected superClass (first in superClass arg to declare) matches linearization tail
-                    // If yes, use superClass for initial proto and mixin proto properties of all cls in linearization from superClass
+                    // Check if expected superClass (first in superClass arg to
+                    // declare) matches linearization tail
+                    // If yes, use superClass for initial proto and mixin proto
+                    // properties of all cls in linearization from superClass
                     // to 1
-                    // If no, construct completely new chain of protos based on linearization
+                    // If no, construct completely new chain of protos based on
+                    // linearization
 
                     clsLin = cls._c3mro_linearization;
                     clLen = clsLin.length;
@@ -399,7 +416,8 @@ define(
 
                     if (startWithSuperClass === false)
                     {
-                        // can't use superClass as start, so reset offset and select differnt superClass to start proto from
+                        // can't use superClass as start, so reset offset and
+                        // select differnt superClass to start proto from
                         superClass = clsLin[clLen - 1];
                         offset = 2;
                     }
@@ -490,7 +508,8 @@ define(
                     }
                 });
 
-                // MAYBE Add special functions (extend / createSubclass) to ctor (if we need to support them)
+                // MAYBE Add special functions (extend / createSubclass) to ctor
+                // (if we need to support them)
 
                 if (proto.isInstanceOf !== isInstanceOf)
                 {
@@ -519,8 +538,10 @@ define(
 
                 ctor = createStandardConstructor();
 
-                // flip bases into order "right most mixin -> left most mixin -> superClass"
-                // ensures linearization results in correct override order for mixins over base class
+                // flip bases into order "right most mixin -> left most mixin ->
+                // superClass"
+                // ensures linearization results in correct override order for
+                // mixins over base class
                 bases.reverse();
                 logger.trace('Performing c3mro linearization for {}', className);
                 c3mro(ctor, bases);
@@ -580,19 +601,22 @@ define(
             };
 
             /**
-             * Creates a new class from a defined class structure and optional base classes. This function is the identity of
-             * [_base/declare]{@link module:_base/declare}.
+             * Creates a new class from a defined class structure and optional
+             * base classes. This function is the identity of [_base/declare]{@link module:_base/declare}.
              * 
              * @public
              * @function
              * @param {string}
-             *            [name] - the name of the new class-like construct
+             *            [name] the name of the new class-like construct
              * @param {function[]}
-             *            [bases] - the list of base classes from which the new class should inherit
+             *            [bases] the list of base classes from which the new
+             *            class should inherit
              * @param {object}
-             *            structure - the "body" of the new class definining its properties and functions
+             *            structure the "body" of the new class definining its
+             *            properties and functions
              */
-            // callerUrl provided via 'callerProvided' flag in special module handling
+            // callerUrl provided via 'callerProvided' flag in special module
+            // handling
             declare = function _base_declare__declare(callerUrl)
             {
                 var args, className, bases, superClass, structure;
