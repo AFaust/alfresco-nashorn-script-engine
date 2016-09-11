@@ -1,6 +1,7 @@
 /* globals -require */
 /**
- * This module provides a script abstraction of a child association between a parent and a child node.
+ * This module provides a script abstraction of a child association between a
+ * parent and a child node.
  * 
  * @module alfresco/node/ChildAssociation
  * @extends module:_base/JavaConvertableMixin
@@ -93,7 +94,8 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', 'a
          * @memberof module:alfresco/node/ChildAssociation
          */
         /**
-         * The flag indicating if this child association is a primary chil association, i.e. if permissions and deletions cascade / inherit
+         * The flag indicating if this child association is a primary chil
+         * association, i.e. if permissions and deletions cascade / inherit
          * along this relation
          * 
          * @var primary
@@ -103,7 +105,8 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', 'a
          * @memberof module:alfresco/node/ChildAssociation
          */
         /**
-         * The number this child association has among all child associations with the same properties (parent, type and child qname)
+         * The number this child association has among all child associations
+         * with the same properties (parent, type and child qname)
          * 
          * @var nthSibling
          * @type {number}
@@ -126,9 +129,11 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', 'a
          * 
          * @instance
          * @param {string}
-         *            [nodeModuleId] the name of the script module to use for representing the parent node (defaults to
+         *            [nodeModuleId] the name of the script module to use for
+         *            representing the parent node (defaults to
          *            [alfresco/node/Node]{@link module:alfresco/node/Node})
-         * @returns {object} the parent in this child association - only null for the parent association of a root node
+         * @returns {object} the parent in this child association - only null
+         *          for the parent association of a root node
          */
         getParent : function alfresco_node_ChildAssociation__getParent(nodeModuleId)
         {
@@ -176,7 +181,8 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', 'a
          * 
          * @instance
          * @param {string}
-         *            [nodeModuleId] the name of the script module to use for representing the child node (defaults to
+         *            [nodeModuleId] the name of the script module to use for
+         *            representing the child node (defaults to
          *            [alfresco/node/Node]{@link module:alfresco/node/Node})
          * @returns {object} the child in this child association
          */
@@ -210,6 +216,19 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', 'a
             }
 
             return result;
+        },
+
+        /**
+         * Provides a human-readable representation of this child association.
+         * 
+         * @instance
+         * @function
+         * @returns {string} human-readable presentation of this child
+         *          association
+         */
+        toString : function alfresco_node_ChildAssociation__toString()
+        {
+            return String(this.childAssoc);
         }
     });
 });

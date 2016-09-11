@@ -1,20 +1,24 @@
 /**
- * This mixin module provides the ability to handle hierarchy traversal on a live node in the Alfresco repository.
+ * This mixin module provides the ability to handle hierarchy traversal on a
+ * live node in the Alfresco repository.
  * 
  * @module alfresco/node/_NodeHierarchyMixin
  * @extends module:_base/ProxySupport
  * @requires module:_base/declare
  * @requires module:alfresco/common/QName
  * @requires module:alfresco/foundation/NodeService
+ * @requires module:alfresco/node/NodeHierarchyAssociationsMap
+ * @requires module:alfresco/node/NodeHierarchyNodesMap
  * @requires module:alfresco/node/ChildAssociation
  * @requires module:alfresco/node/nodeConversionUtils
  * @requires module:_base/logger
  * @requires module:nashorn!Java
  * @author Axel Faust
  */
-define([ '_base/declare', '_base/ProxySupport', 'alfresco/common/QName', 'alfresco/foundation/NodeService', './ChildAssociation',
-        './nodeConversionUtils', '_base/logger', 'nashorn!Java' ], function alfresco_node_NodeHierarchyMixin__root(declare, ProxySupport,
-        QName, NodeService, ChildAssociation, nodeConversionUtils, logger, Java)
+define([ '_base/declare', '_base/ProxySupport', 'alfresco/common/QName', 'alfresco/foundation/NodeService',
+        './NodeHierarchyAssociationsMap', './NodeHierarchyNodesMap', './ChildAssociation', './nodeConversionUtils', '_base/logger',
+        'nashorn!Java' ], function alfresco_node_NodeHierarchyMixin__root(declare, ProxySupport, QName, NodeService,
+        NodeHierarchyAssociationsMap, NodeHierarchyNodesMap, ChildAssociation, nodeConversionUtils, logger, Java)
 {
     'use strict';
     var IllegalArgumentException;
@@ -26,6 +30,29 @@ define([ '_base/declare', '_base/ProxySupport', 'alfresco/common/QName', 'alfres
         '--proxy-support-enabled' : true,
 
         '--proxy-getter-redirection-enabled' : true,
+
+        classConstructor : function alfresco_node_NodeHierarchyMixinMap__classConstructor(nodeRef)
+        {
+            var parentAssocs, childAssocs;
+
+            parentAssocs = new NodeHierarchyAssociationsMap(nodeRef, true);
+            childAssocs = new NodeHierarchyAssociationsMap(nodeRef);
+
+            Object.defineProperties(this, {
+                parentAssocs : {
+                    value : parentAssocs
+                },
+                childAssocs : {
+                    value : childAssocs
+                },
+                parents : {
+                    value : new NodeHierarchyNodesMap(nodeRef, parentAssocs, true)
+                },
+                children : {
+                    value : new NodeHierarchyNodesMap(nodeRef, childAssocs)
+                }
+            });
+        },
 
         /**
          * The primary parent of this node
@@ -41,9 +68,11 @@ define([ '_base/declare', '_base/ProxySupport', 'alfresco/common/QName', 'alfres
          * 
          * @instance
          * @param {string}
-         *            [nodeModuleId] the name of the script module to use for representing the parent node (defaults to the type of this
+         *            [nodeModuleId] the name of the script module to use for
+         *            representing the parent node (defaults to the type of this
          *            node)
-         * @returns {object} the primary parent of this node - only null for a root node
+         * @returns {object} the primary parent of this node - only null for a
+         *          root node
          */
         getParent : function alfresco_node_NodeHierarchyMixin__getParent(nodeModuleId)
         {
@@ -120,30 +149,31 @@ define([ '_base/declare', '_base/ProxySupport', 'alfresco/common/QName', 'alfres
         },
 
         /**
-         * The parents of this node
+         * All parents of this node
          * 
-         * @var parents
+         * @var allParents
          * @type {module:alfresco/node/_NodeHierarchyMixin[]}
          * @instance
          * @readonly
          * @memberof module:alfresco/node/_NodeHierarchyMixin
          */
         /**
-         * Retrieves the parents of this node.
+         * Retrieves all parents of this node.
          * 
          * @instance
          * @param {string}
-         *            [nodeModuleId] the name of the script module to use for representing the parent nodes (defaults to the type of this
-         *            node)
+         *            [nodeModuleId] the name of the script module to use for *
+         *            representing the parent nodes (defaults to the type of
+         *            this node)
          * @returns {array} the parents of this node - only null for a root node
          */
-        getParents : function alfresco_node_NodeHierarchyMixin__getParents(nodeModuleId)
+        getAllParents : function alfresco_node_NodeHierarchyMixin__getAllParents(nodeModuleId)
         {
             var result, parentAssocs, parentRefs, parents;
 
-            if (!this.hasOwnProperty('parents'))
+            if (!this.hasOwnProperty('allParents'))
             {
-                logger.debug('Initialising parents of {}', this.nodeRef);
+                logger.debug('Initialising all parents of {}', this.nodeRef);
 
                 parentRefs = [];
                 parentAssocs = NodeService.getParentAssocs(this.nodeRef);
@@ -156,7 +186,7 @@ define([ '_base/declare', '_base/ProxySupport', 'alfresco/common/QName', 'alfres
                 });
                 parents = nodeConversionUtils.convertNodes(parentRefs, this.declaredClass);
 
-                Object.defineProperty(this, 'parents', {
+                Object.defineProperty(this, 'allParents', {
                     get : function()
                     {
                         return parents.slice(0);
@@ -169,7 +199,7 @@ define([ '_base/declare', '_base/ProxySupport', 'alfresco/common/QName', 'alfres
             }
             else
             {
-                result = this.parents;
+                result = this.allParents;
             }
 
             if (nodeModuleId !== undefined && (typeof nodeModuleId !== 'string' || nodeModuleId.trim() === ''))
@@ -187,9 +217,9 @@ define([ '_base/declare', '_base/ProxySupport', 'alfresco/common/QName', 'alfres
         },
 
         /**
-         * The children of this node
+         * All children of this node
          * 
-         * @var children
+         * @var allChildren
          * @type {module:alfresco/node/_NodeHierarchyMixin[]}
          * @instance
          * @readonly
@@ -200,17 +230,18 @@ define([ '_base/declare', '_base/ProxySupport', 'alfresco/common/QName', 'alfres
          * 
          * @instance
          * @param {string}
-         *            [nodeModuleId] the name of the script module to use for representing the child nodes (defaults to the type of this
+         *            [nodeModuleId] the name of the script module to use for
+         *            representing the child nodes (defaults to the type of this
          *            node)
          * @returns {array} the children of this node - never null
          */
-        getChildren : function alfresco_node_NodeHierarchyMixin__getChildren(nodeModuleId)
+        getAllChildren : function alfresco_node_NodeHierarchyMixin__getAllChildren(nodeModuleId)
         {
             var result, childAssocs, childRefs, children;
 
-            if (!this.hasOwnProperty('children'))
+            if (!this.hasOwnProperty('allChildren'))
             {
-                logger.debug('Initialising children of {}', this.nodeRef);
+                logger.debug('Initialising all children of {}', this.nodeRef);
 
                 childRefs = [];
                 childAssocs = NodeService.getChildAssocs(this.nodeRef);
@@ -220,7 +251,7 @@ define([ '_base/declare', '_base/ProxySupport', 'alfresco/common/QName', 'alfres
                 });
                 children = nodeConversionUtils.convertNodes(childRefs, this.declaredClass);
 
-                Object.defineProperty(this, 'children', {
+                Object.defineProperty(this, 'allChildren', {
                     get : function alfresco_node_NodeHierarchyMixin__getChildren_get()
                     {
                         return children.slice(0);
@@ -233,7 +264,7 @@ define([ '_base/declare', '_base/ProxySupport', 'alfresco/common/QName', 'alfres
             }
             else
             {
-                result = this.children;
+                result = this.allChildren;
             }
 
             if (nodeModuleId !== undefined && (typeof nodeModuleId !== 'string' || nodeModuleId.trim() === ''))
@@ -251,8 +282,10 @@ define([ '_base/declare', '_base/ProxySupport', 'alfresco/common/QName', 'alfres
         },
 
         /**
-         * This function provides reset handling of a node, ensuring that all changed data will be discarded and next calls to operations
-         * are guaranteed to reflect the current node state. Overrides of this function must always make sure to call inherited().
+         * This function provides reset handling of a node, ensuring that all
+         * changed data will be discarded and next calls to operations are
+         * guaranteed to reflect the current node state. Overrides of this
+         * function must always make sure to call inherited().
          */
         reset : function alfresco_node_NodeHierarchyMixin__reset()
         {
@@ -261,7 +294,8 @@ define([ '_base/declare', '_base/ProxySupport', 'alfresco/common/QName', 'alfres
         },
 
         /**
-         * This function provides a specific hook for other modules to call to reset only cached data regarding node hierarchies when other
+         * This function provides a specific hook for other modules to call to
+         * reset only cached data regarding node hierarchies when other
          * operations may have changed the specific node state.
          */
         resetHierarchyCaches : function alfresco_node_NodeHierarchyMixin__resetHierarchyCaches()
@@ -270,21 +304,41 @@ define([ '_base/declare', '_base/ProxySupport', 'alfresco/common/QName', 'alfres
             logger.debug('Resetting hierarchy data of {}', this.nodeRef);
             delete this.parent;
             delete this.parentAssoc;
-            delete this.parents;
-            
-            delete this.children;
+            delete this.allParents;
+            this.parentAssocs.reset();
+            this.parents.reset();
+
+            delete this.allChildren;
+            this.childAssocs.reset();
+            this.children.reset();
         },
 
         /**
-         * This function provides a specific hook for other modules to call to reset only cached data regarding parent node hierarchies when
-         * other operations may have changed the specific node state.
+         * This function provides a specific hook for other modules to call to
+         * reset only cached data regarding parent node hierarchies when other
+         * operations may have changed the specific node state.
          */
         resetParentHierarchyCaches : function alfresco_node_NodeHierarchyMixin__resetParentHierarchyCaches()
         {
             logger.debug('Resetting parent hierarchy data of {}', this.nodeRef);
             delete this.parent;
             delete this.parentAssoc;
-            delete this.parents;
+            delete this.allParents;
+            this.parentAssocs.reset();
+            this.parents.reset();
+        },
+
+        /**
+         * This function provides a specific hook for other modules to call to
+         * reset only cached data regarding child node hierarchies when other
+         * operations may have changed the specific node state.
+         */
+        resetChildHierarchyCaches : function alfresco_node_NodeHierarchyMixin__resetChildHierarchyCaches()
+        {
+            logger.debug('Resetting child hierarchy data of {}', this.nodeRef);
+            delete this.allChildren;
+            this.childAssocs.reset();
+            this.children.reset();
         }
     });
 });

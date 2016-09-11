@@ -17,6 +17,7 @@
  * @requires module:alfresco/foundation/FileFolderService
  * @requires module:_base/logger
  * @requires module:nashorn!Java
+ * @author Axel Faust
  */
 define([ '_base/declare', '_base/ProxySupport', '../common/QName', '_base/ConversionService', '../foundation/DictionaryService',
         '../foundation/NodeService', '../foundation/FileFolderService', '_base/logger', 'nashorn!Java' ],
@@ -119,7 +120,7 @@ define([ '_base/declare', '_base/ProxySupport', '../common/QName', '_base/Conver
                     logger.debug('Loaded {} node property entries for {}', this.nodeProperties.size(), this.nodeRef);
                 },
 
-                // this overrides standard __get__ from ProxySupport implicitAccess only provided when called internally, not via ProxySupport
+                // this overrides standard __get__ from ProxySupport
                 __get__ : function alfresco_node_NodePropertiesMap__get__(prop, implicitAccess)
                 {
                     var qname, value, property, tempArray;
