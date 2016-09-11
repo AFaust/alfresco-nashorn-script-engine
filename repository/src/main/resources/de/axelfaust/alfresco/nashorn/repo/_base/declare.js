@@ -231,12 +231,12 @@ define(
 
                     if (typeof fn === 'function')
                     {
-                        logger.debug('Delegating inherited() for {} to {} of super-class {}', fnName, fn, ctor);
+                        logger.trace('Delegating inherited() for {} to {} of super-class {}', fnName, fn, ctor);
                         result = fn.apply(this, effectiveArgs);
                     }
                     else
                     {
-                        logger.debug('No function found for {} in linearized classes starting from {}', fnName, fnClsName);
+                        logger.trace('No function found for {} in linearized classes starting from {}', fnName, fnClsName);
                     }
                 }
                 else
