@@ -14,14 +14,15 @@
 
 (function declareTest()
 {
-    // need to bind ctxt early - won't be available when testObj.<fn> is invoked via extracted interface
+    // need to bind ctxt early - won't be available when testObj.<fn> is invoked
+    // via extracted interface
     var testObj, ctxt = context;
 
     testObj = {
 
         getTestFunctionNames : function declareTest_getTestFunctionNames()
         {
-            return Java.to([ 'testSimpleDeclare', 'testLinearInheritance', 'testNonLinearInheritance' ], 'java.util.List');
+            return Java.to([ 'testSimpleDeclare', 'testLinearInheritance', 'testNonLinearInheritance', 'testToString' ], 'java.util.List');
         },
 
         beforeScript : function declareTest_beforeScript()
@@ -33,7 +34,8 @@
             // now we can use define
             define.preload('loaderMetaLoader!nashorn');
 
-            // we don't remove Java here to allow simpler use of org.junit.Assert
+            // we don't remove Java here to allow simpler use of
+            // org.junit.Assert
             SimpleScriptTestCase.removeGlobals(engine, ctxt, [ 'print', 'Packages', 'JavaImporter', 'JSAdapter', 'com', 'edu', 'java',
                     'javax', 'javafx', 'org' ]);
 
@@ -210,7 +212,8 @@
                             }
                         });
 
-                        // ClsC before ClsB to have fn result in ACBD instead of ABCD (which could be mistaken for linear inheritance)
+                        // ClsC before ClsB to have fn result in ACBD instead of
+                        // ABCD (which could be mistaken for linear inheritance)
                         ClsD = declare('TestClassD', [ ClsC, ClsB ], {
                             x : 'D',
                             fn : function declareTest_testLinearInheritance_runTest_D_fn()
@@ -251,7 +254,8 @@
                         instance = new ClsD();
 
                         Assert.assertTrue('Instance of ClsD should pass instanceof test for ClsA', instance instanceof ClsA);
-                        // ClsB is a mixin and thus not supported by native instanceOf
+                        // ClsB is a mixin and thus not supported by native
+                        // instanceOf
                         Assert.assertFalse('Instance of ClsD should not pass instanceof test for mixin ClsB', instance instanceof ClsB);
                         Assert.assertTrue('Instance of ClsD should pass instanceof test for ClsC', instance instanceof ClsC);
                         Assert.assertTrue('Instance of ClsD should pass instanceof test for ClsD', instance instanceof ClsD);
@@ -275,6 +279,37 @@
                                         'fn invoked on instance of ClsD should provide constructed result through concatenating results from inherited()',
                                         'ACBD', instance.fn());
                     });
+        },
+
+        testToString : function declareTest_testToString()
+        {
+            'use strict';
+            var Assert = Java.type('org.junit.Assert');
+
+            require([ '_base/declare' ], function declareTest_testToString_runTest(declare)
+            {
+                var ClsA, ClsB, clsAInstance, clsBInstance;
+
+                ClsA = declare('TestClassA', {});
+                ClsB = declare('TestClassB', [ ClsA ], {
+                    toString : function declareTest_testToString_runTest_B_toString()
+                    {
+                        return 'Custom-toString-B';
+                    }
+                });
+
+                clsAInstance = new ClsA();
+
+                Assert.assertEquals('clsAInstance.toString() did not yield expected default value', '[object TestClassA]', clsAInstance
+                        .toString());
+                Assert.assertEquals('String(clsAInstance) did not yield expected default value', '[object TestClassA]',
+                        String(clsAInstance));
+
+                clsBInstance = new ClsB();
+
+                Assert.assertEquals('clsBInstance.toString() did not yield expected value', 'Custom-toString-B', clsBInstance.toString());
+                Assert.assertEquals('String(clsBInstance) did not yield expected value', 'Custom-toString-B', String(clsBInstance));
+            });
         }
     };
     return testObj;
