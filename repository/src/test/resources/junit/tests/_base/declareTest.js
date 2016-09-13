@@ -22,13 +22,15 @@
 
         getTestFunctionNames : function declareTest_getTestFunctionNames()
         {
+            'use strict';
             return Java.to(
-                    [ 'testSimpleDeclare', 'testLinearInheritance', 'testNonLinearInheritance', 'testToString', 'declaredClassTest' ],
+                    [ 'testSimpleDeclare', 'testLinearInheritance', 'testNonLinearInheritance', 'testToString', 'testDeclaredClass' ],
                     'java.util.List');
         },
 
         beforeScript : function declareTest_beforeScript()
         {
+            'use strict';
             var SimpleScriptTestCase = Java.type('de.axelfaust.alfresco.nashorn.repo.junit.tests.SimpleScriptTestCase');
 
             SimpleScriptTestCase.initializeAMD(engine, ctxt);
@@ -314,12 +316,12 @@
             });
         },
 
-        declaredClassTest : function declareTest_declaredClassTest()
+        testDeclaredClass : function declareTest_testDeclaredClass()
         {
             'use strict';
             var Assert = Java.type('org.junit.Assert');
 
-            require([ '_base/declare' ], function declareTest_declaredClassTest_runTest(declare)
+            require([ '_base/declare' ], function declareTest_testDeclaredClass_runTest(declare)
             {
                 var ClsA, ClsB, clsAInstance, clsBInstance;
 
@@ -327,7 +329,7 @@
                 ClsB = declare({});
 
                 Assert.assertEquals('ClsA.fnClsName did not match explicitely defined name', 'TestClassA', ClsA.fnClsName);
-                Assert.assertEquals('ClsB.fnClsName did not match expected default name pattern', /^anonClass_\d+$/.test(ClsA.fnClsName));
+                Assert.assertTrue('ClsB.fnClsName did not match expected default name pattern', /^anonClass_\d+$/.test(ClsB.fnClsName));
 
                 clsAInstance = new ClsA();
                 Assert.assertEquals('clsAInstance.declaredClass did not match explicitely defined name', 'TestClassA',

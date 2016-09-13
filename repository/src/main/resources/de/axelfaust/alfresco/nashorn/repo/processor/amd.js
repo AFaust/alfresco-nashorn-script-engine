@@ -128,7 +128,8 @@
                     {
                         commonLogger.trace('Calling normalize-function of loader {}', loaderName);
                     }
-                    // protect against loader manipulating the contextModule by using a derivative
+                    // protect against loader manipulating the contextModule by
+                    // using a derivative
                     if (isObject(contextModule))
                     {
                         derivativeContextModule = Object.create(contextModule, {
@@ -167,39 +168,49 @@
     }());
 
     /**
-     * The callback for successfull resolution of modules via the {@link require} function.
+     * The callback for successfull resolution of modules via the
+     * {@link require} function.
      * 
      * @callback requireResolutionCallback
      * @param {...object}
-     *            module - the resolved module in the order of the dependencies list
+     *            module - the resolved module in the order of the dependencies
+     *            list
      */
 
     /**
-     * The callback for failed resolutions of modules via the {@link require} function.
+     * The callback for failed resolutions of modules via the {@link require}
+     * function.
      * 
      * @callback requireResolutionErrorCallback
      * @param {string[]}
      *            dependencies - the list of dependencies requested
      * @param {object[]}
-     *            modules - the list of resolved modules in the order of the dependencies list
+     *            modules - the list of resolved modules in the order of the
+     *            dependencies list
      * @param {object[]}
-     *            implicitResults - the list of implicit return values from loading the module script files, even if files did not define an
-     *            actual module (in the order of the dependencies list)
+     *            implicitResults - the list of implicit return values from
+     *            loading the module script files, even if files did not define
+     *            an actual module (in the order of the dependencies list)
      */
 
     /**
-     * Immediately resolves a dependency or set of dependencies. This function can be used to get a reference to an already initialized
-     * single module by invoking it with just a single string parameter, or to resolve (and implicitly load if necessary) one or more
-     * modules with a success and optional failure callback.
+     * Immediately resolves a dependency or set of dependencies. This function
+     * can be used to get a reference to an already initialized single module by
+     * invoking it with just a single string parameter, or to resolve (and
+     * implicitly load if necessary) one or more modules with a success and
+     * optional failure callback.
      * 
      * @global
      * @param {string|string[]}
-     *            dependencies - the dependency/depenendcies that need to be resolved - if this is an array of modules then the callback
+     *            dependencies - the dependency/depenendcies that need to be
+     *            resolved - if this is an array of modules then the callback
      *            variant of this function must be used
      * @param {requireResolutionCallback}
-     *            [callback] - the callback function to execute when the dependencies have been loaded / initialized
+     *            [callback] - the callback function to execute when the
+     *            dependencies have been loaded / initialized
      * @param {requireResolutionErrorCallback}
-     *            [errCallback] - the callback function to execute when the dependencies could not be loaded / initialized
+     *            [errCallback] - the callback function to execute when the
+     *            dependencies could not be loaded / initialized
      */
     require = function amd__require(dependencies, callback, errCallback)
     {
@@ -213,14 +224,35 @@
 
         if (typeof dependencies === 'string')
         {
-            if (requireLogger.traceEnabled)
+            if (requireLogger.debugEnabled)
             {
-                requireLogger.trace('Resolving single dependency {} for call to require(string)', dependencies);
+                requireLogger.debug('Resolving single dependency {} for call to require(string)', dependencies);
             }
             // require(string)
             normalizedModuleId = normalizeModuleId(dependencies, contextModule, contextScriptUrl);
-            // MUST fail if module is not yet defined or initialised
-            module = moduleManagement.getModule(normalizedModuleId, false, isSecure, contextScriptUrl);
+
+            try
+            {
+                // MUST fail if module is not yet defined or initialised
+                module = moduleManagement.getModule(normalizedModuleId, false, isSecure, contextScriptUrl);
+            }
+            catch (e)
+            {
+                if (requireLogger.debugEnabled)
+                {
+                    if (e.nashornException instanceof Throwable)
+                    {
+                        requireLogger
+                                .debug('Failed to resolve dependency {} for call to require(string)', dependencies, e.nashornException);
+                    }
+                    else
+                    {
+                        requireLogger.debug('Failed to resolve dependency {} for call to require(string) - {}', dependencies, e.message);
+                    }
+                }
+
+                throw e;
+            }
 
             return module;
         }
@@ -231,9 +263,9 @@
             implicitArgs = [];
             failOnMissingDependency = typeof errCallback !== 'function';
 
-            if (requireLogger.traceEnabled)
+            if (requireLogger.debugEnabled)
             {
-                requireLogger.trace('Resolving {} dependencies for call to require(string[], function, function?)', dependencies.length);
+                requireLogger.debug('Resolving {} dependencies for call to require(string[], function, function?)', dependencies.length);
             }
 
             dependencies.forEach(function amd__require_forEachDependency(dependency)
@@ -252,21 +284,18 @@
                 catch (e)
                 {
                     module = null;
-                    if (requireLogger.traceEnabled)
+                    if (requireLogger.debugEnabled)
                     {
                         if (e.nashornException instanceof Throwable)
                         {
-                            requireLogger.trace('Failed to resolve dependency', e.nashornException);
+                            requireLogger.debug('Failed to resolve dependency {} for call to require(string[], function, function?)',
+                                    dependency, e.nashornException);
                         }
                         else
                         {
-                            requireLogger.trace('Failed to resolve dependency - {}', e.message);
+                            requireLogger.debug('Failed to resolve dependency {} for call to require(string[], function, function?) - {}',
+                                    dependency, e.message);
                         }
-                    }
-                    if (requireLogger.debugEnabled)
-                    {
-                        requireLogger.debug('Failed to resolve dependency {} for call to require(string[], function, function?)',
-                                dependency);
                     }
 
                     // rethrow
@@ -278,8 +307,10 @@
 
                 args.push(module);
 
-                // undefined / null are perfectly valid results of a module factory
-                // missingModule only triggers special handling if errCallback has been provided
+                // undefined / null are perfectly valid results of a module
+                // factory
+                // missingModule only triggers special handling if errCallback
+                // has been provided
                 if (module === undefined || module === null)
                 {
                     if (requireLogger.traceEnabled)
@@ -290,7 +321,8 @@
                     missingModule = true;
                 }
 
-                // only need to track implicit resolutions if we allow reoslution failures
+                // only need to track implicit resolutions if we allow
+                // reoslution failures
                 if (failOnMissingDependency !== true)
                 {
                     module = moduleRegistry.getModule(normalizedModuleId);
@@ -317,7 +349,8 @@
                 {
                     requireLogger.debug('Calling errCallback for call to require(string[], function, function?)');
                 }
-                // signature is fn(dependencies[], moduleResolutions[], implicitResolutions[])
+                // signature is fn(dependencies[], moduleResolutions[],
+                // implicitResolutions[])
                 result = errCallback.call(this, dependencies, args, implicitArgs);
             }
             else if (typeof callback === 'function')
@@ -383,7 +416,8 @@
                             am = active.modules;
 
                             // simply use backup-ed module as prototype
-                            // prevent prototype mutation by re-adding mutables locally
+                            // prevent prototype mutation by re-adding mutables
+                            // locally
                             module = Object.create(backupModule, {
                                 initialized : {
                                     value : backupModule.initialized,
@@ -460,7 +494,8 @@
                             if (copiedListener === undefined)
                             {
                                 // simply use backup-ed listener as prototype
-                                // prevent prototype mutation by re-adding mutables locally
+                                // prevent prototype mutation by re-adding
+                                // mutables locally
                                 copiedListener = Object.create(listener, {
                                     triggered : {
                                         value : listener.triggered,
@@ -522,7 +557,9 @@
                             bm = backup.modules;
 
                             transferredModuleIds = [];
-                            // can't use hasOwnProperty on JSObject am and no prototype exists to inject unwanted/unintended properties
+                            // can't use hasOwnProperty on JSObject am and no
+                            // prototype exists to inject unwanted/unintended
+                            // properties
                             /* jshint forin: false */
                             for (moduleId in am)
                             {
@@ -552,7 +589,9 @@
                             albm = active.moduleListenersByModule;
                             blbm = backup.moduleListenersByModule;
 
-                            // can't use hasOwnProperty on JSObject albm and no prototype exists to inject unwanted/unintended properties
+                            // can't use hasOwnProperty on JSObject albm and no
+                            // prototype exists to inject unwanted/unintended
+                            // properties
                             /* jshint forin: false */
                             for (moduleId in albm)
                             {
@@ -655,8 +694,12 @@
                                                 {
                                                     if (module === undefined && backedUpModules[moduleId].url === moduleUrl)
                                                     {
-                                                        // this inheritantly marks the module as "active" in current execution context to
-                                                        // improve future lookups by url
+                                                        // this inheritantly
+                                                        // marks the module as
+                                                        // "active" in current
+                                                        // execution context to
+                                                        // improve future
+                                                        // lookups by url
                                                         module = internal.getModule(moduleId);
                                                     }
                                                 });
@@ -871,7 +914,8 @@
                         result = fn.apply(scope, args);
                     }
 
-                    // result of call won't be converted into "special module"-aware
+                    // result of call won't be converted into "special
+                    // module"-aware
 
                     return result;
                 }
@@ -892,7 +936,8 @@
                         var result;
                         if (descriptor.hasOwnProperty('callerTagged') && descriptor.callerTagged === true)
                         {
-                            // property might be associated with a caller-aware getter
+                            // property might be associated with a caller-aware
+                            // getter
                             withTaggedCaller(
                                     function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__get__callerTagged()
                                     {
@@ -915,7 +960,8 @@
                         var result;
                         if (descriptor.hasOwnProperty('callerTagged') && descriptor.callerTagged === true)
                         {
-                            // property might be associated with a caller-aware setter
+                            // property might be associated with a caller-aware
+                            // setter
                             withTaggedCaller(
                                     function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__put__callerTagged()
                                     {
@@ -960,7 +1006,8 @@
 
                         if (descriptor.hasOwnProperty('callerTagged') && descriptor.callerTagged === true)
                         {
-                            // properties might be associated with a caller-aware getter
+                            // properties might be associated with a
+                            // caller-aware getter
                             withTaggedCaller(
                                     function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__getValues__callerTagged()
                                     {
@@ -977,7 +1024,8 @@
                         }
                         else
                         {
-                            // bug in jshint - claims name as implicitly defined global if included in first var block
+                            // bug in jshint - claims name as implicitly defined
+                            // global if included in first var block
                             /* jshint ignore:start */
                             var name, value;
                             for (name in module)
@@ -1041,7 +1089,8 @@
                             result = new BoundCtor();
                         }
 
-                        // result of constructor won't be converted into "special module"-aware
+                        // result of constructor won't be converted into
+                        // "special module"-aware
 
                         return result;
                     }
@@ -1085,7 +1134,8 @@
                                                     isSecureSource === true);
                                         }
 
-                                        // minimal module for URL - just enough for context use
+                                        // minimal module for URL - just enough
+                                        // for context use
                                         module = Object.create(Object.prototype, {
                                             id : {
                                                 value : normalizedId,
@@ -1118,8 +1168,11 @@
                                         });
                                         moduleRegistry.addModule(module);
 
-                                        // we load with custom scope to prevent pollution of the potentially shared global
-                                        // provide global modules as potentially script-bound variants
+                                        // we load with custom scope to prevent
+                                        // pollution of the potentially shared
+                                        // global
+                                        // provide global modules as potentially
+                                        // script-bound variants
                                         customScope = Object.create(defaultScope, {
                                             define : {
                                                 value : moduleManagement.getModule('define', true, isSecureSource === true, urlStr)
@@ -1148,13 +1201,18 @@
                                             implicitResult = nashornLoad.call(customScope, url);
                                         }
 
-                                        // no module defined yet by requested module id
-                                        // may be a non-module script with implicit return value
+                                        // no module defined yet by requested
+                                        // module id
+                                        // may be a non-module script with
+                                        // implicit return value
                                         module = moduleRegistry.getModule(normalizedId);
                                         if (module === null)
                                         {
                                             // script may not define a module
-                                            // we store the result of script execution for require(dependencies[], successFn, errorFn)
+                                            // we store the result of script
+                                            // execution for
+                                            // require(dependencies[],
+                                            // successFn, errorFn)
                                             if (commonLogger.debugEnabled)
                                             {
                                                 commonLogger.debug('Module {} from url {} yielded implicit result {}', normalizedId, url,
@@ -1342,7 +1400,8 @@
                                             {
                                                 commonLogger.debug('Module {} not defined after explicit load', normalizedId);
                                             }
-                                            // avoid repeated loads by caching missed-resolution
+                                            // avoid repeated loads by caching
+                                            // missed-resolution
                                             moduleRegistry.addModule(DUMMY_MODULE, normalizedId);
 
                                             throw new AMDUnavailableModuleException('Module \'' + normalizedId
@@ -1503,7 +1562,9 @@
                                             }
                                             moduleResult = module.result;
 
-                                            // special case where module was only defined to track implicit return values
+                                            // special case where module was
+                                            // only defined to track implicit
+                                            // return values
                                             // see _load
                                             if (moduleResult === null && module.hasOwnProperty('implicitResult'))
                                             {
@@ -1818,8 +1879,10 @@
 
             if (packLocation !== null && typeof packLocation === 'string')
             {
-                // TODO Can we relax this? Location is intended to be a virtual prefix to the module ID, so it
-                // needs to conform to same rules we apply on packLoader as module ID
+                // TODO Can we relax this? Location is intended to be a virtual
+                // prefix to the module ID, so it
+                // needs to conform to same rules we apply on packLoader as
+                // module ID
                 if (!(/^(?:\w|[\-_.])+(?:\/(?:\w|[\-_.])+)*$/.test(packLocation)))
                 {
                     throw new Error('Location for for package \'' + packName + '\' is not a valid string');
@@ -1880,14 +1943,17 @@
         };
 
         /**
-         * Retrieves the URL of the script file calling the caller. The script URL is determined from the current stack and excludes both
-         * the script of this operation as well as the immediate caller. Unless explicitly specified not to, this function will respect any
-         * fixed caller script URL tagged in the current execution context.
+         * Retrieves the URL of the script file calling the caller. The script
+         * URL is determined from the current stack and excludes both the script
+         * of this operation as well as the immediate caller. Unless explicitly
+         * specified not to, this function will respect any fixed caller script
+         * URL tagged in the current execution context.
          * 
          * @instance
          * @memberof require
          * @param {boolean}
-         *            suppressTaggedCaller - if this function should ignore the current tagged caller state and lookup the real caller
+         *            suppressTaggedCaller - if this function should ignore the
+         *            current tagged caller state and lookup the real caller
          *            script file
          * @returns {string} the URL of the calling script file
          */
@@ -1895,7 +1961,8 @@
         {
             var contextScriptUrl;
 
-            // skip this and the caller script to determine script URL of callers caller
+            // skip this and the caller script to determine script URL of
+            // callers caller
             if (suppressTaggedCaller === true)
             {
                 contextScriptUrl = NashornUtils.getCallerScriptURL(2, true);
@@ -1915,10 +1982,14 @@
          * @instance
          * @memberof require
          * @param {string}
-         *            contextScriptUrl - the script file URL for which to retrieve the defined module ID
-         * @returns {string|undefined} the module ID for the script file - since script files loaded via a loader module always define at
-         *          least an implicit module based on the implicit return value, the only time the result may be undefined would be if no
-         *          script file identified by the URL has been loaded at all, or the implicit result value was undefined and the script file
+         *            contextScriptUrl - the script file URL for which to
+         *            retrieve the defined module ID
+         * @returns {string|undefined} the module ID for the script file - since
+         *          script files loaded via a loader module always define at
+         *          least an implicit module based on the implicit return value,
+         *          the only time the result may be undefined would be if no
+         *          script file identified by the URL has been loaded at all, or
+         *          the implicit result value was undefined and the script file
          *          did not explicitly define any module
          */
         require.getScriptFileModuleId = function amd__require__getScriptFileModuleId(contextScriptUrl)
@@ -1952,13 +2023,16 @@
         require.getScriptFileModuleId._specialHandling = false;
 
         /**
-         * Retrieves the name of the loader module used to load a specific script file.
+         * Retrieves the name of the loader module used to load a specific
+         * script file.
          * 
          * @instance
          * @memberof require
          * @param {string}
-         *            contextScriptUrl - the script file URL for which to retrieve the loader module name
-         * @returns {string|undefined} the loader module name if the script file identified by the URL has been loaded via a loader
+         *            contextScriptUrl - the script file URL for which to
+         *            retrieve the loader module name
+         * @returns {string|undefined} the loader module name if the script file
+         *          identified by the URL has been loaded via a loader
          */
         require.getScriptFileModuleLoader = function amd__require__getScriptFileModuleLoader(contextScriptUrl)
         {
@@ -1986,15 +2060,18 @@
         require.getScriptFileModuleLoader._specialHandling = false;
 
         /**
-         * Executes a callback with a fixed caller script URL tagged in the current execution context. The script URL is determined from the
-         * current stack and excludes both the script of this operation as well as the immediate caller.
+         * Executes a callback with a fixed caller script URL tagged in the
+         * current execution context. The script URL is determined from the
+         * current stack and excludes both the script of this operation as well
+         * as the immediate caller.
          * 
          * @instance
          * @memberof require
          * @param {function}
          *            callback - the callback to execute
          * @param {boolean}
-         *            [untaggedOnly] - flag if the execution context should only be tagged if not already tagged at the time of the call
+         *            [untaggedOnly] - flag if the execution context should only
+         *            be tagged if not already tagged at the time of the call
          */
         require.withTaggedCallerScript = function amd__require__withTaggedCallerScript(callback, untaggedOnly)
         {
@@ -2082,20 +2159,26 @@
      * 
      * @callback defineModuleFactory
      * @param {...object}
-     *            module - the resolved module(s) in the order specified in the modules dependencies list
+     *            module - the resolved module(s) in the order specified in the
+     *            modules dependencies list
      */
 
     /**
-     * Defines a new module that can then be requested / required from client code or other modules.
+     * Defines a new module that can then be requested / required from client
+     * code or other modules.
      * 
      * @global
      * @param {string}
-     *            [moduleId] - the ID of the module being defined - if this parameter is not provided the define function will try to derive
-     *            an implicit ID from the current execution context (e.g. references used to load the currently executed script file)
+     *            [moduleId] - the ID of the module being defined - if this
+     *            parameter is not provided the define function will try to
+     *            derive an implicit ID from the current execution context (e.g.
+     *            references used to load the currently executed script file)
      * @param {string[]}
-     *            [dependencies] - the list of module dependencies for the module to be defined
+     *            [dependencies] - the list of module dependencies for the
+     *            module to be defined
      * @param {defineModuleFactory}
-     *            factory - the factory callback to construct the module if it is requested / required
+     *            factory - the factory callback to construct the module if it
+     *            is requested / required
      */
     define = function amd__define()
     {
@@ -2137,7 +2220,8 @@
 
         if (dependencies === undefined)
         {
-            // we don't default to standard dependencies of CommonJS (["require", "exports", "module"})
+            // we don't default to standard dependencies of CommonJS
+            // (["require", "exports", "module"})
             dependencies = [];
         }
 
@@ -2220,8 +2304,9 @@
     };
 
     /**
-     * Wraps and tags a module with one or multiple feature flags that the AMD module system handles accordingly when references to the
-     * module are requested as dependencies of other modules.
+     * Wraps and tags a module with one or multiple feature flags that the AMD
+     * module system handles accordingly when references to the module are
+     * requested as dependencies of other modules.
      * 
      * @instance
      * @memberof define
@@ -2257,16 +2342,19 @@
     define.asSpecialModule._specialHandling = false;
 
     /**
-     * Preloads a specific module in such a way that its defining script file is loaded to ensure that the module is defined. This operation
-     * will not cause any module factory to be called.
+     * Preloads a specific module in such a way that its defining script file is
+     * loaded to ensure that the module is defined. This operation will not
+     * cause any module factory to be called.
      * 
      * @instance
      * @memberof define
      * @param {string}
      *            moduleId - the ID of the module to preload
      * @param {string}
-     *            [aliasModuleId] - an alternative ID of the module to be used to lookup / initialize the module after load (in case the
-     *            moduleId is used to load a module which specifies a different module ID in its call to define)
+     *            [aliasModuleId] - an alternative ID of the module to be used
+     *            to lookup / initialize the module after load (in case the
+     *            moduleId is used to load a module which specifies a different
+     *            module ID in its call to define)
      */
     define.preload = function amd__define_preload(moduleId, aliasModuleId)
     {
@@ -2290,7 +2378,8 @@
                 }
                 moduleManagement.loadModule(normalizedModuleId, true);
 
-                // if it a module has been registered with the expected name initialize it too
+                // if it a module has been registered with the expected name
+                // initialize it too
                 // check for provided aliasModuleId first
                 if (typeof aliasModuleId === 'string')
                 {
@@ -2356,16 +2445,17 @@
         }
 
         /**
-         * This loader module provides the ability to bootstrap / load the other core module loaders of the Nashorn script engine AMD
-         * framework.
+         * This loader module provides the ability to bootstrap / load the other
+         * core module loaders of the Nashorn script engine AMD framework.
          * 
          * @module loaderMetaLoader
          * @author Axel Faust
          */
         loaderMetaLoader = {
             /**
-             * Loads a core module loader from the classpath location de/axelfaust/alfresco/nashorn/repo/loaders without any support for
-             * overriding via Alfresco extension paths.
+             * Loads a core module loader from the classpath location
+             * de/axelfaust/alfresco/nashorn/repo/loaders without any support
+             * for overriding via Alfresco extension paths.
              * 
              * @instance
              * @param {string}
@@ -2373,10 +2463,15 @@
              * @param {function}
              *            require - the context-sensitive require function
              * @param {function}
-             *            load - the callback to load either a pre-built object as the module result or a script defining a module from a
-             *            script URL
+             *            load - the callback to load either a pre-built object
+             *            as the module result or a script defining a module
+             *            from a script URL
              */
-            load : function amd__loaderMetaLoader__load(normalizedId, /* jshint unused: false */require, load)
+            load : function amd__loaderMetaLoader__load(normalizedId, /*
+                                                                         * jshint
+                                                                         * unused:
+                                                                         * false
+                                                                         */require, load)
             {
                 var url = new URL('rawclasspath', null, -1, 'de/axelfaust/alfresco/nashorn/repo/loaders/' + normalizedId, streamHandler);
 

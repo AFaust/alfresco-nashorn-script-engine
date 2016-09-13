@@ -15,6 +15,8 @@
     <logger name="de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader" level="INFO"/>
     <logger name="de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.noSuchProperty" level="INFO"/>
     <logger name="de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.amd" level="INFO"/>
+    <logger name="de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.amd.define" level="DEBUG"/>
+    <logger name="de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.amd.require" level="DEBUG"/>
     <logger name="de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.logger" level="INFO"/>
     
 </configuration>
