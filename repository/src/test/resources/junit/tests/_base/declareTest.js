@@ -22,7 +22,9 @@
 
         getTestFunctionNames : function declareTest_getTestFunctionNames()
         {
-            return Java.to([ 'testSimpleDeclare', 'testLinearInheritance', 'testNonLinearInheritance', 'testToString' ], 'java.util.List');
+            return Java.to(
+                    [ 'testSimpleDeclare', 'testLinearInheritance', 'testNonLinearInheritance', 'testToString', 'declaredClassTest' ],
+                    'java.util.List');
         },
 
         beforeScript : function declareTest_beforeScript()
@@ -309,6 +311,31 @@
 
                 Assert.assertEquals('clsBInstance.toString() did not yield expected value', 'Custom-toString-B', clsBInstance.toString());
                 Assert.assertEquals('String(clsBInstance) did not yield expected value', 'Custom-toString-B', String(clsBInstance));
+            });
+        },
+
+        declaredClassTest : function declareTest_declaredClassTest()
+        {
+            'use strict';
+            var Assert = Java.type('org.junit.Assert');
+
+            require([ '_base/declare' ], function declareTest_declaredClassTest_runTest(declare)
+            {
+                var ClsA, ClsB, clsAInstance, clsBInstance;
+
+                ClsA = declare('TestClassA', {});
+                ClsB = declare({});
+
+                Assert.assertEquals('ClsA.fnClsName did not match explicitely defined name', 'TestClassA', ClsA.fnClsName);
+                Assert.assertEquals('ClsB.fnClsName did not match expected default name pattern', /^anonClass_\d+$/.test(ClsA.fnClsName));
+
+                clsAInstance = new ClsA();
+                Assert.assertEquals('clsAInstance.declaredClass did not match explicitely defined name', 'TestClassA',
+                        clsAInstance.declaredClass);
+
+                clsBInstance = new ClsB();
+                Assert.assertTrue('clsBInstance.declaredClass did not match expected default name pattern', /^anonClass_\d+$/
+                        .test(clsBInstance.declaredClass));
             });
         }
     };
