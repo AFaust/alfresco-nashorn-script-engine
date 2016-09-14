@@ -2467,11 +2467,7 @@
              *            as the module result or a script defining a module
              *            from a script URL
              */
-            load : function amd__loaderMetaLoader__load(normalizedId, /*
-                                                                         * jshint
-                                                                         * unused:
-                                                                         * false
-                                                                         */require, load)
+            load : function amd__loaderMetaLoader__load(normalizedId, /*jshint unused: false */require, load)
             {
                 var url = new URL('rawclasspath', null, -1, 'de/axelfaust/alfresco/nashorn/repo/loaders/' + normalizedId, streamHandler);
 

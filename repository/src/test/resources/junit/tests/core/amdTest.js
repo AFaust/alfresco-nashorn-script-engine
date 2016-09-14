@@ -23,7 +23,7 @@
         getTestFunctionNames : function amdTest_getTestFunctionNames()
         {
             'use strict';
-            return Java.to([ 'testBasicDefine' ], 'java.util.List');
+            return Java.to([ 'testBasicDefine', 'testLoaderPluginDefine', 'testSecureLoaderPluginDefine' ], 'java.util.List');
         },
 
         beforeScript : function amdTest_beforeScript()
@@ -33,10 +33,20 @@
 
             SimpleScriptTestCase.initializeAMD(engine, ctxt);
 
+            define.preload('loaderMetaLoader!test');
+
             // we don't remove Java here to allow simpler use of
             // org.junit.Assert
             SimpleScriptTestCase.removeGlobals(engine, ctxt, [ 'print', 'Packages', 'JavaImporter', 'JSAdapter', 'com', 'edu', 'java',
                     'javax', 'javafx', 'org' ]);
+
+            require([ 'test' ], function amdTest_testSecureLoaderPluginDefine_registerDummyModule(testLoader)
+            {
+                testLoader.prepareModule('dummy', '/junit/tests/core/amdTest.js', true, 'dummy');
+            });
+
+            // empty config
+            require.config({});
         },
 
         testBasicDefine : function amdTest_testBasicDefine()
@@ -117,6 +127,96 @@
             {
                 Assert.fail('"basic" module should have been transitively initialized');
             }
+        },
+
+        testLoaderPluginDefine : function amdTest_testLoaderPluginDefine()
+        {
+            'use strict';
+            var Assert, err;
+
+            Assert = Java.type('org.junit.Assert');
+
+            define('testLoader', function amdTest_testLoaderPluginDefine_testLoaderFactory()
+            {
+                return {
+                    normalize : function amdTest_testLoaderPluginDefine_testLoader_normalize(moduleId, normalizeSimpleId, contextModule)
+                    {
+                        Assert.assertTrue('Module ID does not match requested raw ID', /^basic(Secure)?$/.test(moduleId));
+
+                        return 'normalized/' + moduleId;
+                    },
+
+                    load : function amdTest_testLoaderPluginDefine_testLoader_load(normalizedId, require, load)
+                    {
+                        Assert.assertTrue('Module ID has not been normalized', /^normalized\/basic(Secure)?$/.test(normalizedId));
+
+                        load(normalizedId + 'Module', /.*Secure$/.test(normalizedId));
+                    }
+                };
+            });
+
+            require([ 'testLoader!basic' ], function amdTest_testLoaderPluginDefine_basicModuleRequireCallback(basicModule)
+            {
+                Assert.assertEquals('"basic" module was not resolved to expected value', 'normalized/basicModule', basicModule);
+            });
+
+            err = null;
+            try
+            {
+                require([ 'testLoader!basicSecure' ], function amdTest_testLoaderPluginDefine_basicSecureModuleRequireCallback(basicModule)
+                {
+                    Assert.assertEquals('"basicSecure" module was not resolved to expected value', 'normalized/basicSecureModule',
+                            basicModule);
+                });
+                Assert.fail('require should have thrown error about insecure loader attempting to define "basicSecure" module as secure');
+            }
+            catch (e)
+            {
+                err = e;
+            }
+            Assert.assertNotNull('An error should have been thrown trying to load "basicSecure" module from insecure loader', err);
+            Assert.assertTrue('Native error should have been thrown', err instanceof Error);
+            Assert.assertEquals('Error message did not match expectation',
+                    'Insecure loader module \'testLoader\' cannot declare a loaded module as secure', err.message);
+        },
+
+        testSecureLoaderPluginDefine : function amdTest_testSecureLoaderPluginDefine()
+        {
+            'use strict';
+            var Assert = Java.type('org.junit.Assert');
+
+            // force load of module to register this script as secure
+            require([ 'test!dummy' ], function nashornTest_before_loaded(dummy)
+            {
+
+            });
+
+            define('secureTestLoader', function amdTest_testSecureLoaderPluginDefinee_secureTestLoaderFactory()
+            {
+                return {
+                    normalize : function amdTest_testSecureLoaderPluginDefinee_secureTestLoader_normalize(moduleId, normalizeSimpleId,
+                            contextModule)
+                    {
+                        Assert.assertTrue('Module ID does not match requested raw ID', /^basic(Secure)?$/.test(moduleId));
+
+                        return 'normalized/' + moduleId;
+                    },
+
+                    load : function amdTest_testSecureLoaderPluginDefine_secureTestLoader_load(normalizedId, require, load)
+                    {
+                        Assert.assertTrue('Module ID has not been normalized', /^normalized\/basic(Secure)?$/.test(normalizedId));
+
+                        load(normalizedId + 'Module', /.*Secure$/.test(normalizedId));
+                    }
+                };
+            });
+
+            require([ 'secureTestLoader!basicSecure' ],
+                    function amdTest_testSecureLoaderPluginDefine_basicSecureModuleRequireCallback(basicModule)
+                    {
+                        Assert.assertEquals('"basicSecure" module was not resolved to expected value', 'normalized/basicSecureModule',
+                                basicModule);
+                    });
         }
     };
     return testObj;
