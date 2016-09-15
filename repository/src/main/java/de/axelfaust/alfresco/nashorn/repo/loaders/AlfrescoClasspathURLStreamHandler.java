@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.alfresco.util.Pair;
 import org.alfresco.util.PropertyCheck;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,8 +37,8 @@ import de.axelfaust.alfresco.nashorn.repo.processor.ResettableScriptProcessorEle
 /**
  * @author Axel Faust
  */
-public class AlfrescoClasspathURLStreamHandler extends URLStreamHandler implements InitializingBean, DisposableBean,
-        ResettableScriptProcessorElement
+public class AlfrescoClasspathURLStreamHandler extends URLStreamHandler
+        implements InitializingBean, DisposableBean, ResettableScriptProcessorElement
 {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AlfrescoClasspathURLStreamHandler.class);
@@ -50,7 +51,7 @@ public class AlfrescoClasspathURLStreamHandler extends URLStreamHandler implemen
 
     protected String extensionPath;
 
-    protected final Map<String, List<String>> precedenceChainByScript = new HashMap<String, List<String>>();
+    protected final Map<Pair<String, Boolean>, List<String>> precedenceChainByScript = new HashMap<Pair<String, Boolean>, List<String>>();
 
     protected final Map<String, ScriptFile> scriptHandles = new HashMap<String, ScriptFile>();
 
@@ -198,11 +199,12 @@ public class AlfrescoClasspathURLStreamHandler extends URLStreamHandler implemen
 
     protected List<String> getOrCreatePrecedenceChain(final String script, final boolean allowExtension)
     {
-        List<String> precendenceChain = this.precedenceChainByScript.get(script);
+        final Pair<String, Boolean> key = new Pair<String, Boolean>(script, Boolean.valueOf(allowExtension));
+        List<String> precendenceChain = this.precedenceChainByScript.get(key);
         if (precendenceChain == null)
         {
             precendenceChain = new ArrayList<String>();
-            this.precedenceChainByScript.put(script, precendenceChain);
+            this.precedenceChainByScript.put(key, precendenceChain);
 
             if (script.endsWith(".js") || script.endsWith(".nashornjs"))
             {

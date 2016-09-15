@@ -42,7 +42,7 @@
 
             require([ 'test' ], function amdTest_testSecureLoaderPluginDefine_registerDummyModule(testLoader)
             {
-                testLoader.prepareModule('dummy', '/junit/tests/core/amdTest.js', true, 'dummy');
+                testLoader.prepareModule('dummy', '/junit/tests/processor/amdTest.js', true, 'dummy');
             });
 
             // empty config
