@@ -21,7 +21,7 @@ import de.axelfaust.alfresco.nashorn.repo.junit.runners.ScriptSuite;
  * @author Axel Faust
  */
 @RunWith(ScriptSuite.class)
-@ScriptSuite.SuiteFolders({ "/junit/tests/loaders", "/junit/tests/core" })
+@ScriptSuite.SuiteFolders({ "/junit/tests/processor", "/junit/tests/loaders" })
 public class CoreSuite
 {
 
