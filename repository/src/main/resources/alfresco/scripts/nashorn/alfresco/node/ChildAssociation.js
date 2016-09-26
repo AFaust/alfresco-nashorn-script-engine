@@ -90,7 +90,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', 'a
             if (this.typeQName === undefined)
             {
                 Object.defineProperty(this, 'typeQName', {
-                    value : QName.valueOf(childAssoc.typeQName),
+                    value : QName.valueOf(this.childAssoc.typeQName),
                     enumerable : true
                 });
             }
@@ -119,7 +119,7 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', 'a
             if (this.childQName === undefined)
             {
                 Object.defineProperty(this, 'childQName', {
-                    value : QName.valueOf(childAssoc.qName),
+                    value : QName.valueOf(this.childAssoc.qName),
                     enumerable : true
                 });
             }
