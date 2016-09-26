@@ -42,14 +42,6 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', 'a
                         value : childAssoc,
                         enumerable : true
                     },
-                    typeQName : {
-                        value : QName.valueOf(childAssoc.typeQName),
-                        enumerable : true
-                    },
-                    childQName : {
-                        value : QName.valueOf(childAssoc.qName),
-                        enumerable : true
-                    },
                     primary : {
                         value : childAssoc.isPrimary(),
                         enumerable : true
@@ -84,6 +76,27 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', 'a
          * @readonly
          * @memberof module:alfresco/node/ChildAssociation
          */
+
+        /**
+         * Retrieves the qualified name of the association type.
+         * 
+         * @instance
+         * 
+         * @returns {module:alfresco/common/QName} the qualified name of the
+         *          association type
+         */
+        getTypeQName : function alfresco_node_ChildAssociation__getTypeQName()
+        {
+            if (this.typeQName === undefined)
+            {
+                Object.defineProperty(this, 'typeQName', {
+                    value : QName.valueOf(childAssoc.typeQName),
+                    enumerable : true
+                });
+            }
+
+            return this.typeQName;
+        },
         /**
          * The child qname for this child association
          * 
@@ -93,6 +106,26 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', 'a
          * @readonly
          * @memberof module:alfresco/node/ChildAssociation
          */
+        /**
+         * Retrieves the qualified name of the child.
+         * 
+         * @instance
+         * 
+         * @returns {module:alfresco/common/QName} the qualified name of the
+         *          child
+         */
+        getChildQName : function alfresco_node_ChildAssociation__getChildQName()
+        {
+            if (this.childQName === undefined)
+            {
+                Object.defineProperty(this, 'childQName', {
+                    value : QName.valueOf(childAssoc.qName),
+                    enumerable : true
+                });
+            }
+
+            return this.childQName;
+        },
         /**
          * The flag indicating if this child association is a primary chil
          * association, i.e. if permissions and deletions cascade / inherit
