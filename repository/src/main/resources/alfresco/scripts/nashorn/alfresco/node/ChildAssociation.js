@@ -87,8 +87,9 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', 'a
          */
         getTypeQName : function alfresco_node_ChildAssociation__getTypeQName()
         {
-            if (this.typeQName === undefined)
+            if (!this.hasOwnProperty('typeQName'))
             {
+                logger.debug('Initialising typeQName of {}', this.childAssoc);
                 Object.defineProperty(this, 'typeQName', {
                     value : QName.valueOf(this.childAssoc.typeQName),
                     enumerable : true
@@ -116,8 +117,9 @@ define([ '_base/declare', '_base/JavaConvertableMixin', '_base/ProxySupport', 'a
          */
         getChildQName : function alfresco_node_ChildAssociation__getChildQName()
         {
-            if (this.childQName === undefined)
+            if (!this.hasOwnProperty('childQName'))
             {
+                logger.debug('Initialising childQName of {}', this.childAssoc);
                 Object.defineProperty(this, 'childQName', {
                     value : QName.valueOf(this.childAssoc.qName),
                     enumerable : true
