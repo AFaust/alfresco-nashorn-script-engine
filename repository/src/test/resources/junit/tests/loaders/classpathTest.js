@@ -88,6 +88,8 @@
                         Assert.assertEquals('SimpleModuleB yielded unexpected value', 'Overriden Simple Module B', SimpleModuleB);
                     });
         }
+        
+        // TODO test relative path resolution
     };
     return testObj;
 }());

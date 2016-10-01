@@ -824,7 +824,7 @@
 
     moduleManagement = (function amd__moduleManagement__init()
     {
-        var nashornLoad, Adapter, defaultScope, URL, GloballyRegisteredURLStreamHandler, specialModuleHandling, internal, external;
+        var nashornLoad, Adapter, defaultScope, URL, GloballyRegisteredURLStreamHandler, SpecialModuleHandler, internal, external;
 
         nashornLoad = load;
         Adapter = JSAdapter;
@@ -843,260 +843,7 @@
             }
         }
 
-        specialModuleHandling = Object.create(null, {
-            convertSpecialModule : {
-                value : function amd__moduleManagement__specialModuleHandling__convertSpecialModule(module, descriptor, url, scope)
-                {
-                    var result, specificAdaptee;
-
-                    if (typeof module === 'function' && (!('_specialHandling' in module) || module._specialHandling !== false))
-                    {
-                        result = Function.prototype.bind.call(specialModuleHandling.specialModuleFnCall, undefined, module, descriptor,
-                                url, scope);
-
-                        Object.keys(module).forEach(
-                                function amd__moduleManagement__specialModuleHandling__convertSpecialModule_forEachFunctionKey(key)
-                                {
-                                    result[key] = specialModuleHandling.convertSpecialModule(module[key], descriptor, url, module);
-                                });
-                    }
-                    else if (isObject(module))
-                    {
-                        specificAdaptee = {};
-
-                        Object.keys(specialModuleHandling.specialModuleAdaptee).forEach(
-                                function amd__moduleManagement__specialModuleHandling__convertSpecialModule_forEachAdapteeFunctionName(key)
-                                {
-                                    specificAdaptee[key] = Function.prototype.bind.call(specialModuleHandling.specialModuleAdaptee[key],
-                                            undefined, module, descriptor, url);
-                                });
-
-                        result = new Adapter(module, {}, specificAdaptee);
-                    }
-                    else
-                    {
-                        result = module;
-                    }
-
-                    return result;
-                }
-            },
-            specialModuleFnCall : {
-                value : function amd__moduleManagement__specialModuleHandling__specialModuleFnCall(fn, descriptor, url, scope)
-                {
-                    var result, args;
-
-                    args = Array.prototype.slice.call(arguments, 4);
-
-                    if (commonLogger.traceEnabled)
-                    {
-                        commonLogger.trace('Special module function {} called from {}', fn.name, url);
-                    }
-
-                    if ((!('_specialHandling' in fn) || fn._specialHandling !== false) && descriptor.hasOwnProperty('callerTagged')
-                            && descriptor.callerTagged === true)
-                    {
-                        withTaggedCaller(function amd__moduleManagement__specialModuleFnCall__callerTagged()
-                        {
-                            result = fn.apply(scope, args);
-                        }, url);
-                    }
-                    else
-                    {
-                        if (descriptor.hasOwnProperty('callerProvided') && descriptor.callerProvided === true)
-                        {
-                            if (callerLogger.traceEnabled)
-                            {
-                                callerLogger.trace('Prepending caller url {} to arguments', url);
-                            }
-                            args.splice(0, 0, url);
-                        }
-                        result = fn.apply(scope, args);
-                    }
-
-                    // result of call won't be converted into "special
-                    // module"-aware
-
-                    return result;
-                }
-            },
-
-            specialModuleAdaptee : {
-                value : {
-                    __has__ : function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__has__(module, descriptor, url,
-                            name)
-                    {
-                        var result = name in module;
-                        return result;
-                    },
-
-                    __get__ : function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__get__(module, descriptor, url,
-                            name)
-                    {
-                        var result;
-                        if (descriptor.hasOwnProperty('callerTagged') && descriptor.callerTagged === true)
-                        {
-                            // property might be associated with a caller-aware
-                            // getter
-                            withTaggedCaller(
-                                    function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__get__callerTagged()
-                                    {
-                                        result = module[name];
-                                    }, url);
-                        }
-                        else
-                        {
-                            result = module[name];
-                        }
-
-                        result = specialModuleHandling.convertSpecialModule(result, descriptor, url, module);
-
-                        return result;
-                    },
-
-                    __put__ : function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__put__(module, descriptor, url,
-                            name, value)
-                    {
-                        var result;
-                        if (descriptor.hasOwnProperty('callerTagged') && descriptor.callerTagged === true)
-                        {
-                            // property might be associated with a caller-aware
-                            // setter
-                            withTaggedCaller(
-                                    function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__put__callerTagged()
-                                    {
-                                        result = (module[name] = value);
-                                    }, url);
-                        }
-                        else
-                        {
-                            result = (module[name] = value);
-                        }
-
-                        result = specialModuleHandling.convertSpecialModule(result, descriptor, url, module);
-
-                        return result;
-                    },
-
-                    __delete__ : function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__delete__(module, descriptor,
-                            url, name)
-                    {
-                        var result = delete module[name];
-                        return result;
-                    },
-
-                    __getIds__ : function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__getIds__(module)
-                    {
-                        var name, result = [];
-
-                        /* jshint forin: false */
-                        for (name in module)
-                        {
-                            result.push(name);
-                        }
-                        /* jshint forin: true */
-
-                        return result;
-                    },
-
-                    __getValues__ : function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__getValues__(module,
-                            descriptor, url)
-                    {
-                        var result = [];
-
-                        if (descriptor.hasOwnProperty('callerTagged') && descriptor.callerTagged === true)
-                        {
-                            // properties might be associated with a
-                            // caller-aware getter
-                            withTaggedCaller(
-                                    function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__getValues__callerTagged()
-                                    {
-                                        var name, value;
-                                        /* jshint forin:false */
-                                        for (name in module)
-                                        {
-                                            value = module[name];
-                                            value = specialModuleHandling.convertSpecialModule(value, descriptor, url, module);
-                                            result.push(value);
-                                        }
-                                        /* jshint forin:true */
-                                    }, url);
-                        }
-                        else
-                        {
-                            // bug in jshint - claims name as implicitly defined
-                            // global if included in first var block
-                            /* jshint ignore:start */
-                            var name, value;
-                            for (name in module)
-                            {
-                                value = module[name];
-                                value = specialModuleHandling.convertSpecialModule(value, descriptor, url, module);
-                                result.push(value);
-                            }
-                            /* jshint ignore:end */
-                        }
-                        return result;
-                    },
-
-                    __call__ : function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__call__(module, descriptor, url,
-                            name)
-                    {
-                        var result, args;
-
-                        if (commonLogger.traceEnabled)
-                        {
-                            commonLogger.trace('Special module proxy called on {} from {}', name, url);
-                        }
-
-                        args = Array.prototype.slice.call(arguments, 4);
-                        args = [ module[name], descriptor, url, module ].concat(args);
-                        result = specialModuleHandling.specialModuleFnCall.apply(undefined, args);
-                        return result;
-                    },
-
-                    __new__ : function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__new__(module, descriptor, url)
-                    {
-                        var result, args, BoundCtor;
-
-                        if (commonLogger.traceEnabled)
-                        {
-                            commonLogger.trace('Special module proxy constructor-called from {}', url);
-                        }
-
-                        args = [ undefined ].concat(Array.prototype.slice.call(arguments, 3));
-
-                        if (descriptor.hasOwnProperty('callerTagged') && descriptor.callerTagged === true)
-                        {
-                            withTaggedCaller(
-                                    function amd__moduleManagement__specialModuleHandling__specialModuleAdaptee__new__callerTagged()
-                                    {
-                                        BoundCtor = Function.prototype.bind.apply(module, args);
-                                        result = new BoundCtor();
-                                    }, url);
-                        }
-                        else
-                        {
-                            if (descriptor.hasOwnProperty('callerProvided') && descriptor.callerProvided === true)
-                            {
-                                if (callerLogger.traceEnabled)
-                                {
-                                    callerLogger.trace('Prepending caller url {} to arguments', url);
-                                }
-                                args.splice(1, 0, url);
-                            }
-                            BoundCtor = Function.prototype.bind.apply(module, args);
-                            result = new BoundCtor();
-                        }
-
-                        // result of constructor won't be converted into
-                        // "special module"-aware
-
-                        return result;
-                    }
-                }
-            }
-        });
+        SpecialModuleHandler = Java.type('de.axelfaust.alfresco.nashorn.repo.utils.SpecialModuleHandler');
 
         internal = Object
                 .create(
@@ -1672,7 +1419,17 @@
                                     + '\'');
                         }
 
-                        moduleResult = specialModuleHandling.convertSpecialModule(moduleResult.wrapped, moduleResult, callerUrl);
+                        // this requires updating when we introduce new flags
+                        // but it is worth limiting use of special module
+                        // handler when not needed for reduced complexity
+                        if (moduleResult.callerTagged || moduleResult.callerProvided)
+                        {
+                            moduleResult = new SpecialModuleHandler(moduleResult.wrapped, moduleResult, callerUrl, withTaggedCaller);
+                        }
+                        else
+                        {
+                            moduleResult = moduleResult.wrapped;
+                        }
                     }
 
                     return moduleResult;
@@ -2467,7 +2224,11 @@
              *            as the module result or a script defining a module
              *            from a script URL
              */
-            load : function amd__loaderMetaLoader__load(normalizedId, /*jshint unused: false */require, load)
+            load : function amd__loaderMetaLoader__load(normalizedId, /*
+                                                                         * jshint
+                                                                         * unused:
+                                                                         * false
+                                                                         */require, load)
             {
                 var url = new URL('rawclasspath', null, -1, 'de/axelfaust/alfresco/nashorn/repo/loaders/' + normalizedId, streamHandler);
 

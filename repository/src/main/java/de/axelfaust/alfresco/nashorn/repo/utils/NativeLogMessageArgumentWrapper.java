@@ -13,8 +13,8 @@
  */
 package de.axelfaust.alfresco.nashorn.repo.utils;
 
+import jdk.nashorn.api.scripting.JSObject;
 import jdk.nashorn.api.scripting.ScriptUtils;
-import jdk.nashorn.api.scripting.ScriptObjectMirror;
 
 /**
  * Instances of this class act as a simple toString wrapper for native JavaScript objects used during logging. Since any log framework will
@@ -27,13 +27,14 @@ import jdk.nashorn.api.scripting.ScriptObjectMirror;
 public class NativeLogMessageArgumentWrapper
 {
 
-    protected ScriptObjectMirror scriptObject;
+    protected JSObject scriptObject;
 
-    public NativeLogMessageArgumentWrapper(final ScriptObjectMirror scriptObject)
+    public NativeLogMessageArgumentWrapper(final JSObject scriptObject)
     {
         this.scriptObject = scriptObject;
     }
 
+    @Override
     public String toString()
     {
         final Object converted = ScriptUtils.convert(this.scriptObject, String.class);

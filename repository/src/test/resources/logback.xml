@@ -12,6 +12,7 @@
     </root>
     
     <logger name="de.axelfaust.alfresco.nashorn.repo" level="INFO"/>
+    <logger name="de.axelfaust.alfresco.nashorn.repo.utils.SpecialModuleHandler" level="DEBUG"/>
     <logger name="de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.loader" level="INFO"/>
     <logger name="de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.noSuchProperty" level="INFO"/>
     <logger name="de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptProcessor.amd" level="INFO"/>
