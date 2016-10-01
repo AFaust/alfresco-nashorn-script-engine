@@ -15,7 +15,9 @@ package de.axelfaust.alfresco.nashorn.repo.utils;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -95,6 +97,10 @@ public class SpecialModuleHandler extends AbstractJSObject
     protected final String callerUrl;
 
     protected final WithTaggedCaller withTaggedCallerFn;
+
+    protected transient final Map<String, Object> cachedMembers = new HashMap<>();
+
+    protected transient final Map<Integer, Object> cachedSlots = new HashMap<>();
 
     protected JSObject originalThis;
 
@@ -243,6 +249,12 @@ public class SpecialModuleHandler extends AbstractJSObject
         LOGGER.debug("call yielded {}", result instanceof JSObject ? (((JSObject) result).isFunction()
                 ? ((JSObject) result).getMember("name") : new NativeLogMessageArgumentWrapper((JSObject) result)) : result);
 
+        // any cached member / slot data may have changed due to function call (except for simple getters)
+        if (this.jsObjectThis != null && !String.valueOf(this.delegate.getMember("name")).matches("(get|is)[A-Z].*"))
+        {
+            this.jsObjectThis.resetCaches();
+        }
+
         return result;
     }
 
@@ -274,6 +286,12 @@ public class SpecialModuleHandler extends AbstractJSObject
         LOGGER.debug("eval yielded {}", result instanceof JSObject ? (((JSObject) result).isFunction()
                 ? ((JSObject) result).getMember("name") : new NativeLogMessageArgumentWrapper((JSObject) result)) : result);
 
+        // any cached member / slot data may have changed due to function call
+        if (this.jsObjectThis != null)
+        {
+            this.jsObjectThis.resetCaches();
+        }
+
         return result;
     }
 
@@ -286,39 +304,50 @@ public class SpecialModuleHandler extends AbstractJSObject
         LOGGER.debug("Handling getMember {} on {}", name,
                 this.delegate.isFunction() ? this.delegate.getMember("name") : new NativeLogMessageArgumentWrapper(this.delegate));
 
-        // can't handle callerProvided for getMember
-        final AtomicReference<Object> resultRef = new AtomicReference<>();
-        if (this.callerTagged)
+        Object result;
+        if (this.cachedMembers.containsKey(name))
         {
-            LOGGER.debug("Tagging callerUrl {}", this.callerUrl);
-            this.withTaggedCallerFn.withTaggedCaller(() -> {
-                resultRef.set(this.delegate.getMember(name));
-            }, this.callerUrl);
+            LOGGER.trace("Reusing cached member");
+            result = this.cachedMembers.get(name);
         }
         else
         {
-            resultRef.set(this.delegate.getMember(name));
-        }
-
-        Object result = resultRef.get();
-
-        LOGGER.debug("getMember {} yielded {}", name, result instanceof JSObject ? (((JSObject) result).isFunction()
-                ? ((JSObject) result).getMember("name") : new NativeLogMessageArgumentWrapper((JSObject) result)) : result);
-
-        if (result instanceof JSObject)
-        {
-            final JSObject scriptResult = (JSObject) result;
-            if (scriptResult.isFunction() || (!scriptResult.isArray() && !ScriptObjectMirror.isUndefined(scriptResult)))
+            // can't handle callerProvided for getMember
+            final AtomicReference<Object> resultRef = new AtomicReference<>();
+            if (this.callerTagged)
             {
-                LOGGER.debug("Wrapping function result {} of getMember in special module handler",
-                        scriptResult.isFunction() ? scriptResult.getMember("name") : new NativeLogMessageArgumentWrapper(scriptResult));
-                result = new SpecialModuleHandler(scriptResult, this.callerProvided, this.callerTagged, this.callerUrl,
-                        this.withTaggedCallerFn);
-                if (scriptResult.isFunction())
+                LOGGER.debug("Tagging callerUrl {}", this.callerUrl);
+                this.withTaggedCallerFn.withTaggedCaller(() -> {
+                    resultRef.set(this.delegate.getMember(name));
+                }, this.callerUrl);
+            }
+            else
+            {
+                resultRef.set(this.delegate.getMember(name));
+            }
+
+            result = resultRef.get();
+
+            LOGGER.debug("getMember {} yielded {}", name, result instanceof JSObject ? (((JSObject) result).isFunction()
+                    ? ((JSObject) result).getMember("name") : new NativeLogMessageArgumentWrapper((JSObject) result)) : result);
+
+            if (result instanceof JSObject)
+            {
+                final JSObject scriptResult = (JSObject) result;
+                if (scriptResult.isFunction() || (!scriptResult.isArray() && !ScriptObjectMirror.isUndefined(scriptResult)))
                 {
-                    ((SpecialModuleHandler) result).setThis(this.delegate, this);
+                    LOGGER.debug("Wrapping function result {} of getMember in special module handler",
+                            scriptResult.isFunction() ? scriptResult.getMember("name") : new NativeLogMessageArgumentWrapper(scriptResult));
+                    result = new SpecialModuleHandler(scriptResult, this.callerProvided, this.callerTagged, this.callerUrl,
+                            this.withTaggedCallerFn);
+                    if (scriptResult.isFunction())
+                    {
+                        ((SpecialModuleHandler) result).setThis(this.delegate, this);
+                    }
                 }
             }
+
+            this.cachedMembers.put(name, result);
         }
         return result;
     }
@@ -332,39 +361,48 @@ public class SpecialModuleHandler extends AbstractJSObject
         LOGGER.debug("Handling getSlot {} on {}", slot,
                 this.delegate.isFunction() ? this.delegate.getMember("name") : new NativeLogMessageArgumentWrapper(this.delegate));
 
-        // can't handle callerProvided for getSlot
-        final AtomicReference<Object> resultRef = new AtomicReference<>();
-        if (this.callerTagged)
+        Object result;
+        if (this.cachedSlots.containsKey(Integer.valueOf(slot)))
         {
-            LOGGER.debug("Tagging callerUrl {}", this.callerUrl);
-            this.withTaggedCallerFn.withTaggedCaller(() -> {
-                resultRef.set(this.delegate.getSlot(slot));
-            }, this.callerUrl);
+            result = this.cachedSlots.get(Integer.valueOf(slot));
         }
         else
         {
-            resultRef.set(this.delegate.getSlot(slot));
-        }
-
-        Object result = resultRef.get();
-
-        LOGGER.debug("getSlot {} yielded {}", slot, result instanceof JSObject ? (((JSObject) result).isFunction()
-                ? ((JSObject) result).getMember("name") : new NativeLogMessageArgumentWrapper((JSObject) result)) : result);
-
-        if (result instanceof JSObject)
-        {
-            final JSObject scriptResult = (JSObject) result;
-            if (scriptResult.isFunction() || (!scriptResult.isArray() && !ScriptObjectMirror.isUndefined(scriptResult)))
+            // can't handle callerProvided for getSlot
+            final AtomicReference<Object> resultRef = new AtomicReference<>();
+            if (this.callerTagged)
             {
-                LOGGER.debug("Wrapping function result {} of getSlot in special module handler",
-                        scriptResult.isFunction() ? scriptResult.getMember("name") : new NativeLogMessageArgumentWrapper(scriptResult));
-                result = new SpecialModuleHandler(scriptResult, this.callerProvided, this.callerTagged, this.callerUrl,
-                        this.withTaggedCallerFn);
-                if (scriptResult.isFunction())
+                LOGGER.debug("Tagging callerUrl {}", this.callerUrl);
+                this.withTaggedCallerFn.withTaggedCaller(() -> {
+                    resultRef.set(this.delegate.getSlot(slot));
+                }, this.callerUrl);
+            }
+            else
+            {
+                resultRef.set(this.delegate.getSlot(slot));
+            }
+
+            result = resultRef.get();
+
+            LOGGER.debug("getSlot {} yielded {}", slot, result instanceof JSObject ? (((JSObject) result).isFunction()
+                    ? ((JSObject) result).getMember("name") : new NativeLogMessageArgumentWrapper((JSObject) result)) : result);
+
+            if (result instanceof JSObject)
+            {
+                final JSObject scriptResult = (JSObject) result;
+                if (scriptResult.isFunction() || (!scriptResult.isArray() && !ScriptObjectMirror.isUndefined(scriptResult)))
                 {
-                    ((SpecialModuleHandler) result).setThis(this.delegate, this);
+                    LOGGER.debug("Wrapping function result {} of getSlot in special module handler",
+                            scriptResult.isFunction() ? scriptResult.getMember("name") : new NativeLogMessageArgumentWrapper(scriptResult));
+                    result = new SpecialModuleHandler(scriptResult, this.callerProvided, this.callerTagged, this.callerUrl,
+                            this.withTaggedCallerFn);
+                    if (scriptResult.isFunction())
+                    {
+                        ((SpecialModuleHandler) result).setThis(this.delegate, this);
+                    }
                 }
             }
+            this.cachedSlots.put(Integer.valueOf(slot), result);
         }
         return result;
     }
@@ -378,23 +416,31 @@ public class SpecialModuleHandler extends AbstractJSObject
         LOGGER.debug("Handling hasMember {} on {}", name,
                 this.delegate.isFunction() ? this.delegate.getMember("name") : new NativeLogMessageArgumentWrapper(this.delegate));
 
-        // can't handle callerProvided for hasMember
-        final AtomicBoolean resultRef = new AtomicBoolean();
-        if (this.callerTagged)
+        final boolean result;
+
+        if (this.cachedMembers.containsKey(name))
         {
-            LOGGER.debug("Tagging callerUrl {}", this.callerUrl);
-            this.withTaggedCallerFn.withTaggedCaller(() -> {
-                resultRef.set(this.delegate.hasMember(name));
-            }, this.callerUrl);
+            result = true;
         }
         else
         {
-            resultRef.set(this.delegate.hasMember(name));
+            // can't handle callerProvided for hasMember
+            final AtomicBoolean resultRef = new AtomicBoolean();
+            if (this.callerTagged)
+            {
+                LOGGER.debug("Tagging callerUrl {}", this.callerUrl);
+                this.withTaggedCallerFn.withTaggedCaller(() -> {
+                    resultRef.set(this.delegate.hasMember(name));
+                }, this.callerUrl);
+            }
+            else
+            {
+                resultRef.set(this.delegate.hasMember(name));
+            }
+
+            result = resultRef.get();
+            LOGGER.debug("hasMember {} yielded {}", name, result);
         }
-
-        final boolean result = resultRef.get();
-
-        LOGGER.debug("hasMember {} yielded {}", name, result);
 
         return result;
     }
@@ -408,23 +454,32 @@ public class SpecialModuleHandler extends AbstractJSObject
         LOGGER.debug("Handling hasSlot {} on {}", slot,
                 this.delegate.isFunction() ? this.delegate.getMember("name") : new NativeLogMessageArgumentWrapper(this.delegate));
 
-        // can't handle callerProvided for hasSlot
-        final AtomicBoolean resultRef = new AtomicBoolean();
-        if (this.callerTagged)
+        final boolean result;
+
+        if (this.cachedSlots.containsKey(Integer.valueOf(slot)))
         {
-            LOGGER.debug("Tagging callerUrl {}", this.callerUrl);
-            this.withTaggedCallerFn.withTaggedCaller(() -> {
-                resultRef.set(this.delegate.hasSlot(slot));
-            }, this.callerUrl);
+            result = true;
         }
         else
         {
-            resultRef.set(this.delegate.hasSlot(slot));
+            // can't handle callerProvided for hasSlot
+            final AtomicBoolean resultRef = new AtomicBoolean();
+            if (this.callerTagged)
+            {
+                LOGGER.debug("Tagging callerUrl {}", this.callerUrl);
+                this.withTaggedCallerFn.withTaggedCaller(() -> {
+                    resultRef.set(this.delegate.hasSlot(slot));
+                }, this.callerUrl);
+            }
+            else
+            {
+                resultRef.set(this.delegate.hasSlot(slot));
+            }
+
+            result = resultRef.get();
+
+            LOGGER.debug("hasSlot {} yielded {}", slot, result);
         }
-
-        final boolean result = resultRef.get();
-
-        LOGGER.debug("hasSlot {} yielded {}", slot, result);
 
         return result;
     }
@@ -450,6 +505,8 @@ public class SpecialModuleHandler extends AbstractJSObject
         {
             this.delegate.removeMember(name);
         }
+
+        this.cachedMembers.remove(name);
     }
 
     /**
@@ -473,28 +530,32 @@ public class SpecialModuleHandler extends AbstractJSObject
         {
             this.delegate.setMember(name, value);
         }
+
+        this.cachedMembers.remove(name);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public void setSlot(final int index, final Object value)
+    public void setSlot(final int slot, final Object value)
     {
-        LOGGER.debug("Handling setSlot {} on {}", index,
+        LOGGER.debug("Handling setSlot {} on {}", slot,
                 this.delegate.isFunction() ? this.delegate.getMember("name") : new NativeLogMessageArgumentWrapper(this.delegate));
 
         // can't handle callerProvided for setSlot
         if (this.callerTagged)
         {
             this.withTaggedCallerFn.withTaggedCaller(() -> {
-                this.delegate.setSlot(index, value);
+                this.delegate.setSlot(slot, value);
             }, this.callerUrl);
         }
         else
         {
-            this.delegate.setSlot(index, value);
+            this.delegate.setSlot(slot, value);
         }
+
+        this.cachedSlots.remove(Integer.valueOf(slot));
     }
 
     /**
@@ -731,6 +792,12 @@ public class SpecialModuleHandler extends AbstractJSObject
 
         final Object result = resultRef.get();
         return result;
+    }
+
+    protected void resetCaches()
+    {
+        this.cachedMembers.clear();
+        this.cachedSlots.clear();
     }
 
     protected JSObject getDelegate()
