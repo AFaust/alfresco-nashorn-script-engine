@@ -13,7 +13,7 @@
  * the classpath in such a way that scripts in the servers extension-root can override scripts bundled with the WAR. 
  */
 /* globals getSimpleLogger: false */
-define([ 'define', 'nashorn!Java' ], function _base_logger__root(define, Java)
+define([ 'nashorn!Java' ], function _base_logger__root(Java)
 {
     'use strict';
     var loggerModule, loggerModuleProto, getLogger, loggerByScriptUrl = {}, loggerHooks;
@@ -60,8 +60,6 @@ define([ 'define', 'nashorn!Java' ], function _base_logger__root(define, Java)
      * module ID or - when no module ID can be determined for a caller - the URL it was loaded from.
      * 
      * @module _base/logger
-     * @requires module:require
-     * @requires module:define
      * @requires module:nashorn!Java
      * @author Axel Faust
      */
