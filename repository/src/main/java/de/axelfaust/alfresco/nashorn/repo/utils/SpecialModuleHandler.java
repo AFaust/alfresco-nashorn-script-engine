@@ -249,8 +249,8 @@ public class SpecialModuleHandler extends AbstractJSObject
         LOGGER.debug("call yielded {}", result instanceof JSObject ? (((JSObject) result).isFunction()
                 ? ((JSObject) result).getMember("name") : new NativeLogMessageArgumentWrapper((JSObject) result)) : result);
 
-        // any cached member / slot data may have changed due to function call (except for simple getters)
-        if (this.jsObjectThis != null && !String.valueOf(this.delegate.getMember("name")).matches("(get|is)[A-Z].*"))
+        // any cached member / slot data may have changed due to function call
+        if (this.jsObjectThis != null)
         {
             this.jsObjectThis.resetCaches();
         }
@@ -334,7 +334,8 @@ public class SpecialModuleHandler extends AbstractJSObject
             if (result instanceof JSObject)
             {
                 final JSObject scriptResult = (JSObject) result;
-                if (scriptResult.isFunction() || (!scriptResult.isArray() && !ScriptObjectMirror.isUndefined(scriptResult)))
+                if ((scriptResult.isFunction() || (!scriptResult.isArray() && !ScriptObjectMirror.isUndefined(scriptResult)))
+                        && !Boolean.FALSE.equals(scriptResult.getMember("_specialHandling")))
                 {
                     LOGGER.debug("Wrapping function result {} of getMember in special module handler",
                             scriptResult.isFunction() ? scriptResult.getMember("name") : new NativeLogMessageArgumentWrapper(scriptResult));
@@ -390,7 +391,8 @@ public class SpecialModuleHandler extends AbstractJSObject
             if (result instanceof JSObject)
             {
                 final JSObject scriptResult = (JSObject) result;
-                if (scriptResult.isFunction() || (!scriptResult.isArray() && !ScriptObjectMirror.isUndefined(scriptResult)))
+                if ((scriptResult.isFunction() || (!scriptResult.isArray() && !ScriptObjectMirror.isUndefined(scriptResult)))
+                        && !Boolean.FALSE.equals(scriptResult.getMember("_specialHandling")))
                 {
                     LOGGER.debug("Wrapping function result {} of getSlot in special module handler",
                             scriptResult.isFunction() ? scriptResult.getMember("name") : new NativeLogMessageArgumentWrapper(scriptResult));
@@ -621,7 +623,8 @@ public class SpecialModuleHandler extends AbstractJSObject
             if (resultElement instanceof JSObject)
             {
                 final JSObject scriptResult = (JSObject) resultElement;
-                if (scriptResult.isFunction() || (!scriptResult.isArray() && !ScriptObjectMirror.isUndefined(scriptResult)))
+                if ((scriptResult.isFunction() || (!scriptResult.isArray() && !ScriptObjectMirror.isUndefined(scriptResult)))
+                        && !Boolean.FALSE.equals(scriptResult.getMember("_specialHandling")))
                 {
                     LOGGER.debug("Wrapping function result {} of values in special module handler",
                             scriptResult.isFunction() ? scriptResult.getMember("name") : new NativeLogMessageArgumentWrapper(scriptResult));
