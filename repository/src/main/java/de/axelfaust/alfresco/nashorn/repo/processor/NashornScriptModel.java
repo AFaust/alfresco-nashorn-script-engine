@@ -16,9 +16,11 @@ package de.axelfaust.alfresco.nashorn.repo.processor;
 import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import javax.script.ScriptContext;
@@ -33,9 +35,9 @@ import de.axelfaust.alfresco.nashorn.repo.processor.NashornScriptModelAwareConta
 public class NashornScriptModel implements Closeable
 {
 
-    private static final ThreadLocal<NashornScriptModel> CURRENT_MODEL = new ThreadLocal<NashornScriptModel>();
+    private static final ThreadLocal<NashornScriptModel> CURRENT_MODEL = new ThreadLocal<>();
 
-    private static final ThreadLocal<List<NashornScriptModel>> PENDING_MODELS = new ThreadLocal<List<NashornScriptModel>>();
+    private static final ThreadLocal<List<NashornScriptModel>> PENDING_MODELS = new ThreadLocal<>();
 
     /**
      * Opens a new script model and activates it for the current thread. Any currently active model will be put into a pending state until
@@ -54,7 +56,7 @@ public class NashornScriptModel implements Closeable
             List<NashornScriptModel> pendingModels = PENDING_MODELS.get();
             if (pendingModels == null)
             {
-                pendingModels = new ArrayList<NashornScriptModel>();
+                pendingModels = new ArrayList<>();
                 PENDING_MODELS.set(pendingModels);
             }
             pendingModels.add(currentModel);
@@ -75,6 +77,16 @@ public class NashornScriptModel implements Closeable
     {
         final NashornScriptModelAwareContainer dataContainer = new NashornScriptModelAwareContainer(DataContainerType.INDEXED);
         return dataContainer;
+    }
+
+    /**
+     * Creates a new list to be used for managing script-execution specific state in Java-backed script objects.
+     *
+     * @return the new list
+     */
+    public static <V> List<V> newList()
+    {
+        return new ScriptModelAwareList<>();
     }
 
     /**
@@ -104,6 +116,16 @@ public class NashornScriptModel implements Closeable
     }
 
     /**
+     * Creates a new map to be used for managing script-execution specific state in Java-backed script objects.
+     *
+     * @return the new map
+     */
+    public static <K, V> Map<K, V> newMap()
+    {
+        return new ScriptModelAwareMap<>();
+    }
+
+    /**
      * Creates a new associative data container to be used for managing script-execution specific state in a script environment without any
      * sharing via {@link ScriptContext}.
      *
@@ -115,6 +137,16 @@ public class NashornScriptModel implements Closeable
     {
         final NashornScriptModelAwareContainer dataContainer = new NashornScriptModelAwareContainer(callback);
         return dataContainer;
+    }
+
+    /**
+     * Creates a new set to be used for managing script-execution specific state in Java-backed script objects.
+     *
+     * @return the new set
+     */
+    public static <V> Set<V> newSet()
+    {
+        return new ScriptModelAwareSet<>();
     }
 
     /**
@@ -135,9 +167,11 @@ public class NashornScriptModel implements Closeable
 
     private final Thread thread = Thread.currentThread();
 
-    private final Map<UUID, List<Object>> indexedContainers = new HashMap<UUID, List<Object>>();
+    private final Map<UUID, List<?>> indexedContainers = new HashMap<>();
 
-    private final Map<UUID, Map<Object, Object>> associativeContainers = new HashMap<UUID, Map<Object, Object>>();
+    private final Map<UUID, Map<?, ?>> associativeContainers = new HashMap<>();
+
+    private final Map<UUID, Set<?>> uniqueEntryContainers = new HashMap<>();
 
     private boolean closed = false;
 
@@ -184,25 +218,39 @@ public class NashornScriptModel implements Closeable
         this.closed = true;
     }
 
-    protected List<Object> getOrCreateIndexContainerData(final UUID containerUUID)
+    protected <V> List<V> getOrCreateIndexContainerData(final UUID containerUUID)
     {
-        List<Object> list = this.indexedContainers.get(containerUUID);
+        @SuppressWarnings("unchecked")
+        List<V> list = (List<V>) this.indexedContainers.get(containerUUID);
         if (list == null)
         {
-            list = new ArrayList<Object>();
+            list = new ArrayList<>();
             this.indexedContainers.put(containerUUID, list);
         }
         return list;
     }
 
-    protected Map<Object, Object> getOrCreateAssociativeContainerData(final UUID containerUUID)
+    protected <K, V> Map<K, V> getOrCreateAssociativeContainerData(final UUID containerUUID)
     {
-        Map<Object, Object> map = this.associativeContainers.get(containerUUID);
+        @SuppressWarnings("unchecked")
+        Map<K, V> map = (Map<K, V>) this.associativeContainers.get(containerUUID);
         if (map == null)
         {
-            map = new LinkedHashMap<Object, Object>();
+            map = new LinkedHashMap<>();
             this.associativeContainers.put(containerUUID, map);
         }
         return map;
+    }
+
+    protected <V> Set<V> getOrCreateUniqueEntryContainerData(final UUID containerUUID)
+    {
+        @SuppressWarnings("unchecked")
+        Set<V> set = (Set<V>) this.uniqueEntryContainers.get(containerUUID);
+        if (set == null)
+        {
+            set = new HashSet<>();
+            this.uniqueEntryContainers.put(containerUUID, set);
+        }
+        return set;
     }
 }

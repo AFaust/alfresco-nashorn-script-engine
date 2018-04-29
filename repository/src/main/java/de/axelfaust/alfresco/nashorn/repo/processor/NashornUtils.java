@@ -13,11 +13,6 @@
  */
 package de.axelfaust.alfresco.nashorn.repo.processor;
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
-
-import sun.misc.JavaLangAccess;
 import sun.misc.SharedSecrets;
 
 /**
@@ -29,172 +24,17 @@ import sun.misc.SharedSecrets;
  * be called very frequently. These APIs might be inaccessible in Java 9, so this class is currently only guaranteed to work in Java 8.
  *
  * @author Axel Faust
+ *
+ * @deprecated Use {@link de.axelfaust.alfresco.nashorn.common.util.NashornUtils} instead - only kept for backwards compatibility until all uses
+ *             have been refactored
  */
-public abstract class NashornUtils
+@Deprecated
+public abstract class NashornUtils extends de.axelfaust.alfresco.nashorn.common.util.NashornUtils
 {
 
-    private NashornUtils()
+    protected NashornUtils()
     {
+        super();
         // NO-OP
-    }
-
-    /**
-     * Retrieves the script URL of the caller in the Nashorn script engine environment of the current thread.
-     *
-     * @return the script URL of the caller
-     */
-    public static String getCallerScriptURL()
-    {
-        return getCallerScriptURL(false, false);
-    }
-
-    /**
-     * Retrieves the script URL of the caller in the Nashorn script engine environment of the current thread.
-     *
-     * @param excludeTopFrame
-     *            {@code true} if the top script caller should be excluded, i.e. if a script function itself needs to determine its caller
-     * @param excludeAllFromTopFrameScript
-     *            {@code true} if all frames from the top caller script should be excluded - only relevant if {@code excludeTopFrame} is set
-     *            to {@code true}
-     * @return the script URL of the caller
-     */
-    public static String getCallerScriptURL(final boolean excludeTopFrame, final boolean excludeAllFromTopFrameScript)
-    {
-        StackTraceElement topJSFrame = null;
-        String topFrameScript = null;
-
-        @SuppressWarnings("restriction")
-        final JavaLangAccess access = SharedSecrets.getJavaLangAccess();
-        final Throwable throwable = new Throwable();
-        @SuppressWarnings("restriction")
-        final int depth = access.getStackTraceDepth(throwable);
-
-        boolean topFrameExcluded = false;
-        for (int idx = 0; idx < depth; idx++)
-        {
-            // Calling getStackTraceElement directly prevents the VM
-            // from paying the cost of building the entire stack frame.
-            @SuppressWarnings("restriction")
-            final StackTraceElement frame = access.getStackTraceElement(throwable, idx);
-            final String className = frame.getClassName();
-            final String methodName = frame.getMethodName();
-
-            if (isNashornScript(className) && !isInternalMethodName(methodName))
-            {
-                final String fileName = frame.getFileName();
-                if (excludeTopFrame == topFrameExcluded && !(excludeAllFromTopFrameScript && fileName.equals(topFrameScript)))
-                {
-                    topJSFrame = frame;
-                    break;
-                }
-                topFrameExcluded = true;
-                topFrameScript = fileName;
-            }
-        }
-
-        return topJSFrame != null ? topJSFrame.getFileName() : null;
-    }
-
-    /**
-     * Retrieves the script URL of the caller in the Nashorn script engine environment of the current thread.
-     *
-     * @param scriptsToExclude
-     *            the collection of scripts to exclude/ignore when retrieving the caller script URL
-     * @return the script URL of the caller
-     */
-    public static String getCallerScriptURL(final Collection<String> scriptsToExclude)
-    {
-        StackTraceElement topJSFrame = null;
-
-        @SuppressWarnings("restriction")
-        final JavaLangAccess access = SharedSecrets.getJavaLangAccess();
-        final Throwable throwable = new Throwable();
-        @SuppressWarnings("restriction")
-        final int depth = access.getStackTraceDepth(throwable);
-
-        for (int idx = 0; idx < depth; idx++)
-        {
-            // Calling getStackTraceElement directly prevents the VM
-            // from paying the cost of building the entire stack frame.
-            @SuppressWarnings("restriction")
-            final StackTraceElement frame = access.getStackTraceElement(throwable, idx);
-            final String className = frame.getClassName();
-            final String fileName = frame.getFileName();
-            final String methodName = frame.getMethodName();
-
-            if (isNashornScript(className) && !scriptsToExclude.contains(fileName) && !isInternalMethodName(methodName))
-            {
-                topJSFrame = frame;
-                break;
-            }
-        }
-
-        return topJSFrame != null ? topJSFrame.getFileName() : null;
-    }
-
-    /**
-     * Retrieves the script URL of the caller in the Nashorn script engine environment of the current thread.
-     *
-     * @param excludeTopFrameScriptsCount
-     *            how many distinct caller scripts should be excluded
-     * @param excludeAllFromTopFrameScripts
-     *            {@code true} if all frames from the same top caller scripts should be excluded - only relevant if {@code excludeTopFrame}
-     *            is set to {@code true}
-     * @return the script URL of the caller
-     */
-    public static String getCallerScriptURL(final int excludeTopFrameScriptsCount, final boolean excludeAllFromTopFrameScripts)
-    {
-        StackTraceElement topJSFrame = null;
-
-        final Set<String> excludedTopFrameScripts = new HashSet<String>();
-
-        @SuppressWarnings("restriction")
-        final JavaLangAccess access = SharedSecrets.getJavaLangAccess();
-        final Throwable throwable = new Throwable();
-        @SuppressWarnings("restriction")
-        final int depth = access.getStackTraceDepth(throwable);
-
-        for (int idx = 0; idx < depth; idx++)
-        {
-            // Calling getStackTraceElement directly prevents the VM
-            // from paying the cost of building the entire stack frame.
-            @SuppressWarnings("restriction")
-            final StackTraceElement frame = access.getStackTraceElement(throwable, idx);
-            final String className = frame.getClassName();
-            final String methodName = frame.getMethodName();
-
-            if (isNashornScript(className) && !isInternalMethodName(methodName))
-            {
-                final String fileName = frame.getFileName();
-                if (excludedTopFrameScripts.contains(fileName) && excludeAllFromTopFrameScripts)
-                {
-                    continue;
-                }
-
-                if (!excludedTopFrameScripts.contains(fileName) && excludedTopFrameScripts.size() < excludeTopFrameScriptsCount)
-                {
-                    excludedTopFrameScripts.add(fileName);
-                    continue;
-                }
-
-                topJSFrame = frame;
-                break;
-            }
-        }
-
-        return topJSFrame != null ? topJSFrame.getFileName() : null;
-    }
-
-    private static boolean isNashornScript(final String className)
-    {
-        // there is apparently no other way then to check for Nashorn-internal class name
-        // unfortunately, this can be broken by any changes in Nashorn
-        return className.startsWith("jdk.nashorn.internal.scripts.Script$");
-    }
-
-    private static boolean isInternalMethodName(final String methodName)
-    {
-        // unfortunately, this can be broken by any changes in Nashorn
-        return methodName.startsWith(":") && !methodName.equals(":program");
     }
 }

@@ -17,6 +17,13 @@
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>de.axelfaust.alfresco</groupId>
+            <artifactId>de.axelfaust.alfresco.nashorn.common</artifactId>
+            <version>${project.version}</version>
+            <scope>compile</scope>
+        </dependency>
+
         <!-- Data Model included extra because we want to exclude JLAN which is the transitive link -->
         <dependency>
             <groupId>${alfresco.groupId}</groupId>
