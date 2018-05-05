@@ -11,17 +11,16 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package de.axelfaust.alfresco.nashorn.common.amd;
+package de.axelfaust.alfresco.nashorn.common.amd.modules;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.axelfaust.alfresco.nashorn.common.amd.core.ModuleSystem;
 import de.axelfaust.alfresco.nashorn.common.util.AbstractJavaScriptObject;
-import de.axelfaust.alfresco.nashorn.common.util.NashornUtils;
 import de.axelfaust.alfresco.nashorn.common.util.ParameterCheck;
 import jdk.nashorn.api.scripting.JSObject;
 
@@ -49,11 +48,6 @@ public class DefineFunction extends AbstractJavaScriptObject
     {
         final Object[] args = this.correctArgsAbstraction(inboundArgs);
         LOGGER.debug("Processing call to 'define' with arguments {}", args);
-
-        final String contextPublicModuleId = this.moduleSystem.getCallerContextModuleId();
-        final ModuleHolder contextModule = contextPublicModuleId != null
-                ? this.moduleSystem.getModuleRegistry().lookupModuleByPublicModuleId(contextPublicModuleId)
-                : null;
 
         String publicModuleId = null;
         List<String> dependencies = null;
@@ -83,10 +77,7 @@ public class DefineFunction extends AbstractJavaScriptObject
                     }
 
                     final String dependencyModuleId = String.valueOf(slot);
-                    final String normalisedDependencyModuleId = ModuleSystem.withTaggedCallerContextModule(contextModule, () -> {
-                        return this.moduleSystem.getModuleLoadService().normalizeAndMapModuleId(dependencyModuleId, contextModule);
-                    });
-                    dependencies.add(normalisedDependencyModuleId);
+                    dependencies.add(dependencyModuleId);
                 }
             }
             else if (publicModuleId == null && i == 0 && args[i] instanceof CharSequence)
@@ -99,41 +90,7 @@ public class DefineFunction extends AbstractJavaScriptObject
             }
         }
 
-        ParameterCheck.mandatory("factory", factoryOrValue);
-
-        if (publicModuleId == null)
-        {
-            // without a context module we assign a UUID-based module ID - unless some code uses the return value of define that module will
-            // effectively no be reference-able
-            publicModuleId = contextPublicModuleId != null ? contextPublicModuleId : UUID.randomUUID().toString();
-        }
-
-        ModuleHolder module;
-
-        final String moduleId = contextModule != null && publicModuleId.equals(contextPublicModuleId) ? contextModule.getModuleId()
-                : publicModuleId;
-        final String loaderModuleId = contextModule != null && contextModule.getLoaderModuleId() != null ? contextModule.getLoaderModuleId()
-                : null;
-        final String contextScriptUrl = contextModule != null ? contextModule.getContextScriptUrl() : NashornUtils.getCallerScriptURL();
-        final boolean secureSource = contextModule != null ? contextModule.isFromSecureSource() : false;
-
-        if (factoryOrValue instanceof JSObject && ((JSObject) factoryOrValue).isFunction())
-        {
-            // TODO Try parsing factory source code to add modules loaded via require() to dependencies
-            // as per http://requirejs.org/docs/whyamd.html#sugar
-            module = new ModuleHolderImpl(publicModuleId, moduleId, loaderModuleId, contextScriptUrl, dependencies,
-                    (JSObject) factoryOrValue, secureSource);
-        }
-        else
-        {
-            module = new ModuleHolderImpl(publicModuleId, moduleId, loaderModuleId, contextScriptUrl, factoryOrValue, secureSource, false);
-
-            if (dependencies != null && !dependencies.isEmpty())
-            {
-                LOGGER.info("Module {} was defined with dependencies despite using an explicit value instead of factory-function", module);
-            }
-        }
-        this.moduleSystem.getModuleRegistry().registerModule(module);
+        this.moduleSystem.registerModuleInCurrentContext(publicModuleId, dependencies, factoryOrValue);
 
         return publicModuleId;
     }

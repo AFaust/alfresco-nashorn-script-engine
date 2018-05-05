@@ -11,8 +11,9 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package de.axelfaust.alfresco.nashorn.common.amd;
+package de.axelfaust.alfresco.nashorn.common.amd.core;
 
+import de.axelfaust.alfresco.nashorn.common.amd.ModuleLoader;
 import jdk.nashorn.api.scripting.JSObject;
 
 /**

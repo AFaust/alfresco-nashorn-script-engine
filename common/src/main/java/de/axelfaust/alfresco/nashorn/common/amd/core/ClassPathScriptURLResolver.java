@@ -11,7 +11,7 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package de.axelfaust.alfresco.nashorn.common.amd;
+package de.axelfaust.alfresco.nashorn.common.amd.core;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import de.axelfaust.alfresco.nashorn.common.amd.ScriptURLResolver;
 import de.axelfaust.alfresco.nashorn.common.util.ParameterCheck;
 
 /**

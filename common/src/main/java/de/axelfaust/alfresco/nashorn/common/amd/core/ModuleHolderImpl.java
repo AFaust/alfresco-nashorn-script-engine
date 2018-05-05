@@ -11,7 +11,7 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package de.axelfaust.alfresco.nashorn.common.amd;
+package de.axelfaust.alfresco.nashorn.common.amd.core;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -21,6 +21,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.axelfaust.alfresco.nashorn.common.amd.UnavailableModuleException;
 import de.axelfaust.alfresco.nashorn.common.util.ParameterCheck;
 import jdk.nashorn.api.scripting.JSObject;
 

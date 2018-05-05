@@ -11,15 +11,22 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package de.axelfaust.alfresco.nashorn.common.amd;
+package de.axelfaust.alfresco.nashorn.common.amd.modules;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.axelfaust.alfresco.nashorn.common.amd.EnumBackedModuleFlags;
+import de.axelfaust.alfresco.nashorn.common.amd.ModuleFlags;
+import de.axelfaust.alfresco.nashorn.common.amd.ModuleSystemRuntimeException;
+import de.axelfaust.alfresco.nashorn.common.amd.core.ModuleSystem;
+import de.axelfaust.alfresco.nashorn.common.amd.modules.ConfigFunction.MappingsConfigHandle;
+import de.axelfaust.alfresco.nashorn.common.amd.modules.ConfigFunction.PathsConfigHandle;
 import de.axelfaust.alfresco.nashorn.common.util.AbstractJavaScriptObject;
 import de.axelfaust.alfresco.nashorn.common.util.LambdaJavaScriptFunction;
 import de.axelfaust.alfresco.nashorn.common.util.ParameterCheck;
@@ -36,17 +43,14 @@ public class RequireFunction extends AbstractJavaScriptObject
 
     protected final ModuleSystem moduleSystem;
 
-    protected final String contextModuleId;
+    protected final JSObject configFunction;
 
-    public RequireFunction(final ModuleSystem moduleSystem)
+    public RequireFunction(final ModuleSystem moduleSystem, final PathsConfigHandle pathsConfigHandle,
+            final MappingsConfigHandle mappingsConfigHandle)
     {
-        this(moduleSystem, null);
-    }
+        ParameterCheck.mandatory("moduleSystem", moduleSystem);
 
-    protected RequireFunction(final ModuleSystem moduleSystem, final String contextModuleId)
-    {
         this.moduleSystem = moduleSystem;
-        this.contextModuleId = contextModuleId;
 
         final LambdaJavaScriptFunction getCallerScriptURL = new LambdaJavaScriptFunction((thiz, args) -> {
             boolean suppressTaggedCaller = false;
@@ -60,11 +64,33 @@ public class RequireFunction extends AbstractJavaScriptObject
         getCallerScriptURL.setMember(ModuleFlags.AMD_FLAGS_MEMBER_NAME, new EnumBackedModuleFlags(), false);
         this.setMemberImpl("getCallerScriptURL", getCallerScriptURL, false);
 
-        // allow configuration via the global require function
-        if (contextModuleId == null)
+        this.configFunction = new ConfigFunction(pathsConfigHandle, mappingsConfigHandle);
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public Object getMember(final String name)
+    {
+        Objects.requireNonNull(name);
+
+        Object memberValue;
+        if ("config".equals(name))
         {
-            this.setMemberImpl("config", new ConfigFunction(this.moduleSystem), false);
+            // access to config function should only be granted in a global scope
+            if (!ModuleSystem.isInUntaggedContext())
+            {
+                throw new ModuleSystemRuntimeException("'require.config' is only accessible in a global scope");
+            }
+            memberValue = this.configFunction;
         }
+        else
+        {
+            memberValue = super.getMember(name);
+        }
+        return memberValue;
     }
 
     /**
@@ -81,12 +107,7 @@ public class RequireFunction extends AbstractJavaScriptObject
             throw new IllegalArgumentException("Missing arguments in call to 'require'");
         }
 
-        final String contextPublicModuleId = this.moduleSystem.getCallerContextModuleId();
-        final ModuleHolder contextModule = contextPublicModuleId != null
-                ? this.moduleSystem.getModuleRegistry().lookupModuleByPublicModuleId(contextPublicModuleId)
-                : null;
-
-        final List<String> requiredModuleIds = this.extractRequiredModuleIdsFromArgs(args, contextModule);
+        final List<String> requiredModuleIds = this.extractRequiredModuleIdsFromArgs(args);
 
         final Object result;
         if (args.length == 1)
@@ -103,8 +124,7 @@ public class RequireFunction extends AbstractJavaScriptObject
             }
 
             final String requiredModuleId = requiredModuleIds.get(0);
-            LOGGER.debug("Resolving module {}", requiredModuleId);
-            result = this.moduleSystem.getModuleRegistry().getOrResolveModule(requiredModuleId, contextModule);
+            result = this.moduleSystem.retrieveModuleInCurrentContext(requiredModuleId);
             LOGGER.debug("Resolved {} for module {}", result, requiredModuleId);
         }
         else
@@ -138,7 +158,8 @@ public class RequireFunction extends AbstractJavaScriptObject
                 final String requiredModuleId = requiredModuleIds.get(i);
                 try
                 {
-                    resolvedModules[i] = this.moduleSystem.getModuleRegistry().getOrResolveModule(requiredModuleId, contextModule);
+                    LOGGER.debug("Resolving module {}", requiredModuleId);
+                    resolvedModules[i] = this.moduleSystem.retrieveModuleInCurrentContext(requiredModuleId);
                 }
                 catch (final Exception e)
                 {
@@ -193,15 +214,13 @@ public class RequireFunction extends AbstractJavaScriptObject
         return true;
     }
 
-    protected List<String> extractRequiredModuleIdsFromArgs(final Object[] args, final ModuleHolder contextModule)
+    protected List<String> extractRequiredModuleIdsFromArgs(final Object[] args)
     {
         final List<String> requiredModuleIds = new ArrayList<>();
         if (args[0] instanceof CharSequence)
         {
             final String requiredModuleId = String.valueOf(args[0]);
-            final String normalisedRequiredModuleId = this.moduleSystem.getModuleLoadService().normalizeAndMapModuleId(requiredModuleId,
-                    contextModule);
-            requiredModuleIds.add(normalisedRequiredModuleId);
+            requiredModuleIds.add(requiredModuleId);
         }
         else if (args[0] instanceof JSObject && ((JSObject) args[0]).isArray())
         {
@@ -218,9 +237,7 @@ public class RequireFunction extends AbstractJavaScriptObject
                 }
 
                 final String requiredModuleId = String.valueOf(slot);
-                final String normalisedRequiredModuleId = this.moduleSystem.getModuleLoadService().normalizeAndMapModuleId(requiredModuleId,
-                        contextModule);
-                requiredModuleIds.add(normalisedRequiredModuleId);
+                requiredModuleIds.add(requiredModuleId);
             }
         }
         else

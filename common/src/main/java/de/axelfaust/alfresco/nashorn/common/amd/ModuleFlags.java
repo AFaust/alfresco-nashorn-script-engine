@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
+import de.axelfaust.alfresco.nashorn.common.amd.core.ModuleSystem;
 import de.axelfaust.alfresco.nashorn.common.util.ParameterCheck;
 
 /**

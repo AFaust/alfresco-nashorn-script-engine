@@ -11,7 +11,7 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package de.axelfaust.alfresco.nashorn.common.amd;
+package de.axelfaust.alfresco.nashorn.common.amd.modules;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -23,7 +23,10 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.axelfaust.alfresco.nashorn.common.amd.EnumBackedModuleFlags;
+import de.axelfaust.alfresco.nashorn.common.amd.ModuleFlags;
 import de.axelfaust.alfresco.nashorn.common.util.AbstractJavaScriptObject;
+import de.axelfaust.alfresco.nashorn.common.util.ParameterCheck;
 import jdk.nashorn.api.scripting.JSObject;
 
 /**
@@ -32,6 +35,44 @@ import jdk.nashorn.api.scripting.JSObject;
 @SuppressWarnings("restriction")
 public class ConfigFunction extends AbstractJavaScriptObject
 {
+
+    /**
+     *
+     * @author Axel Faust
+     */
+    @FunctionalInterface
+    public static interface PathsConfigHandle
+    {
+
+        /**
+         * Sets lookup paths for a specific module ID prefix in the effective module system configuration
+         *
+         * @param moduleIdPrefix
+         *            the module ID prefix for which the paths should be considered for script file lookup
+         * @param paths
+         *            the base paths for script file lookups
+         */
+        void setPaths(String moduleIdPrefix, List<String> paths);
+    }
+
+    /**
+     *
+     * @author Axel Faust
+     */
+    @FunctionalInterface
+    public static interface MappingsConfigHandle
+    {
+
+        /**
+         * Sets mappings of module IDs to alternative IDs for a specific module ID prefix.
+         *
+         * @param moduleIdPrefix
+         *            the module ID prefix for which the mappings should be considered for module resolution
+         * @param mappings
+         *            the module ID mappings
+         */
+        void setMappings(String moduleIdPrefix, Map<String, String> mappings);
+    }
 
     private static final String KEY_MAP = "map";
 
@@ -47,11 +88,18 @@ public class ConfigFunction extends AbstractJavaScriptObject
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigFunction.class);
 
-    protected final ModuleSystem moduleSystem;
+    protected final PathsConfigHandle pathsConfigHandle;
 
-    public ConfigFunction(final ModuleSystem moduleSystem)
+    protected final MappingsConfigHandle mappingsConfigHandle;
+
+    public ConfigFunction(final PathsConfigHandle pathsConfigHandle, final MappingsConfigHandle mappingsConfigHandle)
     {
-        this.moduleSystem = moduleSystem;
+        ParameterCheck.mandatory("pathsConfigHandle", pathsConfigHandle);
+        ParameterCheck.mandatory("mappingsConfigHandle", mappingsConfigHandle);
+        this.pathsConfigHandle = pathsConfigHandle;
+        this.mappingsConfigHandle = mappingsConfigHandle;
+
+        this.setMemberImpl(ModuleFlags.AMD_FLAGS_MEMBER_NAME, new EnumBackedModuleFlags(), false);
     }
 
     /**
@@ -155,9 +203,8 @@ public class ConfigFunction extends AbstractJavaScriptObject
         });
 
         LOGGER.debug("Configuring module paths {}", checkedPaths);
-        final ModuleLoadService moduleLoadService = this.moduleSystem.getModuleLoadService();
         checkedPaths.forEach((moduleIdPrefix, paths) -> {
-            moduleLoadService.setPaths(moduleIdPrefix, paths);
+            this.pathsConfigHandle.setPaths(moduleIdPrefix, paths);
         });
 
         return !checkedPaths.isEmpty();
@@ -198,9 +245,8 @@ public class ConfigFunction extends AbstractJavaScriptObject
         });
 
         LOGGER.debug("Configuring module mapping {}", checkedMappings);
-        final ModuleLoadService moduleLoadService = this.moduleSystem.getModuleLoadService();
         checkedMappings.forEach((moduleIdPrefix, mappings) -> {
-            moduleLoadService.addMappings(moduleIdPrefix, mappings);
+            this.mappingsConfigHandle.setMappings(moduleIdPrefix, mappings);
         });
 
         return !checkedMappings.isEmpty();

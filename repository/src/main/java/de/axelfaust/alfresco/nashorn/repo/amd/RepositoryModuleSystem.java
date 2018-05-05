@@ -13,8 +13,8 @@
  */
 package de.axelfaust.alfresco.nashorn.repo.amd;
 
-import de.axelfaust.alfresco.nashorn.common.amd.ModuleRegistry;
-import de.axelfaust.alfresco.nashorn.common.amd.ModuleSystem;
+import de.axelfaust.alfresco.nashorn.common.amd.core.ModuleRegistry;
+import de.axelfaust.alfresco.nashorn.common.amd.core.ModuleSystem;
 import jdk.nashorn.api.scripting.JSObject;
 import jdk.nashorn.api.scripting.ScriptObjectMirror;
 

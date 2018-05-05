@@ -11,7 +11,7 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package de.axelfaust.alfresco.nashorn.common.amd;
+package de.axelfaust.alfresco.nashorn.common.amd.core;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -26,6 +26,12 @@ import java.util.regex.Matcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.axelfaust.alfresco.nashorn.common.amd.ModuleLoader;
+import de.axelfaust.alfresco.nashorn.common.amd.ModuleNormalizingLoader;
+import de.axelfaust.alfresco.nashorn.common.amd.ModuleSystemRuntimeException;
+import de.axelfaust.alfresco.nashorn.common.amd.ScriptURLResolver;
+import de.axelfaust.alfresco.nashorn.common.amd.SecureModuleException;
+import de.axelfaust.alfresco.nashorn.common.amd.UnavailableModuleException;
 import de.axelfaust.alfresco.nashorn.common.util.LambdaJavaScriptFunction;
 import de.axelfaust.alfresco.nashorn.common.util.ParameterCheck;
 import jdk.nashorn.api.scripting.JSObject;
@@ -89,7 +95,7 @@ public class ModuleLoadService
         this.pathsByModuleIdPrefix.put(moduleIdPrefix, new ArrayList<>(paths));
     }
 
-    protected void addMappings(final String moduleIdPrefix, final Map<String, String> mappings)
+    protected void setMappings(final String moduleIdPrefix, final Map<String, String> mappings)
     {
         this.mappingsByModuleIdPrefix.put(moduleIdPrefix, new HashMap<>(mappings));
     }
@@ -411,11 +417,12 @@ public class ModuleLoadService
             final Object value, final boolean isSecureSource, final String overrideUrl)
 
     {
+        final ModuleRegistry moduleRegistry = this.moduleSystem.getModuleRegistry();
         if (value instanceof URL)
         {
             final String scriptUrl = String.valueOf(value);
 
-            final ModuleHolder moduleByPublicId = this.moduleSystem.getModuleRegistry().lookupModuleByPublicModuleId(publicModuleId);
+            final ModuleHolder moduleByPublicId = moduleRegistry.lookupModuleByPublicModuleId(publicModuleId);
             if (moduleByPublicId != null && scriptUrl.equals(moduleByPublicId.getContextScriptUrl()))
             {
                 throw new ModuleSystemRuntimeException(
@@ -424,7 +431,7 @@ public class ModuleLoadService
             }
 
             final String normalizedModuleId = (loaderModuleId != null ? loaderModuleId + "!" : "") + moduleId;
-            final List<ModuleHolder> modulesByScriptUrl = this.moduleSystem.getModuleRegistry().lookupModulesByScriptUrl(scriptUrl);
+            final List<ModuleHolder> modulesByScriptUrl = moduleRegistry.lookupModulesByScriptUrl(scriptUrl);
 
             final AtomicReference<ModuleHolder> moduleMatchingNormalizedId = new AtomicReference<>();
             modulesByScriptUrl.forEach(module -> {
@@ -447,7 +454,7 @@ public class ModuleLoadService
                 LOGGER.debug("Remapping already loaded module {} to {} from url {}", existingModule.getPublicModuleId(), publicModuleId,
                         scriptUrl);
                 final ModuleHolder remapped = existingModule.withAlternatePublicModuleId(publicModuleId);
-                this.moduleSystem.getModuleRegistry().registerModule(remapped);
+                moduleRegistry.registerModule(remapped);
             }
             else if (modulesByScriptUrl.isEmpty())
             {
@@ -465,7 +472,7 @@ public class ModuleLoadService
             LOGGER.debug("Registering pre-resolved module {}", publicModuleId);
             final ModuleHolder moduleHolder = new ModuleHolderImpl(publicModuleId, moduleId, loaderModuleId, overrideUrl, value,
                     isSecureSource, false);
-            this.moduleSystem.getModuleRegistry().registerModule(moduleHolder);
+            moduleRegistry.registerModule(moduleHolder);
         }
     }
 
@@ -475,27 +482,27 @@ public class ModuleLoadService
         LOGGER.debug("Loading module {} from url {} (secureSource: {})", publicModuleId, scriptUrl, Boolean.valueOf(isSecureSource));
 
         final ModuleHolder dummy = new ModuleHolderImpl(publicModuleId, moduleId, loaderModuleId, scriptUrl, null, isSecureSource, true);
+        final ModuleRegistry moduleRegistry = this.moduleSystem.getModuleRegistry();
         if (isSecureSource && loaderModuleId != null)
         {
-            final ModuleHolder loaderModuleDef = this.moduleSystem.getModuleRegistry().lookupModuleByPublicModuleId(loaderModuleId);
+            final ModuleHolder loaderModuleDef = moduleRegistry.lookupModuleByPublicModuleId(loaderModuleId);
             if (!loaderModuleDef.isFromSecureSource())
             {
                 throw new SecureModuleException("Module '{}' cannot be loaded by insecure loader module '{}'",
                         dummy.getNormalizedModuleId(), loaderModuleDef.getNormalizedModuleId());
             }
         }
-        this.moduleSystem.getModuleRegistry().registerModule(dummy);
+        moduleRegistry.registerModule(dummy);
 
-        final Object require = this.moduleSystem.getModuleRegistry().getOrResolveModule("require", dummy);
-        final Object define = this.moduleSystem.getModuleRegistry().getOrResolveModule("define", dummy);
-
-        final Object isolatedScope = this.isolatedScopeBuilder.call(null, require, define);
         final Object implicitResult = ModuleSystem.withTaggedCallerContextScriptUrl(scriptUrl, () -> {
+            final Object require = this.moduleSystem.retrieveModuleInCurrentContext("require");
+            final Object define = this.moduleSystem.retrieveModuleInCurrentContext("define");
+            final Object isolatedScope = this.isolatedScopeBuilder.call(null, require, define);
             return this.nashornLoader.call(null, value, isolatedScope);
         });
 
-        final ModuleHolder moduleRegisteredById = this.moduleSystem.getModuleRegistry().lookupModuleByPublicModuleId(publicModuleId);
-        final ModuleHolder moduleRegisteredByScriptUrl = this.moduleSystem.getModuleRegistry().lookupModuleByScriptUrl(scriptUrl);
+        final ModuleHolder moduleRegisteredById = moduleRegistry.lookupModuleByPublicModuleId(publicModuleId);
+        final ModuleHolder moduleRegisteredByScriptUrl = moduleRegistry.lookupModuleByScriptUrl(scriptUrl);
         // no module registered via a define() call
         if (moduleRegisteredById == dummy && moduleRegisteredByScriptUrl == dummy)
         {
@@ -503,7 +510,7 @@ public class ModuleLoadService
 
             final ModuleHolder implicitModule = new ModuleHolderImpl(publicModuleId, moduleId, loaderModuleId, scriptUrl, implicitResult,
                     isSecureSource, true);
-            this.moduleSystem.getModuleRegistry().registerModule(implicitModule);
+            moduleRegistry.registerModule(implicitModule);
         }
         else if (moduleRegisteredById != dummy)
         {

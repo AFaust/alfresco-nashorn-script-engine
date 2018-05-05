@@ -114,7 +114,7 @@ public final class ParameterCheck
      */
     public static final void nonNegativeInteger(final String strParamName, final long value)
     {
-        if (value <= 0)
+        if (value < 0)
         {
             throw new IllegalArgumentException("'" + strParamName + "' must be a non-null, positive integer value");
         }

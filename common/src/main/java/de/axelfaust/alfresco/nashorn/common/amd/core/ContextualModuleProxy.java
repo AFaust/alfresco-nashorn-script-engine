@@ -11,13 +11,16 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package de.axelfaust.alfresco.nashorn.common.amd;
+package de.axelfaust.alfresco.nashorn.common.amd.core;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
+import de.axelfaust.alfresco.nashorn.common.amd.EnumBackedModuleFlags;
+import de.axelfaust.alfresco.nashorn.common.amd.ModuleFlags;
+import de.axelfaust.alfresco.nashorn.common.amd.SecureModuleException;
 import jdk.nashorn.api.scripting.JSObject;
 
 /**
