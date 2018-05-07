@@ -110,4 +110,18 @@ public class ModuleSystemTest
         resource = ModuleSystemTest.class.getResource("moduleMapping.js");
         ScriptTestUtils.executeScriptFromResource(resource, scriptEngine, scriptContext);
     }
+
+    @Test
+    public void loggerUsage() throws ScriptException
+    {
+        final ScriptEngineManager scriptEngineManager = new ScriptEngineManager();
+        final ScriptEngine scriptEngine = scriptEngineManager.getEngineByName("nashorn");
+        final ScriptContext scriptContext = ScriptTestUtils.newContext(scriptEngine);
+
+        URL resource;
+        resource = ModuleSystemTest.class.getResource("moduleSystemInitialisation.js");
+        ScriptTestUtils.executeScriptFromResource(resource, scriptEngine, scriptContext);
+        resource = ModuleSystemTest.class.getResource("loggerUsage.js");
+        ScriptTestUtils.executeScriptFromResource(resource, scriptEngine, scriptContext);
+    }
 }

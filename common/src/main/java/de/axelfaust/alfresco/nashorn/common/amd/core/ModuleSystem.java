@@ -14,6 +14,7 @@
 package de.axelfaust.alfresco.nashorn.common.amd.core;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -23,6 +24,7 @@ import org.slf4j.LoggerFactory;
 
 import de.axelfaust.alfresco.nashorn.common.amd.ScriptURLResolver;
 import de.axelfaust.alfresco.nashorn.common.amd.modules.DefineFunction;
+import de.axelfaust.alfresco.nashorn.common.amd.modules.LoggerModule;
 import de.axelfaust.alfresco.nashorn.common.amd.modules.RequireFunction;
 import de.axelfaust.alfresco.nashorn.common.util.NashornUtils;
 import de.axelfaust.alfresco.nashorn.common.util.ParameterCheck;
@@ -71,7 +73,7 @@ public class ModuleSystem
         @Override
         protected List<Object> initialValue()
         {
-            return new ArrayList<>();
+            return new LinkedList<>();
         }
     };
 
@@ -109,6 +111,10 @@ public class ModuleSystem
         this.defineFunction = this.buildDefineFunction();
         final ModuleHolderImpl defineModule = new ModuleHolderImpl("define", "define", null, null, this.defineFunction, true, false);
         this.moduleRegistry.registerModule(defineModule);
+
+        final Object logger = this.buildLoggerModule();
+        final ModuleHolderImpl loggerModule = new ModuleHolderImpl("logger", "logger", null, null, logger, true, false);
+        this.moduleRegistry.registerModule(loggerModule);
     }
 
     /**
@@ -155,7 +161,6 @@ public class ModuleSystem
         final List<Object> taggedCallers = TAGGED_CALLERS.get();
         if (!taggedCallers.isEmpty() && !suppressTaggedCaller)
         {
-
             final Object taggedCaller = taggedCallers.get(Math.min(0, taggedCallers.size() - (1 + skipCallerContexts)));
             if (taggedCaller instanceof String)
             {
@@ -242,7 +247,7 @@ public class ModuleSystem
     }
 
     /**
-     * Registers a module in the {@link #getCallerContextModuleId() current context}, or global context if no context is currently active.
+     * Registers a module in the {@link #getCallerContextScriptUrl() current context}, or global context if no context is currently active.
      *
      * @param publicModuleId
      *            the public ID of the module to register - if provided as {@code null} the public module ID will be either derived from the
@@ -254,7 +259,7 @@ public class ModuleSystem
      *            either the factory to instantiate the actual module value (a {@link JSObject#isFunction() native function) or the already
      *            instantiated module value
      */
-    public void registerModuleInCurrentContext(final String publicModuleId, final List<String> dependencies,
+    public String registerModuleInCurrentContext(final String publicModuleId, final List<String> dependencies,
             final Object factoryOrModuleValue)
     {
         ParameterCheck.mandatory("factoryOrModuleValue", factoryOrModuleValue);
@@ -272,7 +277,6 @@ public class ModuleSystem
         }
 
         final List<String> normalisedDependencies;
-        ;
         if (dependencies != null)
         {
             normalisedDependencies = new ArrayList<>();
@@ -288,7 +292,7 @@ public class ModuleSystem
         }
 
         final String moduleId = contextModule != null && effectivePublicModuleId.equals(contextPublicModuleId) ? contextModule.getModuleId()
-                : publicModuleId;
+                : effectivePublicModuleId;
         final String loaderModuleId = contextModule != null && contextModule.getLoaderModuleId() != null ? contextModule.getLoaderModuleId()
                 : null;
         final String contextScriptUrl = contextModule != null ? contextModule.getContextScriptUrl() : NashornUtils.getCallerScriptURL();
@@ -313,10 +317,11 @@ public class ModuleSystem
             }
         }
         this.moduleRegistry.registerModule(module);
+        return effectivePublicModuleId;
     }
 
     /**
-     * Retrieves a specific module in the {@link #getCallerContextModuleId() current context}, or global context if no context is currently
+     * Retrieves a specific module in the {@link #getCallerContextScriptUrl() current context}, or global context if no context is currently
      * active.
      *
      * @param moduleId
@@ -398,6 +403,15 @@ public class ModuleSystem
             this.moduleLoadService.setPaths(moduleIdPrefix, paths);
         }, (moduleIdPrefix, mappings) -> {
             this.moduleLoadService.setMappings(moduleIdPrefix, mappings);
+        });
+    }
+
+    protected Object buildLoggerModule()
+    {
+        return new LoggerModule(() -> {
+            final ModuleHolder contextModule = this.getCallerContextModule();
+            final String normalizedContextModuleId = contextModule != null ? contextModule.getNormalizedModuleId() : null;
+            return normalizedContextModuleId;
         });
     }
 

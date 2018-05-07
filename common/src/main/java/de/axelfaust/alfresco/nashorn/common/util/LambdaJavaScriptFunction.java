@@ -56,7 +56,8 @@ public class LambdaJavaScriptFunction extends AbstractJavaScriptObject
     @Override
     public Object call(final Object thiz, final Object... args)
     {
-        final Object result = this.callFunction.call(thiz, args);
+        final Object[] correctArgs = this.correctArgsAbstraction(args);
+        final Object result = this.callFunction.call(thiz, correctArgs);
         return result;
     }
 
@@ -66,7 +67,9 @@ public class LambdaJavaScriptFunction extends AbstractJavaScriptObject
     @Override
     public Object newObject(final Object... args)
     {
-        final Object result = this.constructorFunction != null ? this.constructorFunction.newObject(args) : super.newObject(args);
+        final Object[] correctArgs = this.correctArgsAbstraction(args);
+        final Object result = this.constructorFunction != null ? this.constructorFunction.newObject(correctArgs)
+                : super.newObject(correctArgs);
         return result;
     }
 
