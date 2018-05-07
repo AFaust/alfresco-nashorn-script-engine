@@ -22,7 +22,7 @@
     DUMMY_MODULE = {};
     Object.freeze(DUMMY_MODULE);
 
-    NashornUtils = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.NashornUtils');
+    NashornUtils = Java.type('de.axelfaust.alfresco.nashorn.common.util.NashornUtils');
     Throwable = Java.type('java.lang.Throwable');
     AMDUnavailableModuleException = Java.type('de.axelfaust.alfresco.nashorn.repo.processor.AMDUnavailableModuleException');
 

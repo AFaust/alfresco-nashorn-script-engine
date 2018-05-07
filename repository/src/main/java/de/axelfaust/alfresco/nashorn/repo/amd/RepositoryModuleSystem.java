@@ -13,6 +13,7 @@
  */
 package de.axelfaust.alfresco.nashorn.repo.amd;
 
+import de.axelfaust.alfresco.nashorn.common.amd.ScriptURLResolver;
 import de.axelfaust.alfresco.nashorn.common.amd.core.ModuleRegistry;
 import de.axelfaust.alfresco.nashorn.common.amd.core.ModuleSystem;
 import jdk.nashorn.api.scripting.JSObject;
@@ -25,10 +26,10 @@ import jdk.nashorn.api.scripting.ScriptObjectMirror;
 public class RepositoryModuleSystem extends ModuleSystem
 {
 
-    public RepositoryModuleSystem(final ScriptObjectMirror nativeObjectConstructor, final JSObject isolatedScopeBuilder,
-            final JSObject nashornLoader)
+    public RepositoryModuleSystem(final ScriptURLResolver scriptUrlResolver, final ScriptObjectMirror nativeObjectConstructor,
+            final JSObject isolatedScopeBuilder, final JSObject nashornLoader)
     {
-        super(nativeObjectConstructor, isolatedScopeBuilder, nashornLoader);
+        super(scriptUrlResolver, nativeObjectConstructor, isolatedScopeBuilder, nashornLoader);
     }
 
     /**
