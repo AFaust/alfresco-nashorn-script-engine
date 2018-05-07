@@ -51,14 +51,12 @@ public class ModuleSystemTest
         URL resource;
         resource = ModuleSystemTest.class.getResource("moduleSystemInitialisation.js");
         ScriptTestUtils.executeScriptFromResource(resource, scriptEngine, scriptContext);
-        resource = ModuleSystemTest.class.getResource("simpleDefine.js");
-        ScriptTestUtils.executeScriptFromResource(resource, scriptEngine, scriptContext);
-        resource = ModuleSystemTest.class.getResource("simpleRequire.js");
+        resource = ModuleSystemTest.class.getResource("simpleDefineAndRequire.js");
         ScriptTestUtils.executeScriptFromResource(resource, scriptEngine, scriptContext);
     }
 
     @Test
-    public void factoryDefineAndCallbackRequire() throws ScriptException
+    public void factoryDefineAndRequire() throws ScriptException
     {
         final ScriptEngineManager scriptEngineManager = new ScriptEngineManager();
         final ScriptEngine scriptEngine = scriptEngineManager.getEngineByName("nashorn");
@@ -67,7 +65,19 @@ public class ModuleSystemTest
         URL resource;
         resource = ModuleSystemTest.class.getResource("moduleSystemInitialisation.js");
         ScriptTestUtils.executeScriptFromResource(resource, scriptEngine, scriptContext);
-        resource = ModuleSystemTest.class.getResource("factoryDefine.js");
+        resource = ModuleSystemTest.class.getResource("factoryDefineAndRequire.js");
+        ScriptTestUtils.executeScriptFromResource(resource, scriptEngine, scriptContext);
+    }
+
+    @Test
+    public void callbackRequire() throws ScriptException
+    {
+        final ScriptEngineManager scriptEngineManager = new ScriptEngineManager();
+        final ScriptEngine scriptEngine = scriptEngineManager.getEngineByName("nashorn");
+        final ScriptContext scriptContext = ScriptTestUtils.newContext(scriptEngine);
+
+        URL resource;
+        resource = ModuleSystemTest.class.getResource("moduleSystemInitialisation.js");
         ScriptTestUtils.executeScriptFromResource(resource, scriptEngine, scriptContext);
         resource = ModuleSystemTest.class.getResource("callbackRequire.js");
         ScriptTestUtils.executeScriptFromResource(resource, scriptEngine, scriptContext);

@@ -2,7 +2,10 @@
 
 (function()
 {
-    var globalRequire = require;
+    var globalRequire, testModuleViaCommonJS, moduleWithNoDependencies, anonModuleId, anonModuleWithNoDependencies;
+
+    globalRequire = require;
+
     define('moduleViaCommonJS', function(require, exports, module)
     {
         if (typeof require !== 'function')
@@ -38,7 +41,7 @@
         }
 
         if (module.url === undefined || module.url === null
-                || !/de\/axelfaust\/alfresco\/nashorn\/common\/amd\/factoryDefine.js$/.test(module.url))
+                || !/de\/axelfaust\/alfresco\/nashorn\/common\/amd\/factoryDefineAndRequire.js$/.test(module.url))
         {
             throw new Error('Value of "module.url" does not match script URL');
         }
@@ -50,9 +53,36 @@
 
         exports.value = 'moduleViaCommonJS-value';
     });
-}());
 
-define('moduleWithNoDependencies', [], function()
-{
-    return 'moduleWithNoDependencies-value';
-});
+    define('moduleWithNoDependencies', [], function()
+    {
+        return 'moduleWithNoDependencies-value';
+    });
+
+    anonModuleId = define([], function()
+    {
+        return 'anonModuleWithNoDependencies-value';
+    });
+    if (typeof anonModuleId !== 'string')
+    {
+        throw new Error('Module definition without explicit module ID should have been assigned an implicit ID');
+    }
+
+    testModuleViaCommonJS = require('moduleViaCommonJS');
+    if (testModuleViaCommonJS.value !== 'moduleViaCommonJS-value')
+    {
+        throw new Error('Expectation mismatch for "moduleViaCommonJS.value" retrieved via require: ' + testModuleViaCommonJS);
+    }
+
+    moduleWithNoDependencies = require('moduleWithNoDependencies');
+    if (moduleWithNoDependencies !== 'moduleWithNoDependencies-value')
+    {
+        throw new Error('Expectation mismatch for "moduleWithNoDependencies" retrieved via require: ' + moduleWithNoDependencies);
+    }
+
+    anonModuleWithNoDependencies = require(anonModuleId);
+    if (anonModuleWithNoDependencies !== 'anonModuleWithNoDependencies-value')
+    {
+        throw new Error('Expectation mismatch for "anonModuleWithNoDependencies" retrieved via require: ' + anonModuleWithNoDependencies);
+    }
+}());

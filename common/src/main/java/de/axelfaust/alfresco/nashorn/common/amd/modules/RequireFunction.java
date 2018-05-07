@@ -21,8 +21,6 @@ import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import de.axelfaust.alfresco.nashorn.common.amd.EnumBackedModuleFlags;
-import de.axelfaust.alfresco.nashorn.common.amd.ModuleFlags;
 import de.axelfaust.alfresco.nashorn.common.amd.ModuleSystemRuntimeException;
 import de.axelfaust.alfresco.nashorn.common.amd.core.ModuleSystem;
 import de.axelfaust.alfresco.nashorn.common.amd.modules.ConfigFunction.MappingsConfigHandle;
@@ -61,7 +59,6 @@ public class RequireFunction extends AbstractJavaScriptObject
             // we want to provide the caller context to the calling script, so need to skip one layer
             return ModuleSystem.getCallerContextScriptUrl(suppressTaggedCaller, 1);
         });
-        getCallerScriptURL.setMember(ModuleFlags.AMD_FLAGS_MEMBER_NAME, new EnumBackedModuleFlags(), false);
         this.setMemberImpl("getCallerScriptURL", getCallerScriptURL, false);
 
         this.configFunction = new ConfigFunction(pathsConfigHandle, mappingsConfigHandle);

@@ -23,8 +23,6 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import de.axelfaust.alfresco.nashorn.common.amd.EnumBackedModuleFlags;
-import de.axelfaust.alfresco.nashorn.common.amd.ModuleFlags;
 import de.axelfaust.alfresco.nashorn.common.util.AbstractJavaScriptObject;
 import de.axelfaust.alfresco.nashorn.common.util.ParameterCheck;
 import jdk.nashorn.api.scripting.JSObject;
@@ -98,8 +96,6 @@ public class ConfigFunction extends AbstractJavaScriptObject
         ParameterCheck.mandatory("mappingsConfigHandle", mappingsConfigHandle);
         this.pathsConfigHandle = pathsConfigHandle;
         this.mappingsConfigHandle = mappingsConfigHandle;
-
-        this.setMemberImpl(ModuleFlags.AMD_FLAGS_MEMBER_NAME, new EnumBackedModuleFlags(), false);
     }
 
     /**

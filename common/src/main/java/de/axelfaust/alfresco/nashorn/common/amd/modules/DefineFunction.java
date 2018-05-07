@@ -49,7 +49,7 @@ public class DefineFunction extends AbstractJavaScriptObject
         final Object[] args = this.correctArgsAbstraction(inboundArgs);
         LOGGER.debug("Processing call to 'define' with arguments {}", args);
 
-        String publicModuleId = null;
+        String requestedPublicModuleId = null;
         List<String> dependencies = null;
         Object factoryOrValue = null;
 
@@ -80,9 +80,9 @@ public class DefineFunction extends AbstractJavaScriptObject
                     dependencies.add(dependencyModuleId);
                 }
             }
-            else if (publicModuleId == null && i == 0 && args[i] instanceof CharSequence)
+            else if (requestedPublicModuleId == null && i == 0 && args[i] instanceof CharSequence)
             {
-                publicModuleId = String.valueOf(args[i]);
+                requestedPublicModuleId = String.valueOf(args[i]);
             }
             else
             {
@@ -90,9 +90,10 @@ public class DefineFunction extends AbstractJavaScriptObject
             }
         }
 
-        this.moduleSystem.registerModuleInCurrentContext(publicModuleId, dependencies, factoryOrValue);
+        final String actualPublicModuleId = this.moduleSystem.registerModuleInCurrentContext(requestedPublicModuleId, dependencies,
+                factoryOrValue);
 
-        return publicModuleId;
+        return actualPublicModuleId;
     }
 
     /**

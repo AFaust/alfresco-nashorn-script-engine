@@ -1,5 +1,12 @@
 'use strict';
 
+define('moduleWithNoDependencies', 'moduleWithNoDependencies-value');
+
+define('moduleViaCommonJS', function(require, exports, module)
+{
+    exports.value = 'moduleViaCommonJS-value';
+});
+
 // test (string, function) for simple value module
 require('moduleWithNoDependencies', function(moduleWithNoDependencies)
 {
@@ -49,7 +56,8 @@ require([ 'moduleViaCommonJS' ], function(moduleViaCommonJS)
 });
 
 // test (array, function, function)
-require([ 'moduleWithNoDependencies', 'moduleViaCommonJS', 'nonExistingModule' ], function(moduleWithNoDependencies, moduleViaCommonJS, nonExistingModule)
+require([ 'moduleWithNoDependencies', 'moduleViaCommonJS', 'nonExistingModule' ], function(moduleWithNoDependencies, moduleViaCommonJS,
+        nonExistingModule)
 {
     throw new Error('Callback should not have been called as "nonExistingModule" is unresolvable');
 }, function(resolvedModules, resolutionErrors)
@@ -58,7 +66,7 @@ require([ 'moduleWithNoDependencies', 'moduleViaCommonJS', 'nonExistingModule' ]
     {
         throw new Error('Expectation mismatch for "moduleWithNoDependencies" retrieved via require: ' + resolvedModules[0]);
     }
-    
+
     if (resolvedModules[1].value !== 'moduleViaCommonJS-value')
     {
         throw new Error('Expectation mismatch for "moduleViaCommonJS" retrieved via require: ' + resolvedModules[1]);
@@ -73,7 +81,7 @@ require([ 'moduleWithNoDependencies', 'moduleViaCommonJS', 'nonExistingModule' ]
     {
         throw new Error('Unexpected resolution error recorded for "moduleWithNoDependencies"');
     }
-    
+
     if (resolutionErrors[1] !== null)
     {
         throw new Error('Unexpected resolution error recorded for "moduleViaCommonJS"');
