@@ -13,13 +13,10 @@
  */
 package de.axelfaust.alfresco.nashorn.common.amd.core;
 
-import java.io.IOException;
 import java.net.URL;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.util.ResourceUtils;
 
 import de.axelfaust.alfresco.nashorn.common.util.ParameterCheck;
 
@@ -33,7 +30,22 @@ public class ClassPathScriptURLResolutionWrapper
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ClassPathScriptURLResolutionWrapper.class);
 
-    protected final ClassPathResource resource;
+    // following constants copied from org.springframework.util.ResourceUtils to avoid dependency
+    private static final String URL_PROTOCOL_JAR = "jar";
+
+    private static final String URL_PROTOCOL_ZIP = "zip";
+
+    private static final String URL_PROTOCOL_VFSZIP = "vfszip";
+
+    private static final String URL_PROTOCOL_WSJAR = "wsjar";
+
+    private static final String URL_PROTOCOL_CODE_SOURCE = "code-source";
+
+    private static final String JAR_URL_SEPARATOR = "!/";
+
+    protected final String location;
+
+    protected final ClassLoader classLoader;
 
     protected volatile long existenceCheckInterval = DEFAULT_EXISTENCE_CHECK_INTERVAL;
 
@@ -47,7 +59,8 @@ public class ClassPathScriptURLResolutionWrapper
     {
         ParameterCheck.mandatoryString("location", location);
         ParameterCheck.mandatory("classLoader", classLoader);
-        this.resource = new ClassPathResource(location, classLoader);
+        this.location = location;
+        this.classLoader = classLoader;
     }
 
     /**
@@ -93,15 +106,20 @@ public class ClassPathScriptURLResolutionWrapper
 
     protected synchronized void performExistenceCheck()
     {
-        LOGGER.debug("Checking existence of {}", this.resource);
-        try
+        LOGGER.debug("Checking existence of {}", this.location);
+        this.url = this.classLoader.getResource(this.location);
+        if (this.url != null)
         {
-            this.url = this.resource.getURL();
-            this.existsInJarFile = this.url != null && ResourceUtils.isJarURL(this.url);
+            final String protocol = this.url.getProtocol();
+            this.existsInJarFile = (URL_PROTOCOL_JAR.equals(protocol) || URL_PROTOCOL_ZIP.equals(protocol)
+                    || URL_PROTOCOL_VFSZIP.equals(protocol) || URL_PROTOCOL_WSJAR.equals(protocol)
+                    || (URL_PROTOCOL_CODE_SOURCE.equals(protocol) && this.url.getPath().contains(JAR_URL_SEPARATOR)));
         }
-        catch (final IOException ioex)
+        else
         {
-            LOGGER.debug("Resource URL could not be resolved - {} does not exist", this.resource);
+            this.existsInJarFile = false;
         }
+
+        LOGGER.debug("Resolved resource URL {} for {} (existsInJarFile = {})", this.url, this.location, this.existsInJarFile);
     }
 }
