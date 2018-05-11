@@ -153,7 +153,7 @@ public class ModuleRegistry
     protected List<ModuleHolder> lookupModulesByScriptUrl(final String scriptUrl)
     {
         final List<ModuleHolder> moduleHolders = this.modulesByScriptUrl.getOrDefault(scriptUrl, Collections.emptyList());
-        LOGGER.debug("Lookup of modules by script URL {} yielded {}", scriptUrl, moduleHolders);
+        LOGGER.trace("Lookup of modules by script URL {} yielded {}", scriptUrl, moduleHolders);
         return Collections.unmodifiableList(moduleHolders);
     }
 
@@ -170,7 +170,7 @@ public class ModuleRegistry
     {
         final List<ModuleHolder> moduleHolders = this.modulesByScriptUrl.getOrDefault(scriptUrl, Collections.emptyList());
         final ModuleHolder moduleHolder = moduleHolders.isEmpty() ? null : moduleHolders.get(moduleHolders.size() - 1);
-        LOGGER.debug("Lookup of (last) module by script URL {} yielded {}", scriptUrl, moduleHolder);
+        LOGGER.trace("Lookup of (last) module by script URL {} yielded {}", scriptUrl, moduleHolder);
         return moduleHolder;
     }
 
@@ -184,7 +184,7 @@ public class ModuleRegistry
     protected ModuleHolder lookupModuleByPublicModuleId(final String publicModuleId)
     {
         final ModuleHolder moduleHolder = this.modules.get(publicModuleId);
-        LOGGER.debug("Lookup of module by public module ID {} yielded {}", publicModuleId, moduleHolder);
+        LOGGER.trace("Lookup of module by public module ID {} yielded {}", publicModuleId, moduleHolder);
         return moduleHolder;
     }
 
