@@ -4,7 +4,7 @@ require(
         [ 'logger' ],
         function(logger)
         {
-            var enabledFnTest, logFnTest, StaticLoggerBinderCls, LevelCls, loggerFactory, logbackLogger;
+            var enabledFnTest, logFnTest, StaticLoggerBinderCls, LevelCls, ListAppenderCls, loggerFactory, logbackLogger, appender, expectedLogSize;
 
             enabledFnTest = function(fnName)
             {
@@ -44,6 +44,8 @@ require(
 
             StaticLoggerBinderCls = Java.type('org.slf4j.impl.StaticLoggerBinder');
             LevelCls = Java.type('ch.qos.logback.classic.Level');
+            ListAppenderCls = Java.type('ch.qos.logback.core.read.ListAppender');
+
             loggerFactory = StaticLoggerBinderCls.getSingleton().getLoggerFactory();
             // the current context is not part of any module, so qualifies as a global context
             logbackLogger = loggerFactory.getLogger('de.axelfaust.alfresco.nashorn.common.amd.modules.LoggerModule.scripts.-global-');
@@ -87,6 +89,192 @@ require(
                 throw new Error(
                         "Expectation mismatch for logger.isWarnEnabled()/logger.isErrorEnabled when underlying logger has been set to ERROR level");
             }
+
+            appender = new ListAppenderCls();
+            logbackLogger.addAppender(appender);
+            appender.start();
+
+            logger.warn('Should be ignored');
+            expectedLogSize = 0;
+            if (appender.list.size() !== expectedLogSize)
+            {
+                throw new Error('Expectation mismatch for number of logged events');
+            }
+
+            logger.error('Simple error log statement');
+            expectedLogSize++;
+            if (appender.list.size() !== expectedLogSize)
+            {
+                throw new Error('Expectation mismatch for number of logged events');
+            }
+            if (appender.list[expectedLogSize - 1].level !== LevelCls.ERROR)
+            {
+                throw new Error('Expectation mismatch for level of last log message');
+            }
+            if (appender.list[expectedLogSize - 1].message !== 'Simple error log statement')
+            {
+                throw new Error('Expectation mismatch for last log message');
+            }
+
+            logbackLogger.setLevel(LevelCls.WARN);
+            logger.info('Should be ignored');
+            if (appender.list.size() !== expectedLogSize)
+            {
+                throw new Error('Expectation mismatch for number of logged events');
+            }
+
+            logger.warn('Simple warn log statement');
+            expectedLogSize++;
+            if (appender.list.size() !== expectedLogSize)
+            {
+                throw new Error('Expectation mismatch for number of logged events');
+            }
+            if (appender.list[expectedLogSize - 1].level !== LevelCls.WARN)
+            {
+                throw new Error('Expectation mismatch for level of last log message');
+            }
+            if (appender.list[expectedLogSize - 1].message !== 'Simple warn log statement')
+            {
+                throw new Error('Expectation mismatch for last log message');
+            }
+
+            logbackLogger.setLevel(LevelCls.INFO);
+            logger.debug('Should be ignored');
+            if (appender.list.size() !== expectedLogSize)
+            {
+                throw new Error('Expectation mismatch for number of logged events');
+            }
+
+            logger.info('Simple info log statement');
+            expectedLogSize++;
+            if (appender.list.size() !== expectedLogSize)
+            {
+                throw new Error('Expectation mismatch for number of logged events');
+            }
+            if (appender.list[expectedLogSize - 1].level !== LevelCls.INFO)
+            {
+                throw new Error('Expectation mismatch for level of last log message');
+            }
+            if (appender.list[expectedLogSize - 1].message !== 'Simple info log statement')
+            {
+                throw new Error('Expectation mismatch for last log message');
+            }
+
+            logbackLogger.setLevel(LevelCls.DEBUG);
+            logger.trace('Should be ignored');
+            if (appender.list.size() !== expectedLogSize)
+            {
+                throw new Error('Expectation mismatch for number of logged events');
+            }
+
+            logger.debug('Simple debug log statement');
+            expectedLogSize++;
+            if (appender.list.size() !== expectedLogSize)
+            {
+                throw new Error('Expectation mismatch for number of logged events');
+            }
+            if (appender.list[expectedLogSize - 1].level !== LevelCls.DEBUG)
+            {
+                throw new Error('Expectation mismatch for level of last log message');
+            }
+            if (appender.list[expectedLogSize - 1].message !== 'Simple debug log statement')
+            {
+                throw new Error('Expectation mismatch for last log message');
+            }
+
+            logbackLogger.setLevel(LevelCls.TRACE);
+            logger.trace('Simple trace log statement');
+            expectedLogSize++;
+            if (appender.list.size() !== expectedLogSize)
+            {
+                throw new Error('Expectation mismatch for number of logged events');
+            }
+            if (appender.list[expectedLogSize - 1].level !== LevelCls.TRACE)
+            {
+                throw new Error('Expectation mismatch for level of last log message');
+            }
+            if (appender.list[expectedLogSize - 1].message !== 'Simple trace log statement')
+            {
+                throw new Error('Expectation mismatch for last log message');
+            }
+
+            logger.debug('Simple log statement with native error', new Error('Test'));
+            expectedLogSize++;
+            if (appender.list.size() !== expectedLogSize)
+            {
+                throw new Error('Expectation mismatch for number of logged events');
+            }
+            if (appender.list[expectedLogSize - 1].message !== 'Simple log statement with native error')
+            {
+                throw new Error('Expectation mismatch for last log message');
+            }
+            if (appender.list[expectedLogSize - 1].throwableProxy === null)
+            {
+                throw new Error('Expectation mismatch for exception in last log message');
+            }
             
-            // TODO Actual logging calls
+            logger.debug(new Error('Test'));
+            expectedLogSize++;
+            if (appender.list.size() !== expectedLogSize)
+            {
+                throw new Error('Expectation mismatch for number of logged events');
+            }
+            if (appender.list[expectedLogSize - 1].message !== 'Error: Test')
+            {
+                throw new Error('Expectation mismatch for last log message');
+            }
+            if (appender.list[expectedLogSize - 1].throwableProxy === null)
+            {
+                throw new Error('Expectation mismatch for exception in last log message');
+            }
+
+            logger.debug('Simple log statement with placeholders for arguments from native array {} - {}', [ '1', '2' ]);
+            expectedLogSize++;
+            if (appender.list.size() !== expectedLogSize)
+            {
+                throw new Error('Expectation mismatch for number of logged events');
+            }
+            if (appender.list[expectedLogSize - 1].message !== 'Simple log statement with placeholders for arguments from native array {} - {}')
+            {
+                throw new Error('Expectation mismatch for last log message');
+            }
+            if (appender.list[expectedLogSize - 1].formattedMessage !== 'Simple log statement with placeholders for arguments from native array 1 - 2')
+            {
+                throw new Error('Expectation mismatch for last log formatted message');
+            }
+
+            logger.debug('Simple log statement with placeholders for arguments from varargs {} - {}', '1', '2');
+            expectedLogSize++;
+            if (appender.list.size() !== expectedLogSize)
+            {
+                throw new Error('Expectation mismatch for number of logged events');
+            }
+            if (appender.list[expectedLogSize - 1].message !== 'Simple log statement with placeholders for arguments from varargs {} - {}')
+            {
+                throw new Error('Expectation mismatch for last log message');
+            }
+            if (appender.list[expectedLogSize - 1].formattedMessage !== 'Simple log statement with placeholders for arguments from varargs 1 - 2')
+            {
+                throw new Error('Expectation mismatch for last log formatted message');
+            }
+
+            logger.debug('Simple log statement with placeholders for arguments from varargs {} - {} and native error {}', '1', '2', new Error(
+                    'Test'));
+            expectedLogSize++;
+            if (appender.list.size() !== expectedLogSize)
+            {
+                throw new Error('Expectation mismatch for number of logged events');
+            }
+            if (appender.list[expectedLogSize - 1].formattedMessage !== 'Simple log statement with placeholders for arguments from varargs 1 - 2 and native error Error: Test')
+            {
+                throw new Error('Expectation mismatch for last log formated message');
+            }
+            if (appender.list[expectedLogSize - 1].message !== 'Simple log statement with placeholders for arguments from varargs {} - {} and native error {}')
+            {
+                throw new Error('Expectation mismatch for last log message');
+            }
+            if (appender.list[expectedLogSize - 1].throwableProxy === null)
+            {
+                throw new Error('Expectation mismatch for exception in last log message');
+            }
         });

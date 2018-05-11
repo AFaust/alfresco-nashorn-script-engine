@@ -14,6 +14,7 @@
 package de.axelfaust.alfresco.nashorn.common.amd.modules;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -161,7 +162,7 @@ public class LoggerModule extends AbstractJavaScriptObject
         if (args[0] instanceof JSObject)
         {
             final JSObject firstArg = (JSObject) args[0];
-            if ("Error".equals(firstArg.getClassName()) && firstArg.hasMember("nashornException"))
+            if (this.isNativeError(firstArg))
             {
                 // Error.prototype.stack would be better to log from a script perspective but no Java log framework supports for two
                 // printable String messages per log call, so we stick to the underlying Java exception
@@ -172,6 +173,11 @@ public class LoggerModule extends AbstractJavaScriptObject
             {
                 message = String.valueOf(ScriptUtils.convert(firstArg, String.class));
             }
+        }
+        else if (args[0] instanceof Throwable)
+        {
+            t = (Throwable) args[0];
+            message = null;
         }
         else if (args[0] != null)
         {
@@ -190,7 +196,20 @@ public class LoggerModule extends AbstractJavaScriptObject
     protected Object[] processLogArguments(Throwable t, final Object... args)
     {
         final List<Object> realArgs;
-        if (args.length == 2 && args[1] instanceof JSObject && ((JSObject) args[1]).isArray())
+
+        // for native errors, Error.prototype.stack would be better to log but no Java log framework supports for two
+        // printable String messages per log call, so we stick to the underlying Java exception and incluude native error in arguments for
+        // message formatting
+
+        // any throwable should always be last argument - convention in SLF4J multi-parameter log methods is to treat Throwable in last
+        // position as if explicit call was made to method with throwable in signature
+
+        if (args.length == 2 && args[1] instanceof Throwable)
+        {
+            t = (Throwable) args[1];
+            realArgs = Collections.singletonList(t);
+        }
+        else if (args.length == 2 && args[1] instanceof JSObject && ((JSObject) args[1]).isArray())
         {
             // treat like call to SLF4J logger with (String, Object[]) arguments
             // explode into realArgs list
@@ -201,24 +220,23 @@ public class LoggerModule extends AbstractJavaScriptObject
             {
                 final Object slotValue = arguments.getSlot(argIdx);
                 realArgs.add(slotValue);
+                if (argIdx == argumentsLength - 1 && this.isNativeError(slotValue))
+                {
+                    t = (Throwable) ((JSObject) slotValue).getMember("nashornException");
+                }
             }
 
-            // add 1st argument throwable as last argument - convention in SLF4J multi-parameter log methods is to treat Throwable in last
-            // position as if explicit call was made to method with throwable in signature
             if (t != null)
             {
                 realArgs.add(t);
             }
         }
-        else if (args.length == 2 && args[1] instanceof JSObject && "Error".equals(((JSObject) args[1]).getClassName())
-                && ((JSObject) args[1]).hasMember("nashornException"))
+        else if (args.length == 2 && this.isNativeError(args[1]))
         {
             // treat like call to SLF4J logger with (String, Throwable) arguments
 
-            // Error.prototype.stack would be better to log from a script perspective but no Java log framework supports for two
-            // printable String messages per log call, so we stick to the underlying Java exception
             t = (Throwable) ((JSObject) args[1]).getMember("nashornException");
-            realArgs = Collections.singletonList(t);
+            realArgs = Arrays.asList(args[1], t);
         }
         else
         {
@@ -227,10 +245,12 @@ public class LoggerModule extends AbstractJavaScriptObject
             for (int argIdx = 1; argIdx < args.length; argIdx++)
             {
                 realArgs.add(args[argIdx]);
+                if (argIdx == args.length - 1 && this.isNativeError(args[argIdx]))
+                {
+                    t = (Throwable) ((JSObject) args[argIdx]).getMember("nashornException");
+                }
             }
 
-            // add 1st argument throwable as last argument - convention in SLF4J multi-parameter log methods is to treat Throwable in last
-            // position as if explicit call was made to method with throwable in signature
             if (t != null)
             {
                 realArgs.add(t);
@@ -278,5 +298,12 @@ public class LoggerModule extends AbstractJavaScriptObject
             return computedLogger;
         });
         return logger;
+    }
+
+    protected boolean isNativeError(final Object obj)
+    {
+        final boolean isNativeError = obj instanceof JSObject && "Error".equals(((JSObject) obj).getClassName())
+                && ((JSObject) obj).hasMember("nashornException");
+        return isNativeError;
     }
 }
