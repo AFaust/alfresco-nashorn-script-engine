@@ -13,6 +13,7 @@
  */
 package de.axelfaust.alfresco.nashorn.common.amd.core;
 
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -169,7 +170,7 @@ public class ModuleLoadService
             else
             {
                 // can use ID as-is
-                normalizedModuleId = id;
+                normalizedModuleId = moduleId;
             }
 
             if (loaderModuleId != null)
@@ -398,9 +399,10 @@ public class ModuleLoadService
         final ModuleLoader loaderModule = this.getLoaderModule(loaderModuleId, contextModule);
 
         final JSObject load = new LambdaJavaScriptFunction((thiz, args) -> {
+            ParameterCheck.mandatory("value", args.length != 0 ? args[0] : null);
             final Object value = args[0];
-            final boolean isSecureSource = Boolean.TRUE.equals(ScriptUtils.convert(args[1], Boolean.class));
-            final String overrideUrl = args[2] != null ? String.valueOf(args[2]) : null;
+            final boolean isSecureSource = args.length > 1 ? Boolean.TRUE.equals(ScriptUtils.convert(args[1], Boolean.class)) : false;
+            final String overrideUrl = args.length > 2 && args[2] != null ? String.valueOf(args[2]) : null;
             this.checkAndProcessLoaderModuleResult(publicModuleId, loaderModuleId, moduleId, value, isSecureSource, overrideUrl);
             return null;
         });
@@ -418,9 +420,27 @@ public class ModuleLoadService
 
     {
         final ModuleRegistry moduleRegistry = this.moduleSystem.getModuleRegistry();
-        if (value instanceof URL)
+        if (value instanceof URL || value instanceof String)
         {
-            final String scriptUrl = String.valueOf(value);
+            URL realScriptUrl;
+
+            if (value instanceof URL)
+            {
+                realScriptUrl = (URL) value;
+            }
+            else
+            {
+                try
+                {
+                    realScriptUrl = new URL((String) value);
+                }
+                catch (final MalformedURLException urlEx)
+                {
+                    throw new ModuleSystemRuntimeException("Module '{}' cannot be loaded from invalid script URL '{}'", urlEx,
+                            publicModuleId, value);
+                }
+            }
+            final String scriptUrl = String.valueOf(realScriptUrl);
 
             final ModuleHolder moduleByPublicId = moduleRegistry.lookupModuleByPublicModuleId(publicModuleId);
             if (moduleByPublicId != null && scriptUrl.equals(moduleByPublicId.getContextScriptUrl()))
@@ -458,7 +478,7 @@ public class ModuleLoadService
             }
             else if (modulesByScriptUrl.isEmpty())
             {
-                this.doLoadModuleImpl(publicModuleId, loaderModuleId, moduleId, value, isSecureSource, scriptUrl);
+                this.doLoadModuleImpl(publicModuleId, loaderModuleId, moduleId, realScriptUrl, isSecureSource, scriptUrl);
             }
             else
             {

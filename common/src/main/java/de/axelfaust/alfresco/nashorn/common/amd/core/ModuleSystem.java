@@ -77,7 +77,7 @@ public class ModuleSystem
         }
     };
 
-    protected static final Pattern MODULE_NORMALIZED_ID_PATTERN = Pattern.compile("^([^!]+!)?([^!$]+)$");
+    protected static final Pattern MODULE_NORMALIZED_ID_PATTERN = Pattern.compile("^(?:([^!]+)!)?([^!$]+)$");
 
     protected final ModuleRegistry moduleRegistry;
 

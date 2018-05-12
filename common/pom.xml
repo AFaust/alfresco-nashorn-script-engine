@@ -78,6 +78,17 @@
 
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <includes>
+                        <!-- default -->
+                        <include>**/Test*.java</include>
+                        <include>**/*Test.java</include>
+                        <include>**/*Tests.java</include>
+                        <include>**/*TestCase.java</include>
+                        <!-- custom -->
+                        <include>**/*Suite.class</include>
+                    </includes>
+                </configuration>
             </plugin>
 
             <plugin>

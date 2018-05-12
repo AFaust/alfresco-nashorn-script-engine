@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Axel Faust
+ * Copyright 2018 Axel Faust
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
@@ -108,20 +108,6 @@ public class ModuleSystemTest
         resource = ModuleSystemTest.class.getResource("moduleSystemInitialisation.js");
         ScriptTestUtils.executeScriptFromResource(resource, scriptEngine, scriptContext);
         resource = ModuleSystemTest.class.getResource("moduleMapping.js");
-        ScriptTestUtils.executeScriptFromResource(resource, scriptEngine, scriptContext);
-    }
-
-    @Test
-    public void loggerUsage() throws ScriptException
-    {
-        final ScriptEngineManager scriptEngineManager = new ScriptEngineManager();
-        final ScriptEngine scriptEngine = scriptEngineManager.getEngineByName("nashorn");
-        final ScriptContext scriptContext = ScriptTestUtils.newContext(scriptEngine);
-
-        URL resource;
-        resource = ModuleSystemTest.class.getResource("moduleSystemInitialisation.js");
-        ScriptTestUtils.executeScriptFromResource(resource, scriptEngine, scriptContext);
-        resource = ModuleSystemTest.class.getResource("loggerUsage.js");
         ScriptTestUtils.executeScriptFromResource(resource, scriptEngine, scriptContext);
     }
 }

@@ -14,8 +14,6 @@
 package de.axelfaust.alfresco.nashorn.common.amd.modules;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -166,8 +164,8 @@ public class LoggerModule extends AbstractJavaScriptObject
             {
                 // Error.prototype.stack would be better to log from a script perspective but no Java log framework supports for two
                 // printable String messages per log call, so we stick to the underlying Java exception
-                t = (Throwable) firstArg.getMember("nashornException");
                 message = String.valueOf(firstArg.eval("this.toString();"));
+                t = (Throwable) firstArg.getMember("nashornException");
             }
             else
             {
@@ -176,8 +174,8 @@ public class LoggerModule extends AbstractJavaScriptObject
         }
         else if (args[0] instanceof Throwable)
         {
-            t = (Throwable) args[0];
             message = null;
+            t = (Throwable) args[0];
         }
         else if (args[0] != null)
         {
@@ -195,6 +193,7 @@ public class LoggerModule extends AbstractJavaScriptObject
 
     protected Object[] processLogArguments(Throwable t, final Object... args)
     {
+        // treat like call to SLF4J logger with (String, Object...) arguments
         final List<Object> realArgs;
 
         // for native errors, Error.prototype.stack would be better to log but no Java log framework supports for two
@@ -204,25 +203,29 @@ public class LoggerModule extends AbstractJavaScriptObject
         // any throwable should always be last argument - convention in SLF4J multi-parameter log methods is to treat Throwable in last
         // position as if explicit call was made to method with throwable in signature
 
-        if (args.length == 2 && args[1] instanceof Throwable)
+        if (args.length == 2 && args[1] instanceof JSObject && ((JSObject) args[1]).isArray())
         {
-            t = (Throwable) args[1];
-            realArgs = Collections.singletonList(t);
-        }
-        else if (args.length == 2 && args[1] instanceof JSObject && ((JSObject) args[1]).isArray())
-        {
-            // treat like call to SLF4J logger with (String, Object[]) arguments
+            // like call to SLF4J logger with (String, Object[]) arguments
             // explode into realArgs list
             final JSObject arguments = (JSObject) args[1];
             final int argumentsLength = ParameterCheck.mandatoryNativeArray("arguments", arguments);
             realArgs = new ArrayList<>(argumentsLength + 1);
             for (int argIdx = 0; argIdx < argumentsLength; argIdx++)
             {
-                final Object slotValue = arguments.getSlot(argIdx);
+                final Object slotValue = arguments.hasSlot(argIdx) ? arguments.getSlot(argIdx) : null;
                 realArgs.add(slotValue);
-                if (argIdx == argumentsLength - 1 && this.isNativeError(slotValue))
+                if (argIdx == argumentsLength - 1)
                 {
-                    t = (Throwable) ((JSObject) slotValue).getMember("nashornException");
+                    if (this.isNativeError(slotValue))
+                    {
+                        t = (Throwable) ((JSObject) slotValue).getMember("nashornException");
+                    }
+                    // need to treat Java error similar to native error
+                    // (consistent client-side behaviour / expectations)
+                    else if (slotValue instanceof Throwable)
+                    {
+                        t = (Throwable) slotValue;
+                    }
                 }
             }
 
@@ -231,23 +234,25 @@ public class LoggerModule extends AbstractJavaScriptObject
                 realArgs.add(t);
             }
         }
-        else if (args.length == 2 && this.isNativeError(args[1]))
-        {
-            // treat like call to SLF4J logger with (String, Throwable) arguments
-
-            t = (Throwable) ((JSObject) args[1]).getMember("nashornException");
-            realArgs = Arrays.asList(args[1], t);
-        }
         else
         {
-            // treat like call to SLF4J logger with (String, Object...) arguments
+            // like call to SLF4J logger with (String, Object...) arguments
             realArgs = new ArrayList<>(args.length);
             for (int argIdx = 1; argIdx < args.length; argIdx++)
             {
                 realArgs.add(args[argIdx]);
-                if (argIdx == args.length - 1 && this.isNativeError(args[argIdx]))
+                if (argIdx == args.length - 1)
                 {
-                    t = (Throwable) ((JSObject) args[argIdx]).getMember("nashornException");
+                    if (this.isNativeError(args[argIdx]))
+                    {
+                        t = (Throwable) ((JSObject) args[argIdx]).getMember("nashornException");
+                    }
+                    // need to treat Java error similar to native error
+                    // (consistent client-side behaviour / expectations)
+                    else if (args[argIdx] instanceof Throwable)
+                    {
+                        t = (Throwable) args[argIdx];
+                    }
                 }
             }
 
