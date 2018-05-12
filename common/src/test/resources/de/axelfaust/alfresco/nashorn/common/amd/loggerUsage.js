@@ -4,7 +4,7 @@ require(
         [ 'logger' ],
         function(logger)
         {
-            var enabledFnTest, logFnTest, StaticLoggerBinderCls, LevelCls, ListAppenderCls, loggerFactory, logbackLogger, appender, expectedLogSize;
+            var enabledFnTest, logFnTest, StaticLoggerBinderCls, LevelCls, ListAppenderCls, loggerFactory, logbackLogger, appender, expectedLogSize, val;
 
             enabledFnTest = function(fnName)
             {
@@ -212,7 +212,7 @@ require(
             {
                 throw new Error('Expectation mismatch for exception in last log message');
             }
-            
+
             logger.debug(new Error('Test'));
             expectedLogSize++;
             if (appender.list.size() !== expectedLogSize)
@@ -258,8 +258,8 @@ require(
                 throw new Error('Expectation mismatch for last log formatted message');
             }
 
-            logger.debug('Simple log statement with placeholders for arguments from varargs {} - {} and native error {}', '1', '2', new Error(
-                    'Test'));
+            logger.debug('Simple log statement with placeholders for arguments from varargs {} - {} and native error {}', '1', '2',
+                    new Error('Test'));
             expectedLogSize++;
             if (appender.list.size() !== expectedLogSize)
             {
@@ -276,5 +276,33 @@ require(
             if (appender.list[expectedLogSize - 1].throwableProxy === null)
             {
                 throw new Error('Expectation mismatch for exception in last log message');
+            }
+
+            // test handling of native objects (implicit toString)
+            val = new Date();
+            logger.debug(val);
+            expectedLogSize++;
+            if (appender.list.size() !== expectedLogSize)
+            {
+                throw new Error('Expectation mismatch for number of logged events');
+            }
+            if (appender.list[expectedLogSize - 1].message !== String(val))
+            {
+                throw new Error('Expectation mismatch for last log message');
+            }
+
+            logger.debug('Using placeholder {}', val);
+            expectedLogSize++;
+            if (appender.list.size() !== expectedLogSize)
+            {
+                throw new Error('Expectation mismatch for number of logged events');
+            }
+            if (appender.list[expectedLogSize - 1].formattedMessage !== String('Using placeholder ' + String(val)))
+            {
+                throw new Error('Expectation mismatch for last formatted log message');
+            }
+            if (appender.list[expectedLogSize - 1].message !== 'Using placeholder {}')
+            {
+                throw new Error('Expectation mismatch for last log message');
             }
         });
